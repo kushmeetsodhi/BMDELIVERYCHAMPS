@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=fbf369521c"></script>
+<script src="config.js?v=649b6d741f"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -205,6 +205,8 @@
     background:var(--surface-2);
   }
   .pod-btns{ display:flex; gap:8px; }
+  .loc-flag.on{ color:#9BE7B0; }
+  .loc-flag.off{ color:#FFB4A8; font-weight:600; }
   .cam{ position:fixed; inset:0; z-index:9999; background:#000; display:flex;
         flex-direction:column; }
   .cam video{ flex:1; width:100%; min-height:0; object-fit:cover; background:#000; }
@@ -523,6 +525,72 @@ function isCodOrder(o){
 // Shrinks a phone photo (often 3-5 MB) to roughly 150-250 KB before
 // upload. Keeps screenshots and proof photos perfectly legible while
 // making uploads fast enough to work on patchy mobile data.
+/******************** LOCATION ********************/
+// GitHub copy only. While the app is open on a route, the phone's
+// position goes to the Control Room every few minutes, and the latest
+// fix rides along with every stop marked so a delivery marked far from
+// the shop stands out. Chrome stops a page reading the location once it
+// is in the background, so nothing is sent while the app is closed.
+var LOC_EVERY_MS = 180000;      // how often a position is sent
+var LOC_FRESH_MS = 300000;      // a fix older than this is not sent with a mark
+var loc = { timer: null, last: null, sentAt: 0, state: '' };   // state: '', 'on', 'off'
+
+function locActive(){
+  return BM_HOSTED && !!navigator.geolocation && !!state.code && !state.isDemo &&
+         ['login', 'code', 'closing', 'reopen'].indexOf(state.view) === -1;
+}
+
+function locStart(){
+  if (!BM_HOSTED || !navigator.geolocation || loc.timer) return;
+  loc.timer = setInterval(function(){ locTick(); }, LOC_EVERY_MS);
+  // The route screen is drawn just after this is called; the first read
+  // waits for it, or the "not on a route yet" check would skip it.
+  setTimeout(locTick, 1500);
+}
+
+function locStop(){
+  if (loc.timer) clearInterval(loc.timer);
+  loc.timer = null;
+  loc.last = null;
+  loc.sentAt = 0;
+}
+
+// Read the position and, unless one went out within the last minute,
+// send it. Only when the app is actually on screen and on a route.
+function locTick(){
+  if (!locActive() || document.hidden) return;
+  navigator.geolocation.getCurrentPosition(function(p){
+    loc.last = { lat: p.coords.latitude, lng: p.coords.longitude,
+                 acc: Math.round(p.coords.accuracy || 0), at: Date.now() };
+    locSetState('on');
+    if (Date.now() - loc.sentAt < 60000 || !locActive()) return;
+    loc.sentAt = Date.now();
+    api('ping', { loginName: state.loginName, code: state.code,
+                  lat: loc.last.lat, lng: loc.last.lng, acc: loc.last.acc,
+                  locAt: loc.last.at }, 15000);
+  }, function(err){
+    // 1 = the DA said no. Anything else is a moment without a fix.
+    if (err && err.code === 1) locSetState('off');
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+}
+
+function locSetState(s){
+  if (loc.state === s) return;
+  loc.state = s;
+  var el = document.getElementById('loc-flag');
+  if (el) { el.textContent = locFlagText(); el.className = 'loc-flag ' + s; }
+}
+function locFlagText(){
+  return loc.state === 'on' ? 'GPS on' : loc.state === 'off' ? 'GPS off' : '';
+}
+
+// The fix that goes with a mark, if it is recent enough to mean
+// "where the DA was standing".
+function locForMark(){
+  if (!loc.last || Date.now() - loc.last.at > LOC_FRESH_MS) return null;
+  return loc.last;
+}
+
 /******************** IN-APP CAMERA ********************/
 // The camera app is what gets the page killed: Android hands the phone
 // to it and, short of memory, closes Chrome behind it. A viewfinder
@@ -772,6 +840,9 @@ function topbarHTML(){
     if (state.loginName) bits.push(esc(state.loginName));
     if (state.code) bits.push(esc(state.code));
     if (state.vehicleNo) bits.push(esc(state.vehicleNo));
+    if (BM_HOSTED && state.code && loc.state) {
+      bits.push('<span id="loc-flag" class="loc-flag ' + loc.state + '">' + locFlagText() + '</span>');
+    }
   }
   var sub = bits.join(' \u00b7 ');
   var menu = menuHTML();
@@ -2308,6 +2379,7 @@ function saveSession(){
 
 function clearSession(){
   try { localStorage.removeItem('bm_session'); } catch(e){}
+  locStop();
 }
 
 function loadSession(){
@@ -2401,7 +2473,7 @@ function resumeSession(s){
       state.orders = res.orders;
       state.vehicleNo = res.vehicleNo || state.vehicleNo;
       state.isDemo = !!res.isDemo;
-      state.podRequired = !!res.podRequired;
+      state.podRequired = !!res.podRequired; locStart();
       state.tripClosed = false;
       overlayPending();
       pumpQueue();
@@ -2823,7 +2895,7 @@ function doEnterCode(confirmHandover){
       state.orderIndex = firstPendingIndex();
       state.tripClosed = false;
       state.isDemo = !!res.isDemo;
-      state.podRequired = !!res.podRequired;
+      state.podRequired = !!res.podRequired; locStart();
       state.view = 'order';
       if (!state.isDemo) { overlayPending(); pumpQueue(); saveSession(); }
     } else {
@@ -2982,6 +3054,13 @@ function submitMark(){
     orderType: o.orderType,
     balanceDue: o.balanceDue
   };
+  var fix = locForMark();
+  if (fix) {
+    payload.lat = fix.lat; payload.lng = fix.lng;
+    payload.acc = fix.acc; payload.locAt = fix.at;
+  }
+  // The next stop gets a fresh fix.
+  locTick();
 
   if (state.markStatus === 'Delivered') {
     if (state.issueOpen) {
@@ -3339,6 +3418,7 @@ function boot(){
   // light; the photos already taken are kept.
   document.addEventListener('visibilitychange', function(){
     if (document.hidden && cam.el) closeCamera();
+    if (!document.hidden) locTick();
   });
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible') retryNow();

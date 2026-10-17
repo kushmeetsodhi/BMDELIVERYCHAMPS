@@ -2,7 +2,7 @@
 // The version changes on every build, which is how phones pick up a
 // new release: the new worker installs, clears the old cache, and the
 // next open runs the new code.
-var VERSION = 'fbf369521c';
+var VERSION = '649b6d741f';
 var CACHE = 'bm-champs-' + VERSION;
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest',
              'icon-192.png', 'icon-512.png'];
