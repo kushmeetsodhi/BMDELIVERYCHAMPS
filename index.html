@@ -1,0 +1,3375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<meta name="theme-color" content="#000066" />
+<link rel="icon" type="image/png" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="BM Champs" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>BM Delivery Champs</title>
+<script src="config.js?v=fbf369521c"></script>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<style>
+  :root{
+    --brand:#000066;
+    --brand-ink:#FFFFFF;
+    --brand-soft:#E8E8F5;
+    --bg:#F4F5F8;
+    --surface:#FFFFFF;
+    --surface-2:#FAFAFC;
+    --ink:#14142B;
+    --ink-soft:#5A6072;
+    --border:#E2E5EC;
+    --green:#1E7F45;
+    --green-bg:#E4F4EA;
+    --red:#C13535;
+    --red-bg:#FBE8E8;
+    --amber:#B57614;
+    --amber-bg:#FCF0D8;
+    --grey:#6B7280;
+    --grey-bg:#EDEFF3;
+    --shadow:0 1px 3px rgba(20,20,43,0.08);
+  }
+  html[data-theme="dark"]{
+    --brand:#5B6BD6;
+    --brand-ink:#FFFFFF;
+    --brand-soft:#20233F;
+    --bg:#0E1017;
+    --surface:#191C26;
+    --surface-2:#141721;
+    --ink:#ECEEF4;
+    --ink-soft:#98A0B3;
+    --border:#2B3040;
+    --green:#4ADE80;
+    --green-bg:#16301F;
+    --red:#F87171;
+    --red-bg:#331A1A;
+    --amber:#FBBF24;
+    --amber-bg:#332A14;
+    --grey:#9AA1B4;
+    --grey-bg:#242834;
+    --shadow:0 1px 3px rgba(0,0,0,0.4);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;
+    background:var(--bg); color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+    transition:background 0.2s, color 0.2s;
+  }
+  #app{ max-width:480px; margin:0 auto; min-height:100vh; padding-bottom:40px; }
+
+  .topbar{
+    position:sticky; top:0; z-index:50; background:var(--brand); color:var(--brand-ink);
+    padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .topbar .brand{ font-weight:700; font-size:15.5px; letter-spacing:0.2px; }
+  .topbar .sub{ font-size:11.5px; opacity:0.88; margin-top:2px; line-height:1.4; }
+  .sync-badge{ font-weight:600; }
+  .menu-wrap{ position:relative; flex-shrink:0; }
+  .menu-btn{
+    background:rgba(255,255,255,0.14); border:none; color:var(--brand-ink);
+    width:36px; height:36px; border-radius:9px; cursor:pointer; font-size:17px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .menu-drop{
+    position:absolute; right:0; top:44px; background:var(--surface); border:1px solid var(--border);
+    border-radius:11px; box-shadow:0 6px 20px rgba(0,0,0,0.18); min-width:190px; overflow:hidden; z-index:60;
+  }
+  .menu-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:13px 15px; font-size:14.5px; color:var(--ink); cursor:pointer;
+    border-bottom:1px solid var(--border); background:var(--surface);
+  }
+  .menu-item:last-child{ border-bottom:none; }
+  .menu-item.danger{ color:var(--red); }
+  .menu-item .tag{ font-size:11.5px; color:var(--ink-soft); }
+
+  .content{ padding:16px 14px; }
+  label{ font-size:12px; color:var(--ink-soft); display:block; margin:12px 0 5px; font-weight:500; }
+  input[type=text], input[type=number], input[type=password], select{
+    font-family:inherit; font-size:16px; padding:12px 13px;
+    border:1px solid var(--border); border-radius:9px;
+    background:var(--surface-2); color:var(--ink); width:100%;
+  }
+  input:focus, select:focus{ outline:2px solid var(--brand); outline-offset:-1px; }
+
+  button.primary{
+    background:var(--brand); color:var(--brand-ink); border:none; border-radius:9px;
+    padding:14px 16px; font-family:inherit; font-size:15px; font-weight:600; cursor:pointer; width:100%;
+  }
+  button.primary:disabled{ opacity:0.38; }
+  button.secondary{
+    background:var(--surface); color:var(--ink); border:1px solid var(--border); border-radius:9px;
+    padding:13px 16px; font-family:inherit; font-size:14px; font-weight:500; cursor:pointer;
+  }
+  button.small{ padding:9px 13px; font-size:13px; border-radius:8px; }
+  button:active{ transform:scale(0.985); }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:13px;
+    padding:16px; margin-bottom:13px; box-shadow:var(--shadow);
+  }
+  .err{ color:var(--red); font-size:13px; margin-top:9px; line-height:1.45; }
+  .hint{ font-size:12px; color:var(--ink-soft); margin-top:6px; line-height:1.5; }
+  .ok-note{ background:var(--green-bg); color:var(--green); border-radius:10px;
+            padding:10px 12px; font-size:13px; font-weight:600; line-height:1.45; }
+  .stopnum{
+    width:32px; height:32px; border-radius:50%; background:var(--brand); color:var(--brand-ink);
+    display:flex; align-items:center; justify-content:center; font-size:13.5px; font-weight:700; flex-shrink:0;
+  }
+  .order-head{ display:flex; align-items:center; gap:11px; margin-bottom:13px; }
+  .order-head .name{ font-size:17px; font-weight:600; line-height:1.3; }
+  .order-head .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .order-head .name-id{ font-weight:600; color:var(--ink-soft); }
+  .cash-card{ text-align:center; border-color:var(--brand); }
+  .sync-banner{
+    background:var(--amber-bg); color:var(--amber); border-bottom:1px solid var(--amber);
+    padding:8px 14px; font-size:12.5px; font-weight:600; text-align:center; line-height:1.4;
+  }
+  .sync-banner.bad{ background:var(--red-bg); color:var(--red); border-color:var(--red); }
+  .unsaved-tag{
+    display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px;
+    background:var(--amber-bg); color:var(--amber); margin-left:6px;
+  }
+  .demo-bar{
+    background:var(--amber); color:#241a00; text-align:center;
+    padding:7px 12px; font-size:12.5px; font-weight:700; letter-spacing:0.3px;
+  }
+  .ret-box{
+    background:var(--amber-bg); border:1px solid var(--amber); border-radius:10px;
+    padding:12px 13px; margin-top:13px;
+  }
+  .ret-head{ font-size:11.5px; font-weight:700; color:var(--amber); letter-spacing:0.4px; margin-bottom:5px; }
+  .ret-detail{ font-size:14px; font-weight:500; color:var(--ink); }
+  .ret-meta{ font-size:11.5px; color:var(--ink-soft); margin-top:3px; }
+  .ret-done{ background:var(--green-bg); border-color:var(--green); }
+  .ret-defer{ background:var(--grey-bg); border-color:var(--border); }
+  .ret-defer .ret-head{ color:var(--ink-soft); }
+  .ret-done .ret-head{ color:var(--green); }
+  .cash-amt{ font-size:30px; font-weight:700; margin:0; color:var(--brand); }
+  .field-row{
+    display:flex; justify-content:space-between; gap:12px;
+    padding:10px 0; border-top:1px solid var(--border); font-size:14px;
+  }
+  .field-row .l{ color:var(--ink-soft); flex-shrink:0; }
+  .field-row .v{ font-weight:500; text-align:right; word-break:break-word; }
+  a.maps-link{
+    color:var(--brand); text-decoration:none; font-weight:600;
+    border:1px solid var(--brand); padding:6px 12px; border-radius:7px; display:inline-block;
+  }
+  html[data-theme="dark"] a.maps-link{ color:var(--brand); border-color:var(--brand); }
+
+  .badge{ display:inline-block; font-size:12px; padding:5px 11px; border-radius:20px; font-weight:600; }
+  .badge.delivered{ background:var(--green-bg); color:var(--green); }
+  .badge.notdelivered{ background:var(--red-bg); color:var(--red); }
+
+  .action-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px; }
+  .action-btn{
+    border-radius:9px; padding:17px 8px; font-family:inherit; font-size:14.5px; font-weight:600;
+    border:1.5px solid; cursor:pointer; text-align:center;
+  }
+  .action-btn.delivered{ background:var(--green-bg); border-color:var(--green); color:var(--green); }
+  .action-btn.notdelivered{ background:var(--red-bg); border-color:var(--red); color:var(--red); }
+
+  .pay-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:12px 0; }
+  .pay-opt{
+    border-radius:9px; padding:13px 4px; font-family:inherit; font-size:13.5px; font-weight:600;
+    border:1.5px solid var(--border); background:var(--surface-2); color:var(--ink);
+    cursor:pointer; text-align:center;
+  }
+  .pay-opt.active{ background:var(--brand); border-color:var(--brand); color:var(--brand-ink); }
+
+  .nav-row{ display:flex; gap:10px; margin-top:15px; }
+  .nav-row button{ flex:1; }
+
+  .progress-wrap{ margin-bottom:15px; }
+  .progress-bar{ height:7px; background:var(--grey-bg); border-radius:6px; overflow:hidden; margin-top:7px; }
+  .progress-fill{ height:100%; background:var(--green); transition:width 0.25s; }
+
+  .stat{
+    background:var(--surface); border:1px solid var(--border); border-radius:11px;
+    padding:15px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .stat .n{ font-size:21px; font-weight:700; }
+  .stat .l{ font-size:13.5px; color:var(--ink-soft); }
+
+  .file-btn{
+    display:block; text-align:center; border:1.5px dashed var(--border); border-radius:9px;
+    padding:18px; font-size:14px; color:var(--ink-soft); cursor:pointer; margin-top:6px;
+    background:var(--surface-2);
+  }
+  .pod-btns{ display:flex; gap:8px; }
+  .cam{ position:fixed; inset:0; z-index:9999; background:#000; display:flex;
+        flex-direction:column; }
+  .cam video{ flex:1; width:100%; min-height:0; object-fit:cover; background:#000; }
+  .cam.flash video{ opacity:.35; }
+  .cam-msg{ position:absolute; top:40%; left:0; right:0; text-align:center; color:#fff;
+            font-size:15px; }
+  .cam-bar{ display:flex; align-items:center; justify-content:space-between;
+            padding:18px 22px calc(18px + env(safe-area-inset-bottom)); background:#000; }
+  .cam-shoot{ width:72px; height:72px; border-radius:50%; border:5px solid #fff;
+              background:#fff; box-shadow:inset 0 0 0 3px #000; cursor:pointer; }
+  .cam-shoot:active{ transform:scale(.92); }
+  .cam-done{ background:none; border:1.5px solid #fff; color:#fff; border-radius:9px;
+             padding:10px 16px; font-size:15px; font-family:inherit; cursor:pointer;
+             min-width:72px; }
+  .cam-n{ color:#fff; font-size:15px; min-width:72px; text-align:right; }
+  .pod-btns .file-btn{ flex:1; padding:16px 8px; }
+  .file-btn.alt{ border-style:solid; }
+  .shot-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .shot{ position:relative; width:76px; height:76px; }
+  .shot img{
+    width:76px; height:76px; object-fit:cover; border-radius:9px;
+    border:1px solid var(--border); display:block;
+  }
+  .shot-x{
+    position:absolute; top:-7px; right:-7px; width:23px; height:23px;
+    border-radius:50%; border:none; background:var(--red); color:#fff;
+    font-size:15px; line-height:1; cursor:pointer; font-family:inherit;
+  }
+  .shot-up{
+    position:absolute; bottom:3px; left:4px; background:rgba(0,0,0,0.55);
+    color:#fff; border-radius:5px; font-size:10px; padding:1px 5px;
+  }
+  .declaration{
+    background:var(--amber-bg); border-radius:8px; padding:10px 11px;
+    font-size:12.5px; line-height:1.5; color:var(--ink); margin-top:6px;
+  }
+  .declaration-hi{ margin-top:5px; color:var(--ink-soft); }
+  .sigpad{
+    width:100%; height:170px; display:block; margin-top:6px;
+    background:#fff; border:1px solid var(--border); border-radius:10px;
+    touch-action:none; cursor:crosshair;
+  }
+  .thumb{
+    width:100%; max-height:170px; object-fit:contain; border-radius:9px;
+    margin-top:9px; border:1px solid var(--border); background:var(--surface-2);
+  }
+  .spinner{ text-align:center; padding:44px 16px; color:var(--ink-soft); font-size:14px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal{
+    background:var(--surface); border-radius:14px; padding:20px; max-width:340px; width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3);
+  }
+  .modal h3{ margin:0 0 8px; font-size:17px; }
+  .modal p{ margin:0 0 4px; font-size:14px; color:var(--ink-soft); line-height:1.55; }
+
+  .switch{
+    width:42px; height:24px; border-radius:20px; background:var(--grey-bg);
+    position:relative; flex-shrink:0; border:1px solid var(--border);
+  }
+  .switch.on{ background:var(--brand); border-color:var(--brand); }
+  .switch i{
+    position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:#fff; transition:left 0.18s; display:block;
+  }
+  .switch.on i{ left:21px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// Must match DELIVERY_ISSUES in DA_Infrastructure_Setup.gs.
+var DELIVERY_ISSUES = ['Short', 'Damaged', 'Wrong item'];
+
+// Must match POD_SKIP_REASONS in DA_Infrastructure_Setup.gs.
+// Must match POD_MAX_PHOTOS in DA_Infrastructure_Setup.gs.
+var POD_MAX_PHOTOS = 4;
+// A gallery photo older than this is refused. The gallery is the way
+// round phones that drop the page when the camera opens; the age check
+// stops it becoming a way to send yesterday's picture of the goods.
+var POD_GALLERY_MAX_AGE_MIN = 15;
+
+var POD_SKIP_REASONS = [
+  'Shopkeeper refused',
+  'Camera not working',
+  'No network to upload',
+  'Goods left with staff',
+  'Other'
+];
+
+var SHORT_REASONS = [
+  'Items missing',
+  'Damaged goods',
+  'Rate dispute',
+  'Customer short of cash',
+  'Short billed',
+  'Other'
+];
+
+var REASONS = [
+  'Customer refused',
+  'Shop closed',
+  'Wrong address / unreachable',
+  'Redispatch tomorrow',
+  'Other'
+];
+
+var state = {
+  view: 'login',
+  loginName: '',
+  pin: '',
+  code: '',
+  vehicleNo: '',
+  orders: [],
+  orderIndex: 0,
+  markStatus: null,
+  payMode: null,
+  cashInput: '',
+  upiInput: '',
+  reasonInput: '',
+  screenshotBase64: null,
+  // Proof of delivery, captured on the screen after the payment is
+  // settled and before the mark is queued.
+  // A big order needs more than one angle, so this is a list:
+  // [{ base64, mime, preview, link, uploading }].
+  podPhotos: [],
+  podSigBase64: null,
+  podSigPreview: null,
+  podSkipOpen: false,
+  podRestored: 0,
+  podSkipReason: '',
+  podSkipNote: '',
+  // The server decides, per route, whether this trip asks for proof -
+  // a trip that started before proof was switched on finishes the old
+  // way, so turning it on never disturbs a DA already out.
+  podRequired: false,
+  screenshotMime: null,
+  screenshotPreview: null,
+  loading: false,
+  loadingMsg: 'Working...',
+  error: '',
+  menuOpen: false,
+  modal: null,
+  openTrip: null,
+  pendingCode: null,
+  tripClosed: false,
+  profileMsg: '',
+  blockingTrip: null,
+  pending: [],
+  confirmingLogout: false,
+  returnPhoto: null,
+  returnPhotoMime: null,
+  returnPhotoPreview: null,
+  collectingReturn: null,
+  amountChoice: null,
+  issueOpen: false,
+  issueType: '',
+  issueItems: '',
+  issueNote: '',
+  collectedInput: '',
+  amountDone: false,
+  shortReason: '',
+  shortNote: '',
+  tripNote: '',
+  closing: false,
+  closeError: '',
+  endingFromResume: false,
+  flushNext: null,
+  flushFailed: false,
+  isDemo: false,
+  deferReason: '',
+  deferring: false,
+  syncFailed: false,
+  screenshotLink: null,
+  screenshotUploading: false,
+  deferredInstall: null
+};
+
+/******************** THEME ********************/
+function getTheme(){
+  try { return localStorage.getItem('bm_theme') || 'light'; } catch(e){ return 'light'; }
+}
+function setTheme(t){
+  try { localStorage.setItem('bm_theme', t); } catch(e){}
+  document.documentElement.setAttribute('data-theme', t);
+}
+function toggleTheme(){
+  setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+  render();
+}
+
+/******************** API ********************/
+// Set by config.js on the GitHub copy of the app; absent inside Apps
+// Script. Everything that differs between the two copies keys off it.
+var BM_HOSTED = !!(typeof window !== 'undefined' && window.BM_EXEC_URL);
+
+function api(action, payload, timeoutMs){
+  return new Promise(function(resolve){
+    var data = { action: action };
+    for (var k in payload) { if (payload.hasOwnProperty(k)) data[k] = payload[k]; }
+
+    if (!BM_HOSTED &&
+        (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      resolve({ success:false, network:true,
+                error:'Cannot reach the server. Check your connection.' });
+      return;
+    }
+
+    // google.script.run can simply never call back - a weak signal
+    // while the page is reloading does it - and without a clock on it
+    // the screen waits for ever. Only callers that pass a timeout get
+    // one: a photo upload on a bad connection is slow but working,
+    // and cutting it off would throw away the DA's picture.
+    var settled = false;
+    var watchdog = null;
+    var done = function(r){
+      if (settled) return;
+      settled = true;
+      if (watchdog) clearTimeout(watchdog);
+      resolve(r);
+    };
+    if (timeoutMs) {
+      watchdog = setTimeout(function(){
+        done({ success:false, network:true, timedOut:true,
+               error:'The server did not answer.' });
+      }, timeoutMs);
+    }
+
+    if (BM_HOSTED) {
+      // The same doPost the backend has always had. text/plain keeps
+      // this a "simple" request, so the browser sends it straight away
+      // instead of first asking permission - a question Apps Script
+      // cannot answer. No cookies: the DA's PIN is the login, not a
+      // Google account, and sending credentials would break CORS.
+      fetch(window.BM_EXEC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(data),
+        redirect: 'follow',
+        credentials: 'omit',
+        cache: 'no-store'
+      }).then(function(r){ return r.text(); })
+        .then(function(t){
+          try { done(JSON.parse(t)); }
+          catch(e){
+            // A Google sign-in page instead of JSON: the deployment is
+            // not open to Anyone. Kept as a network failure so queued
+            // marks wait instead of being thrown away.
+            done({ success:false, network:true,
+                   error:'The server sent a page instead of an answer.' });
+          }
+        })
+        .catch(function(){
+          done({ success:false, network:true,
+                 error:'Cannot reach the server. Check your connection.' });
+        });
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        try { done(typeof res === 'string' ? JSON.parse(res) : res); }
+        catch(e){ done({ success:false, error:'Malformed server response.' }); }
+      })
+      .withFailureHandler(function(err){
+        // Could not reach the server at all - a real network failure.
+        done({ success:false, network:true,
+               error: (err && err.message) ? err.message : 'Connection failed.' });
+      })
+      .apiCall(JSON.stringify(data));
+  });
+}
+
+/******************** UTILS ********************/
+function money(n){
+  return '\u20B9' + (Math.round((Number(n)||0)*100)/100).toLocaleString('en-IN');
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+// SO-2026-29883 -> SO-29883 (display only; full value still sent to server)
+function shortId(s){
+  return String(s == null ? '' : s).replace(/^([A-Za-z]+)-\d{4}-(\d+)$/, '$1-$2');
+}
+// Party Name arrives as "Kashish Store (SO-2026-30272)" - drop the
+// bracketed order id so the shop name reads cleanly.
+function cleanName(s){
+  return String(s == null ? '' : s).replace(/\s*\([^)]*\)\s*$/, '').trim();
+}
+// What the DA should actually collect: the invoice, unless they
+// recorded a lower amount.
+function collectedDue(o){
+  if (state.amountChoice === 'diff' && state.collectedInput !== '') {
+    return Number(state.collectedInput) || 0;
+  }
+  return Number(o && o.balanceDue || 0);
+}
+
+function isCodOrder(o){
+  var t = String(o && o.orderType || '').trim().toLowerCase();
+  if (t === 'cod' || t === 'c.o.d' || t === 'c.o.d.' ||
+      t.indexOf('cash on delivery') > -1 || t.indexOf('cash') > -1 || t.indexOf('cod') > -1) return true;
+  if (t.indexOf('prepaid') > -1 || t.indexOf('paid') > -1 || t.indexOf('advance') > -1 ||
+      t.indexOf('upi') > -1 || t.indexOf('online') > -1) return false;
+  // Type missing or unrecognised: if money is owed, ask the DA to collect
+  // it. Treating it as prepaid is how cash goes uncollected.
+  return Number(o && o.balanceDue || 0) > 0;
+}
+
+/******************** IMAGE COMPRESSION ********************/
+// Shrinks a phone photo (often 3-5 MB) to roughly 150-250 KB before
+// upload. Keeps screenshots and proof photos perfectly legible while
+// making uploads fast enough to work on patchy mobile data.
+/******************** IN-APP CAMERA ********************/
+// The camera app is what gets the page killed: Android hands the phone
+// to it and, short of memory, closes Chrome behind it. A viewfinder
+// inside the page never leaves it. Apps Script forbids camera access in
+// its frame, so this only runs on the hosted copy.
+var cam = { stream: null, el: null, taken: 0 };
+
+function inAppCamera(){
+  return BM_HOSTED && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+function cameraErrorText(err){
+  var n = err && err.name;
+  if (n === 'NotAllowedError' || n === 'SecurityError') {
+    return 'The camera is blocked for this app. In Chrome tap the lock icon next to the ' +
+           'address, then Permissions → Camera → Allow. Or use Upload from gallery.';
+  }
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') {
+    return 'No camera was found on this phone. Use Upload from gallery.';
+  }
+  if (n === 'NotReadableError') {
+    return 'Another app is using the camera. Close it and try again.';
+  }
+  return 'The camera could not start' + (n ? ' (' + n + ')' : '') + '. Use Upload from gallery.';
+}
+
+function camSet(id, text){
+  var el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function camCount(){
+  camSet('cam-n', state.podPhotos.length + ' / ' + POD_MAX_PHOTOS);
+}
+
+function openCamera(){
+  if (cam.el || state.podPhotos.length >= POD_MAX_PHOTOS) return;
+  state.error = '';
+  var el = document.createElement('div');
+  el.id = 'cam';
+  el.className = 'cam';
+  // Outside #app on purpose: the app redraws #app wholesale, and a
+  // redraw must never tear down a live video stream.
+  el.innerHTML =
+    '<video id="cam-v" autoplay playsinline muted></video>' +
+    '<div class="cam-msg" id="cam-msg">Starting camera…</div>' +
+    '<div class="cam-bar">' +
+      '<button type="button" class="cam-done" id="cam-done">Done</button>' +
+      '<button type="button" class="cam-shoot" id="cam-shoot" aria-label="Take photo"></button>' +
+      '<span class="cam-n" id="cam-n"></span>' +
+    '</div>';
+  document.body.appendChild(el);
+  cam.el = el;
+  cam.taken = 0;
+  camCount();
+  document.getElementById('cam-done').addEventListener('click', function(){ closeCamera(); });
+  document.getElementById('cam-shoot').addEventListener('click', shootCamera);
+
+  navigator.mediaDevices.getUserMedia({
+    audio: false,
+    // Back camera, and no bigger than the photo we keep - a 4K stream
+    // costs memory the phone does not have.
+    video: { facingMode: { ideal: 'environment' },
+             width: { ideal: 1280 }, height: { ideal: 960 } }
+  }).then(function(stream){
+    if (!cam.el) { stream.getTracks().forEach(function(t){ t.stop(); }); return; }
+    cam.stream = stream;
+    var v = document.getElementById('cam-v');
+    v.srcObject = stream;
+    var pl = v.play && v.play();
+    if (pl && pl.catch) pl.catch(function(){});
+    camSet('cam-msg', '');
+  }).catch(function(err){
+    closeCamera(true);
+    state.error = cameraErrorText(err);
+    render();
+  });
+}
+
+function shootCamera(){
+  var v = document.getElementById('cam-v');
+  if (!cam.stream || !v || !v.videoWidth) return;
+  if (state.podPhotos.length >= POD_MAX_PHOTOS) { closeCamera(); return; }
+
+  // Same size and quality as a compressed camera-app photo, so the
+  // server and the thumbnails see no difference.
+  var maxEdge = 1000;
+  var w = v.videoWidth, h = v.videoHeight;
+  if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
+  else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
+  var canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(v, 0, 0, w, h);
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+  canvas.width = 1; canvas.height = 1;
+
+  state.podPhotos.push({ base64: dataUrl.split(',')[1], mime: 'image/jpeg',
+                         link: null, uploading: false });
+  cam.taken++;
+  camCount();
+  // Start sending now; the DA may take several before tapping Done.
+  uploadPodPhotos();
+
+  if (cam.el) {
+    cam.el.classList.add('flash');
+    setTimeout(function(){ if (cam.el) cam.el.classList.remove('flash'); }, 150);
+  }
+  if (state.podPhotos.length >= POD_MAX_PHOTOS) closeCamera();
+}
+
+// quiet: the caller draws the screen itself (the error path).
+function closeCamera(quiet){
+  if (cam.stream) {
+    cam.stream.getTracks().forEach(function(t){ t.stop(); });
+    cam.stream = null;
+  }
+  if (cam.el && cam.el.parentNode) cam.el.parentNode.removeChild(cam.el);
+  cam.el = null;
+  var took = cam.taken;
+  cam.taken = 0;
+  if (!quiet && took) render();
+}
+
+/**
+ * Why a gallery photo cannot be used, or '' when it can. lastModified is
+ * when the phone wrote the file, which for a camera shot is when it was
+ * taken. Some pickers hand over a fresh copy stamped "now" - that passes,
+ * which is the safe way round to be wrong. A missing stamp also passes:
+ * refusing it would lock out a DA whose phone simply does not say.
+ */
+function podGalleryRefusal(file, nowMs){
+  var t = Number(file && file.lastModified) || 0;
+  if (!t) return '';
+  var ageMin = ((nowMs || Date.now()) - t) / 60000;
+  if (ageMin <= POD_GALLERY_MAX_AGE_MIN) return '';
+  var d = new Date(t);
+  var hh = d.getHours(), mm = d.getMinutes();
+  var when = (hh % 12 || 12) + ':' + (mm < 10 ? '0' : '') + mm + (hh < 12 ? ' AM' : ' PM');
+  var sameDay = new Date(nowMs || Date.now()).toDateString() === d.toDateString();
+  return 'That photo was taken ' + (sameDay ? 'at ' + when : 'on ' + d.toDateString()) +
+         '. Take a fresh photo of the goods at this shop and upload that.';
+}
+
+// Camera or gallery, one or several files: each is shrunk, kept as
+// base64 only, and sent while the signature is being taken.
+function addPodFiles(input, fromGallery){
+  var files = [];
+  var list = input.files || [];
+  for (var i = 0; i < list.length; i++) files.push(list[i]);
+  try { input.value = ''; } catch (e) {}   // or picking the same file twice does nothing
+  if (!files.length) return;
+
+  state.error = '';
+  if (fromGallery) {
+    var now = Date.now();
+    var refused = [];
+    files = files.filter(function(f){
+      var why = podGalleryRefusal(f, now);
+      if (why) refused.push(why);
+      return !why;
+    });
+    if (refused.length) state.error = refused[0];
+  }
+  var room = POD_MAX_PHOTOS - state.podPhotos.length;
+  if (files.length > room) {
+    files = files.slice(0, Math.max(room, 0));
+    if (!state.error) state.error = 'Only ' + POD_MAX_PHOTOS + ' photos fit on one delivery.';
+  }
+  if (!files.length) { render(); return; }
+
+  state.loading = true; state.loadingMsg = 'Preparing photo...'; render();
+  (function next(){
+    var f = files.shift();
+    if (!f) {
+      state.loading = false;
+      render();
+      uploadPodPhotos();
+      return;
+    }
+    compressImage(f, function(out){
+      if (state.podPhotos.length < POD_MAX_PHOTOS) {
+        state.podPhotos.push({ base64: out.base64, mime: out.mime,
+                               link: null, uploading: false });
+      }
+      next();
+    });
+  })();
+}
+
+function compressImage(file, cb){
+  var reader = new FileReader();
+  reader.onload = function(){
+    var img = new Image();
+    img.onload = function(){
+      // A proof photo has to show the goods and the shop front, not
+      // be enlarged. Every pixel here is held in memory twice over
+      // until the upload lands, and a phone with the browser already
+      // full has little to spare.
+      var maxEdge = 1000;
+      var w = img.width, h = img.height;
+      if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
+      else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
+
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      // The canvas is the largest thing on the heap here. Shrink it to
+      // nothing now rather than waiting for the collector.
+      canvas.width = 1; canvas.height = 1;
+      cb({ dataUrl: dataUrl, mime: 'image/jpeg', base64: dataUrl.split(',')[1] });
+    };
+    img.onerror = function(){
+      cb({ dataUrl: reader.result, mime: file.type || 'image/jpeg', base64: String(reader.result).split(',')[1] });
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/******************** RENDER ********************/
+function render(){
+  var app = document.getElementById('app');
+  if(!app) return;
+  var inner = state.loading
+    ? '<div class="spinner">' + esc(state.loadingMsg) + '</div>'
+    : bodyHTML();
+  var demoBar = state.isDemo
+    ? '<div class="demo-bar">PRACTICE ROUTE \u2014 nothing is saved</div>' : '';
+  var ut = unsavedText();
+  var syncBar = '<div id="sync-banner" class="sync-banner' + (state.syncFailed ? ' bad' : '') +
+    '"' + (state.syncFailed ? ' data-action="show-stuck"' : '') +
+    ' style="display:' + (ut ? 'block' : 'none') + ';">' + esc(ut) + '</div>';
+  app.innerHTML = topbarHTML() + demoBar + syncBar + '<div class="content">' + inner + '</div>' + modalHTML();
+  attachEvents();
+}
+
+function topbarHTML(){
+  var bits = [];
+  if (state.view !== 'login') {
+    if (state.loginName) bits.push(esc(state.loginName));
+    if (state.code) bits.push(esc(state.code));
+    if (state.vehicleNo) bits.push(esc(state.vehicleNo));
+  }
+  var sub = bits.join(' \u00b7 ');
+  var menu = menuHTML();
+
+  var badge = badgeText();
+  var badgeEl = '<span id="sync-badge" class="sync-badge" style="display:' +
+    (badge ? 'inline' : 'none') + ';">' + esc(badge) + '</span>';
+
+  return '<div class="topbar">' +
+    '<div><div class="brand">BM Delivery Champs</div>' +
+    '<div class="sub">' + sub + (sub && badge ? ' \u00b7 ' : '') + badgeEl + '</div>' +
+    '</div>' + menu + '</div>';
+}
+
+function menuHTML(){
+  var drop = '';
+  if (state.menuOpen) {
+    var dark = getTheme() === 'dark';
+    var items = '';
+    // Reachable even before logging in, since a stuck queue can outlive
+    // a session and the DA must be able to see what it is.
+    if (state.pending.length) {
+      items += '<div class="menu-item" data-action="menu-stuck">' +
+               '<span>Updates not saved</span>' +
+               '<span class="tag">' + state.pending.length + '</span></div>';
+    }
+    if (state.view !== 'login') {
+      items += '<div class="menu-item" data-action="open-profile">Profile</div>';
+    }
+    items += '<div class="menu-item" data-action="toggle-theme">' +
+             '<span>Dark mode</span>' +
+             '<span class="switch' + (dark ? ' on' : '') + '"><i></i></span></div>';
+    if (state.deferredInstall) {
+      items += '<div class="menu-item" data-action="install-app">Install app</div>';
+    }
+    if (state.view === 'order' || state.view === 'summary') {
+      items += '<div class="menu-item danger" data-action="ask-end-trip">End trip</div>';
+    }
+    if (state.view !== 'login') {
+      items += '<div class="menu-item" data-action="logout">Log out</div>';
+    }
+    drop = '<div class="menu-drop">' + items + '</div>';
+  }
+  return '<div class="menu-wrap"><button class="menu-btn" data-action="toggle-menu">\u22ee</button>' + drop + '</div>';
+}
+
+function bodyHTML(){
+  if(state.view === 'login')   return loginHTML();
+  if(state.view === 'resume')  return resumeHTML();
+  if(state.view === 'reopen')  return reopenHTML();
+  if(state.view === 'code')    return codeHTML();
+  if(state.view === 'order')   return orderHTML();
+  if(state.view === 'mark')    return markHTML();
+  if(state.view === 'collect') return collectHTML();
+  if(state.view === 'pod')     return podHTML();
+  if(state.view === 'closing') return closingHTML();
+  if(state.view === 'flush') return flushHTML();
+  if(state.view === 'stuck') return stuckHTML();
+  if(state.view === 'summary') return summaryHTML();
+  if(state.view === 'profile') return profileHTML();
+  return '';
+}
+
+function errHTML(){
+  return state.error ? '<div class="err">' + esc(state.error) + '</div>' : '';
+}
+
+/******************** LOGIN ********************/
+function loginHTML(){
+  return '<div class="card">' +
+    '<label>Login name</label>' +
+    '<input type="text" id="login-name" value="' + esc(state.loginName) + '" placeholder="Your login name" autocapitalize="none" autocomplete="username" />' +
+    '<label>PIN</label>' +
+    '<input type="password" id="login-pin" value="" placeholder="Your PIN" inputmode="numeric" autocomplete="current-password" />' +
+    errHTML() +
+    '<div style="margin-top:17px;"><button class="primary" data-action="do-login">Log in</button></div>' +
+    '</div>';
+}
+
+/******************** RESUME OPEN TRIP ********************/
+// Shown when the route could not be reopened because the phone could
+// not reach the server. The session is still saved, so this is a wait,
+// not a logout - and it says so, because a DA who thinks he has been
+// logged out will go looking for his code instead of pressing a button.
+function reopenHTML(){
+  var s = loadSession() || {};
+  return '<div class="card">' +
+    '<h3 style="margin:0 0 8px; font-size:17px;">Could not open your route</h3>' +
+    '<p class="hint" style="margin:0 0 4px;">' + esc(state.reopenError || 'No connection.') + '</p>' +
+    '<p class="hint">You are still signed in on code <strong>' + esc(s.code || state.code) +
+      '</strong>. Nothing has been lost. Move to where there is signal and try again.</p>' +
+    '<div style="margin-top:16px;"><button class="primary" data-action="reopen-retry">' +
+      'Try again</button></div>' +
+    '<div style="margin-top:9px;"><button class="secondary" data-action="reopen-login" ' +
+      'style="width:100%;">Sign in again instead</button></div>' +
+    '</div>';
+}
+
+function resumeHTML(){
+  var t = state.openTrip || {};
+  var dayNote = t.isToday ? 'started today' : 'started ' + esc(t.startedAt);
+  return '<div class="card">' +
+    '<h3 style="margin:0 0 8px; font-size:17px;">You have an open trip</h3>' +
+    '<p class="hint" style="margin:0 0 4px;">Code <strong>' + esc(t.code) + '</strong>' +
+    (t.vehicleNo ? ' \u00b7 ' + esc(t.vehicleNo) : '') + ', ' + dayNote + '.</p>' +
+    '<p class="hint">Resume it to carry on, or end it to close the day and start a new route.</p>' +
+    errHTML() +
+    '<div style="margin-top:16px;"><button class="primary" data-action="resume-trip">Resume this trip</button></div>' +
+    '<div style="margin-top:9px;"><button class="secondary" data-action="ask-end-trip-resume" style="width:100%;">End this trip</button></div>' +
+    '</div>';
+}
+
+/******************** CODE ENTRY ********************/
+function codeHTML(){
+  return '<div class="card">' +
+    '<label>Today\'s manifest code</label>' +
+    '<input type="text" id="code-input" value="' + esc(state.code) + '" placeholder="e.g. XH4T2K" autocapitalize="characters" style="text-transform:uppercase; letter-spacing:2px; font-weight:600;" />' +
+    '<label>Vehicle number</label>' +
+    '<input type="text" id="vehicle-input" value="' + esc(state.vehicleNo) + '" placeholder="e.g. DL1CAA1111" autocapitalize="characters" style="text-transform:uppercase;" />' +
+    errHTML() +
+    '<div style="margin-top:17px;"><button class="primary" data-action="do-enter-code">Load my route</button></div>' +
+    '<div class="hint">Find the code on your printed loading sheet, next to Vehicle no.</div>' +
+    '<div class="hint">Practising? Enter <strong>DEMO</strong> for a sample route that saves nothing.</div>' +
+    '</div>';
+}
+
+/******************** PROFILE ********************/
+function profileHTML(){
+  var msg = state.profileMsg ? '<div class="hint" style="color:var(--green); font-weight:600;">' + esc(state.profileMsg) + '</div>' : '';
+  return '<div class="card">' +
+    '<h3 style="margin:0 0 3px; font-size:17px;">' + esc(state.loginName) + '</h3>' +
+    '<p class="hint" style="margin:0;">Delivery partner</p>' +
+    '</div>' +
+    '<div class="card">' +
+    '<h3 style="margin:0 0 6px; font-size:15px;">Change PIN</h3>' +
+    '<label>Current PIN</label>' +
+    '<input type="password" id="cur-pin" placeholder="Current PIN" inputmode="numeric" />' +
+    '<label>New PIN</label>' +
+    '<input type="password" id="new-pin" placeholder="At least 4 characters" inputmode="numeric" />' +
+    '<label>Confirm new PIN</label>' +
+    '<input type="password" id="new-pin2" placeholder="Repeat new PIN" inputmode="numeric" />' +
+    errHTML() + msg +
+    '<div style="margin-top:16px;"><button class="primary" data-action="save-pin">Update PIN</button></div>' +
+    '</div>' +
+    '<button class="secondary" data-action="back-from-profile" style="width:100%;">Back</button>';
+}
+
+/******************** ORDER SCREEN ********************/
+function currentOrder(){ return state.orders[state.orderIndex]; }
+
+function orderHTML(){
+  var o = currentOrder();
+  if(!o) return '<div class="card">No orders on this route.</div>';
+
+  var total = state.orders.length;
+  var done = 0;
+  for (var i = 0; i < state.orders.length; i++) {
+    if (state.orders[i].currentStatus) done++;
+  }
+
+  var cod = isCodOrder(o);
+  var mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + o.lat + ',' + o.lng;
+
+  // He photographed this stop, the page reloaded, and the photos came
+  // back with it. Saying so is the difference between carrying on and
+  // opening the camera again.
+  var restored = '';
+  if (state.podRestored && !o.currentStatus) {
+    restored = '<div class="ok-note" style="margin-bottom:10px;">' +
+      state.podRestored + (state.podRestored === 1 ? ' photo' : ' photos') +
+      ' you took for this shop are still saved. Carry on from here.</div>';
+  }
+
+  var statusBlock = '';
+  if (o.currentStatus) {
+    var st = o.currentStatus['Status'];
+    var cls = (st === 'Delivered') ? 'delivered' : 'notdelivered';
+    var detail = '';
+    if (st === 'Delivered') {
+      detail = 'Cash ' + money(o.currentStatus['Cash Collected']) +
+               ' \u00b7 UPI ' + money(o.currentStatus['UPI Collected']);
+    } else {
+      detail = esc(o.currentStatus['Reason'] || '');
+    }
+    statusBlock =
+      '<div style="margin:15px 0 10px;">' +
+        '<span class="badge ' + cls + '">' + esc(st) + '</span>' +
+        (pendingFor(state.code, o.invoiceNo)
+          ? '<span class="unsaved-tag" data-unsaved="' + esc(o.invoiceNo) + '">Not saved yet</span>' : '') +
+        '<div class="hint">' + detail + '</div>' +
+      '</div>' +
+      '<button class="secondary small" data-action="remark">Change this status</button>';
+  } else {
+    statusBlock = restored +
+      '<div class="action-grid">' +
+        '<button class="action-btn delivered" data-action="start-mark" data-status="Delivered">Delivered</button>' +
+        '<button class="action-btn notdelivered" data-action="start-mark" data-status="Not Delivered">Not delivered</button>' +
+      '</div>';
+  }
+
+  var instr = o.instructions
+    ? '<div class="field-row"><span class="l">Instructions</span><span class="v">' + esc(o.instructions) + '</span></div>'
+    : '';
+
+  // Return requests are raised by support against the shop, often
+  // weeks earlier, and surface on whichever delivery comes next.
+  var retBlock = '';
+  var rets = o.returns || [];
+  for (var k = 0; k < rets.length; k++) {
+    var rq = rets[k];
+    var collected = !!rq._collected;
+    var deferred = !collected && !!rq._deferred;
+    retBlock += '<div class="ret-box' + (collected ? ' ret-done' : '') +
+      (deferred ? ' ret-defer' : '') + '">' +
+      '<div class="ret-head">' + (collected ? 'RETURN COLLECTED'
+        : (deferred ? 'RETURN PENDING \u2014 NEXT TIME' : 'RETURN REQUEST')) + '</div>' +
+      '<div class="ret-detail">' + esc(rq.details) + '</div>' +
+      '<div class="ret-meta">Raised by ' + esc(rq.raisedBy) + ' on ' + esc(rq.raisedAt) + '</div>' +
+      ((collected || deferred)
+        ? ''
+        : '<div style="margin-top:10px;"><button class="secondary small" data-action="start-collect" data-rid="' +
+          esc(rq.requestId) + '">Collect return</button></div>') +
+      '</div>';
+  }
+  var codStr = cod ? ' \u00b7 ' + money(o.balanceDue) : '';
+  var pct = total ? (done / total * 100) : 0;
+  var finishBtn = (done === total && total > 0)
+    ? '<div style="margin-top:13px;"><button class="primary" data-action="go-summary">Finish day</button></div>'
+    : '';
+
+  var prevDis = (state.orderIndex === 0) ? 'disabled' : '';
+  var nextDis = (state.orderIndex === total - 1) ? 'disabled' : '';
+
+  return '' +
+    '<div class="progress-wrap">' +
+      '<div style="display:flex; justify-content:space-between; font-size:13px; color:var(--ink-soft);">' +
+        '<span>Stop ' + esc(o.sequence) + ' of ' + total + '</span>' +
+        '<span>' + done + '/' + total + ' closed</span>' +
+      '</div>' +
+      '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div class="order-head">' +
+        '<div class="stopnum">' + esc(o.sequence) + '</div>' +
+        '<div class="name">' + esc(cleanName(o.partyName)) +
+        ' <span class="name-id">(' + esc(shortId(o.invoiceNo)) + ')</span></div>' +
+      '</div>' +
+      '<div class="field-row"><span class="l">Shop Number</span><span class="v">' + esc(o.phone) + '</span></div>' +
+      '<div class="field-row"><span class="l">SO name</span><span class="v">' + esc(o.soName) + '</span></div>' +
+      '<div class="field-row"><span class="l">SO number</span><span class="v">' + esc(o.soNumber) + '</span></div>' +
+      '<div class="field-row"><span class="l">Order type</span><span class="v">' + esc(o.orderType) + codStr + '</span></div>' +
+      '<div class="field-row"><span class="l">Location</span><span class="v">' +
+        '<a class="maps-link" href="' + mapUrl + '" target="_blank" rel="noopener">Open in Maps</a></span></div>' +
+      instr +
+      retBlock +
+      statusBlock +
+    '</div>' +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="prev-order" ' + prevDis + '>Back</button>' +
+      '<button class="secondary" data-action="next-order" ' + nextDis + '>Next</button>' +
+    '</div>' +
+    finishBtn;
+}
+
+// A bill revised after the route was loaded. The DA has to be told,
+// not just handed a different number - the shopkeeper is holding the
+// new invoice and will argue about the old one.
+function revisedNote(o){
+  if (!o || !o.dueChanged) return '';
+  var was = Number(o.dueWas || 0), now = Number(o.balanceDue || 0);
+  var dir = now < was ? 'reduced' : 'increased';
+  return '<p class="hint" style="margin:6px 0 0; color:var(--warn, #9a6b00); font-weight:600;">' +
+    'Bill ' + dir + ' after loading — was ' + money(was) + ', now ' + money(now) + '.' +
+    '<br/>Collect ' + money(now) + '. The shop’s invoice shows this.</p>';
+}
+
+/******************** MARK SCREEN ********************/
+function markHTML(){
+  var o = currentOrder();
+  if(!o) return '<div class="card">Order not found.</div>';
+  var cod = isCodOrder(o);
+  var balanceDue = Number(o.balanceDue || 0);
+
+  if (state.markStatus === 'Delivered' && !cod) {
+
+    // The shop has already paid, but the goods can still be wrong. One
+    // tap closes a clean delivery; Report issue records what was wrong.
+    if (!state.issueOpen) {
+      return '<div class="card">' +
+        '<p style="font-weight:600; margin:0 0 6px; font-size:15px;">Confirm delivery</p>' +
+        '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+        '<p class="hint">Prepaid order \u2014 nothing to collect.</p>' +
+        errHTML() +
+        '<div class="action-grid" style="grid-template-columns:1fr 1fr; margin-top:14px;">' +
+          '<button class="action-btn delivered" data-action="confirm-mark">Confirm</button>' +
+          '<button class="action-btn notdelivered" data-action="issue-open">Report issue</button>' +
+        '</div>' +
+        '<div style="margin-top:12px;"><button class="secondary" data-action="cancel-mark" style="width:100%;">Back</button></div>' +
+        '</div>';
+    }
+
+    var iopts = '<option value="">What was wrong?</option>';
+    for (var ii = 0; ii < DELIVERY_ISSUES.length; ii++) {
+      iopts += '<option value="' + DELIVERY_ISSUES[ii] + '"' +
+        (state.issueType === DELIVERY_ISSUES[ii] ? ' selected' : '') + '>' +
+        DELIVERY_ISSUES[ii] + '</option>';
+    }
+    var iimg = state.screenshotPreview
+      ? '<img class="thumb" src="' + state.screenshotPreview + '" alt="" />' : '';
+    var ibtn = state.screenshotPreview ? 'Change photo' : 'Add a photo (optional)';
+    var iready = state.issueType && String(state.issueItems || '').trim();
+
+    return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Report an issue</p>' +
+      '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+      '<p class="hint">The order is still marked delivered. This tells the office what was wrong.</p>' +
+      '<label>Issue</label>' +
+      '<select id="issue-type">' + iopts + '</select>' +
+      '<label>Which items, and how many</label>' +
+      '<input type="text" id="issue-items" value="' + esc(state.issueItems) + '" placeholder="e.g. 2 cartons Maaza short" />' +
+      '<label>Note (optional)</label>' +
+      '<input type="text" id="issue-note" value="' + esc(state.issueNote) + '" placeholder="Anything else worth saying" />' +
+      '<label>Photo (optional)</label>' + iimg +
+      '<label class="file-btn">' + ibtn +
+        '<input type="file" accept="image/*" id="screenshot-input" style="display:none;" /></label>' +
+      errHTML() +
+      '<div class="nav-row">' +
+        '<button class="secondary" data-action="issue-cancel">Back</button>' +
+        '<button class="primary" data-action="confirm-mark" ' + (iready ? '' : 'disabled') + '>Confirm delivery</button>' +
+      '</div></div>';
+  }
+
+  if (state.markStatus === 'Delivered' && cod) {
+
+    // Step 1 of a COD delivery: is the shop paying the full invoice?
+    if (!state.amountChoice) {
+      return '<div class="card">' +
+        '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Mark delivered</p>' +
+        '<p class="hint" style="margin:0 0 12px;">' + esc(cleanName(o.partyName)) + '</p>' +
+        revisedNote(o) +
+        '<div class="action-grid" style="grid-template-columns:1fr; margin-top:' +
+          (o.dueChanged ? '12px' : '0') + ';">' +
+          '<button class="action-btn delivered" data-action="amt-full">' +
+            'Full amount ' + money(balanceDue) + '</button>' +
+          '<button class="action-btn notdelivered" data-action="amt-diff">' +
+            'Different amount</button>' +
+        '</div>' +
+        errHTML() +
+        '<div style="margin-top:12px;"><button class="secondary" data-action="cancel-mark" style="width:100%;">Back</button></div>' +
+        '</div>';
+    }
+
+    // Step 2, only when it is not the full amount: how much, why, proof.
+    if (state.amountChoice === 'diff' && !state.amountDone) {
+      var sopts = '<option value="">Select a reason</option>';
+      for (var si = 0; si < SHORT_REASONS.length; si++) {
+        sopts += '<option value="' + SHORT_REASONS[si] + '"' +
+          (state.shortReason === SHORT_REASONS[si] ? ' selected' : '') + '>' +
+          SHORT_REASONS[si] + '</option>';
+      }
+      var simg = state.screenshotPreview
+        ? '<img class="thumb" src="' + state.screenshotPreview + '" alt="" />' : '';
+      var sbtn = state.screenshotPreview ? 'Change photo' : 'Take photo';
+      var sready = state.collectedInput !== '' && state.shortReason && state.screenshotBase64;
+
+      return '<div class="card">' +
+        '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Amount collected</p>' +
+        '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+        '<p class="hint" style="font-weight:600; color:var(--ink);">Invoice: ' + money(balanceDue) + '</p>' +
+        revisedNote(o) +
+        '<label>Amount actually collected</label>' +
+        '<input type="number" inputmode="decimal" id="collected-input" value="' + esc(state.collectedInput) + '" placeholder="0" />' +
+        '<label>Why less than the invoice</label>' +
+        '<select id="short-reason">' + sopts + '</select>' +
+        '<label>Note (optional)</label>' +
+        '<input type="text" id="short-note" value="' + esc(state.shortNote) + '" placeholder="Extra detail" />' +
+        '<label>Photo (required)</label>' + simg +
+        '<label class="file-btn">' + sbtn +
+          '<input type="file" accept="image/*" id="screenshot-input" style="display:none;" /></label>' +
+        errHTML() +
+        '<div class="nav-row">' +
+          '<button class="secondary" data-action="amt-back">Back</button>' +
+          '<button class="primary" data-action="amt-next" ' + (sready ? '' : 'disabled') + '>Continue</button>' +
+        '</div>' +
+        '</div>';
+    }
+
+    // Step 3: how the money was paid. Validated against what was
+    // actually collected, not the invoice.
+    var due = collectedDue(o);
+    var amountFields = '';
+    if (state.payMode === 'Split') {
+      var splitTotal = (Number(state.cashInput)||0) + (Number(state.upiInput)||0);
+      amountFields =
+        '<label>Cash amount</label>' +
+        '<input type="number" inputmode="decimal" id="cash-input" value="' + esc(state.cashInput) + '" />' +
+        '<label>UPI amount</label>' +
+        '<input type="number" inputmode="decimal" id="upi-input" value="' + esc(state.upiInput) + '" />' +
+        '<div class="hint" id="split-hint">Must add up to ' + money(due) +
+        '. Currently ' + money(splitTotal) + '.</div>';
+    }
+
+    var needsShot = state.payMode === 'UPI' || state.payMode === 'Split';
+    var shotHTML = '';
+    if (needsShot) {
+      var img = state.screenshotPreview
+        ? '<img class="thumb" src="' + state.screenshotPreview + '" alt="" />' : '';
+      var btnTxt = state.screenshotPreview ? 'Change screenshot' : 'Upload or take a photo';
+      shotHTML =
+        '<label>Payment screenshot</label>' + img +
+        '<label class="file-btn">' + btnTxt +
+        '<input type="file" accept="image/*" id="screenshot-input" style="display:none;" /></label>';
+    }
+
+    var shotMissing = (state.payMode === 'UPI' || state.payMode === 'Split') &&
+                      !state.screenshotBase64 && !state.screenshotLink;
+    var confirmDis = (state.payMode && !shotMissing) ? '' : 'disabled';
+    var shortLine = (state.amountChoice === 'diff')
+      ? '<p class="hint" style="color:var(--amber); font-weight:600;">Short by ' +
+        money(balanceDue - due) + ' \u2014 ' + esc(state.shortReason) + '</p>'
+      : '';
+
+    return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Payment</p>' +
+      '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+      '<p class="hint" style="font-weight:600; color:var(--ink);">To collect: ' + money(due) + '</p>' +
+      shortLine +
+      '<div class="pay-grid">' +
+        '<div class="pay-opt' + (state.payMode==='Cash'?' active':'') + '" data-action="pick-pay" data-mode="Cash">Cash</div>' +
+        '<div class="pay-opt' + (state.payMode==='UPI'?' active':'') + '" data-action="pick-pay" data-mode="UPI">UPI</div>' +
+        '<div class="pay-opt' + (state.payMode==='Split'?' active':'') + '" data-action="pick-pay" data-mode="Split">Split</div>' +
+      '</div>' +
+      amountFields + shotHTML +
+      (shotMissing ? '<div class="hint" style="color:var(--amber); font-weight:600;">' +
+        'Add the screenshot to continue \u2014 the office cannot accept a UPI payment without it.</div>' : '') +
+      errHTML() +
+      '<div class="nav-row">' +
+        '<button class="secondary" data-action="pay-back">Back</button>' +
+        '<button class="primary" data-action="confirm-mark" ' + confirmDis + '>Confirm</button>' +
+      '</div></div>';
+  }
+
+  // Not delivered
+  var opts = '<option value="">Select a reason</option>';
+  for (var i = 0; i < REASONS.length; i++) {
+    var sel = (state.reasonInput === REASONS[i]) ? ' selected' : '';
+    opts += '<option value="' + REASONS[i] + '"' + sel + '>' + REASONS[i] + '</option>';
+  }
+
+  var img2 = state.screenshotPreview
+    ? '<img class="thumb" src="' + state.screenshotPreview + '" alt="" />' : '';
+  var btnTxt2 = state.screenshotPreview ? 'Change photo' : 'Take proof picture';
+  var ndDis = (state.reasonInput && state.screenshotBase64) ? '' : 'disabled';
+
+  return '<div class="card">' +
+    '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Mark not delivered</p>' +
+    '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+    '<label>Reason</label>' +
+    '<select id="reason-select">' + opts + '</select>' +
+    '<label>Proof picture (required)</label>' + img2 +
+    '<label class="file-btn">' + btnTxt2 +
+    '<input type="file" accept="image/*" id="screenshot-input" style="display:none;" /></label>' +
+    errHTML() +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="cancel-mark">Back</button>' +
+      '<button class="primary" data-action="confirm-mark" ' + ndDis + '>Confirm</button>' +
+    '</div></div>';
+}
+
+/******************** COLLECT RETURN ********************/
+// Proof of delivery: a photo of the goods at the shop and the
+// shopkeeper's signature. Shown after the money is settled, so the DA
+// is not holding up the shop while he draws.
+//
+// A DA who genuinely cannot capture proof - no camera, no signal, a
+// shopkeeper who will not sign - says why and the delivery still goes
+// through. Blocking him would strand the stop; recording the reason
+// keeps "no proof" visible instead of invisible.
+function podHTML(){
+  var o = currentOrder();
+  if(!o) return '<div class="card">Order not found.</div>';
+
+  if (state.podSkipOpen) {
+    var sopts = '<option value="">Why is there no proof?</option>';
+    for (var k = 0; k < POD_SKIP_REASONS.length; k++) {
+      sopts += '<option value="' + POD_SKIP_REASONS[k] + '"' +
+        (state.podSkipReason === POD_SKIP_REASONS[k] ? ' selected' : '') + '>' +
+        POD_SKIP_REASONS[k] + '</option>';
+    }
+    return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">No proof for this delivery</p>' +
+      '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+      '<p class="hint">The delivery is still recorded. The office will see that no proof was taken.</p>' +
+      errHTML() +
+      '<label>Reason</label>' +
+      '<select id="pod-skip-reason">' + sopts + '</select>' +
+      '<label>Note (optional)</label>' +
+      '<input type="text" id="pod-skip-note" value="' + esc(state.podSkipNote) + '" placeholder="Anything worth saying" />' +
+      '<div style="margin-top:14px;">' +
+        '<button class="primary" data-action="pod-skip-confirm" ' +
+          (state.podSkipReason ? '' : 'disabled') + ' style="width:100%;">Mark delivered without proof</button>' +
+      '</div>' +
+      '<div style="margin-top:10px;">' +
+        '<button class="secondary" data-action="pod-skip-close" style="width:100%;">Back</button>' +
+      '</div>' +
+      '</div>';
+  }
+
+  var shots = state.podPhotos || [];
+  var full = shots.length >= POD_MAX_PHOTOS;
+  var pimg = shots.length
+    ? '<div class="shot-row">' + shots.map(function(sh, i){
+        return '<div class="shot">' +
+          '<img src="' + podThumbSrc(sh) + '" alt="Photo ' + (i + 1) + '" />' +
+          '<button type="button" class="shot-x" data-action="pod-photo-remove" ' +
+            'data-i="' + i + '" aria-label="Remove photo ' + (i + 1) + '">&times;</button>' +
+          (sh.uploading ? '<span class="shot-up">\u2191</span>' : '') +
+          '</div>';
+      }).join('') + '</div>'
+    : '';
+  var pbtn = shots.length ? 'Add another photo' : 'Take photo of the goods';
+  var ready = shots.length && state.podSigBase64;
+
+  return '<div class="card">' +
+    '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Proof of delivery</p>' +
+    '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
+    '<p class="hint">A photo and a signature, so a later dispute can be answered.</p>' +
+    errHTML() +
+
+    '<label>Goods at the shop' +
+      (shots.length ? ' <span class="hint">(' + shots.length + ' of ' + POD_MAX_PHOTOS + ')</span>' : '') +
+    '</label>' + pimg +
+    (full
+      ? '<p class="hint" style="margin-top:6px;">That is the most this delivery can carry. ' +
+        'Remove one to take another.</p>'
+      : '<div class="pod-btns">' +
+          (inAppCamera()
+            ? '<button type="button" class="file-btn" data-action="pod-camera-open">' + pbtn + '</button>'
+            : '<label class="file-btn">' + pbtn +
+              '<input type="file" accept="image/*" capture="environment" id="pod-photo-input" style="display:none;" /></label>') +
+          '<label class="file-btn alt">Upload from gallery' +
+            '<input type="file" accept="image/*" multiple id="pod-gallery-input" style="display:none;" /></label>' +
+        '</div>' +
+        (inAppCamera()
+          ? '<label class="hint" style="display:block; margin-top:6px; text-decoration:underline;">' +
+              'Camera not starting? Use the phone camera app' +
+              '<input type="file" accept="image/*" capture="environment" id="pod-photo-input" style="display:none;" /></label>'
+          : '<p class="hint" style="margin-top:6px;">App logging out when the camera opens? ' +
+              'Take the photo with the phone camera first, then tap <b>Upload from gallery</b>. ' +
+              'It must be taken in the last ' + POD_GALLERY_MAX_AGE_MIN + ' minutes.</p>')) +
+
+    '<label style="margin-top:14px;">Shopkeeper\u2019s signature</label>' +
+
+    // The sentence the signature is against. Without it a signature
+    // only proves somebody signed; with it, and the invoice number in
+    // it, a later "items were short" claim has something to answer.
+    // It also works at the stop: a shopkeeper who is genuinely short
+    // will refuse to sign this, which sends the DA to Report issue or
+    // the short-payment flow, where he should have gone anyway.
+    '<div class="declaration">' +
+      'I have received all the goods on invoice <b>' + esc(o.invoiceNo) + '</b>, ' +
+      'complete and in good condition.' +
+      '<div class="declaration-hi">\u092E\u0948\u0902\u0928\u0947 \u0907\u0938 \u092C\u093F\u0932 \u0915\u093E \u0938\u093E\u0930\u093E \u0938\u093E\u092E\u093E\u0928 \u092A\u0942\u0930\u093E \u0914\u0930 \u0938\u0939\u0940 \u0939\u093E\u0932\u0924 \u092E\u0947\u0902 \u092A\u094D\u0930\u093E\u092A\u094D\u0924 \u0915\u0930 \u0932\u093F\u092F\u093E \u0939\u0948\u0964</div>' +
+    '</div>' +
+
+    '<canvas id="pod-sig" class="sigpad"></canvas>' +
+    '<div class="row" style="margin-top:6px;">' +
+      '<span class="hint grow" id="pod-sig-hint">' +
+        (state.podSigBase64 ? 'Signed' : 'Ask them to sign above') + '</span>' +
+      '<button class="secondary" data-action="pod-sig-clear" style="padding:6px 12px;">Clear</button>' +
+    '</div>' +
+
+    '<div style="margin-top:16px;">' +
+      '<button class="primary" id="pod-confirm" data-action="pod-confirm" ' +
+        (ready ? '' : 'disabled') + ' style="width:100%;">Confirm delivery</button>' +
+    '</div>' +
+    '<div style="margin-top:10px;">' +
+      '<button class="secondary" data-action="pod-skip-open" style="width:100%;">Can\u2019t take proof</button>' +
+    '</div>' +
+    '<div style="margin-top:8px;">' +
+      '<button class="secondary" data-action="cancel-mark" style="width:100%;">Back</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function collectHTML(){
+  var rq = state.collectingReturn;
+  if (!rq) return '<div class="card">Request not found.</div>';
+  var o = currentOrder();
+
+  var head = '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Collect return</p>' +
+    '<p class="hint" style="margin:0 0 2px;">' + esc(o ? cleanName(o.partyName) : '') + '</p>' +
+    '<div class="ret-box" style="margin-top:11px;">' +
+      '<div class="ret-detail">' + esc(rq.details) + '</div>' +
+      '<div class="ret-meta">Raised by ' + esc(rq.raisedBy) + ' on ' + esc(rq.raisedAt) + '</div>' +
+    '</div>';
+
+  // Shop could not hand it over: keep the request open, note why,
+  // and let this order still be delivered.
+  if (state.deferring) {
+    return '<div class="card">' + head +
+      '<label>Why not today?</label>' +
+      '<input type="text" id="defer-reason" value="' + esc(state.deferReason) + '" placeholder="e.g. stock not ready, shop will keep it aside" />' +
+      errHTML() +
+      '<div class="nav-row">' +
+        '<button class="secondary" data-action="cancel-defer">Back</button>' +
+        '<button class="primary" data-action="confirm-defer">Save and continue</button>' +
+      '</div>' +
+      '<div class="hint">The request stays pending and will show again on this shop\'s next delivery.</div>' +
+      '</div>';
+  }
+
+  var img = state.returnPhotoPreview
+    ? '<img class="thumb" src="' + state.returnPhotoPreview + '" alt="" />' : '';
+  var btnTxt = state.returnPhotoPreview ? 'Change photo' : 'Take photo of returned goods';
+  var dis = state.returnPhoto ? '' : 'disabled';
+
+  return '<div class="card">' + head +
+    '<label>Photo of returned goods (required)</label>' + img +
+    '<label class="file-btn">' + btnTxt +
+      '<input type="file" accept="image/*" id="return-photo-input" style="display:none;" /></label>' +
+    errHTML() +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="cancel-collect">Back</button>' +
+      '<button class="primary" data-action="confirm-collect" ' + dis + '>Confirm collected</button>' +
+    '</div>' +
+    '<div style="margin-top:11px;">' +
+      '<button class="secondary" data-action="start-defer" style="width:100%;">Shop can\'t hand it over today</button>' +
+    '</div>' +
+    '</div>';
+}
+
+/******************** UPDATES THE SERVER REFUSED ********************/
+// Something the server will not accept never fixes itself. Show the DA
+// exactly which orders, what the server said, and let them re-do or
+// remove each one.
+function stuckHTML(){
+  var jobs = state.pending.slice();
+  if (!jobs.length) {
+    return '<div class="card"><p style="font-weight:600; margin:0 0 6px;">All updates saved</p>' +
+      '<p class="hint" style="margin:0;">Nothing is waiting.</p>' +
+      '<div class="nav-row"><button class="primary" data-action="stuck-back" style="width:100%;">Back</button></div></div>';
+  }
+
+  var rows = jobs.map(function(j, i){
+    var p = j.payload;
+    var o = null;
+    for (var k = 0; k < state.orders.length; k++) {
+      if (state.orders[k].invoiceNo === p.invoiceNo) o = state.orders[k];
+    }
+    return '<div class="card" style="margin-bottom:10px;">' +
+      '<p style="font-weight:600; margin:0 0 2px; font-size:14.5px;">' +
+        esc(o ? cleanName(o.partyName) : shortId(p.invoiceNo)) + '</p>' +
+      '<p class="hint" style="margin:0 0 6px;">' + esc(shortId(p.invoiceNo)) + ' \u00b7 ' + esc(p.status || '') +
+        (p.cashCollected ? ' \u00b7 Cash ' + money(p.cashCollected) : '') +
+        (p.upiCollected ? ' \u00b7 UPI ' + money(p.upiCollected) : '') + '</p>' +
+      (j.rejected
+        ? '<div class="err" style="margin:0 0 8px;">Server refused it: ' + esc(j.lastError || '') + '</div>'
+        : '<p class="hint" style="margin:0 0 8px;">Waiting to send\u2026 (' + (j.attempts || 0) + ' tries)</p>') +
+      (j.rejected
+        ? '<button class="secondary" data-action="stuck-drop" data-idx="' + i + '" style="width:100%;">' +
+          'Remove this update</button>'
+        : '') +
+      '</div>';
+  }).join('');
+
+  return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 4px; font-size:15px;">Updates not saved</p>' +
+      '<p class="hint" style="margin:0;">Tap Try again once you have signal. If the server keeps refusing one, ' +
+      'remove it here and tell the office \u2014 then mark that order again.</p>' +
+      '<div class="nav-row">' +
+        '<button class="secondary" data-action="stuck-back">Back</button>' +
+        '<button class="primary" data-action="stuck-retry">Try again</button>' +
+      '</div>' +
+    '</div>' + rows;
+}
+
+/******************** SENDING SAVED UPDATES ********************/
+function flushHTML(){
+  var n = state.pending.length;
+  if (!state.flushFailed) {
+    return '<div class="card" style="text-align:center;">' +
+      '<p style="font-weight:600; margin:0 0 6px; font-size:15px;">Sending saved updates\u2026</p>' +
+      '<p class="hint" style="margin:0;">' + n + (n === 1 ? ' update' : ' updates') +
+      ' from earlier ' + (n === 1 ? 'was' : 'were') + ' saved on this phone. Sending them now.</p>' +
+      '</div>';
+  }
+  var bad = rejectedJobs();
+  var why = bad.length
+    ? '<p class="hint" style="margin:0 0 4px;">' + bad.length +
+      (bad.length === 1 ? ' update was refused' : ' updates were refused') + ' by the office: ' +
+      esc(bad[0].lastError) + '</p>' +
+      '<p class="hint">Retrying will not help. Open \u201cUpdates not saved\u201d from the menu to see them, ' +
+      'remove the one that was refused, and mark that order again.</p>'
+    : '<p class="hint" style="margin:0 0 4px;">' + n + (n === 1 ? ' update' : ' updates') +
+      ' from earlier could not be sent \u2014 no connection. They are safe on this phone and will keep trying.</p>' +
+      '<p class="hint">You can carry on working. Ending a trip will wait until they have been sent.</p>';
+
+  return '<div class="card">' +
+    '<p style="font-weight:600; margin:0 0 6px; font-size:15px;">Some updates are still waiting</p>' +
+    why +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="flush-continue">Continue</button>' +
+      '<button class="primary" data-action="flush-retry">Try again</button>' +
+    '</div></div>';
+}
+
+/******************** TRIP CLOSE ********************/
+// The close request is already running in the background while this
+// screen is up, so the wait is spent doing something useful rather
+// than watching a spinner.
+function closingHTML(){
+  if (state.closeError) {
+    return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 6px; font-size:15px;">Could not close the trip</p>' +
+      '<div class="err">' + esc(state.closeError) + '</div>' +
+      '<div class="nav-row">' +
+        '<button class="secondary" data-action="close-cancel">Back</button>' +
+        '<button class="primary" data-action="close-retry">Try again</button>' +
+      '</div></div>';
+  }
+
+  var waiting = state.closing;
+  return '<div class="card">' +
+    '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Anything to report from today?</p>' +
+    '<p class="hint" style="margin:0 0 4px;">Problems on the route, shops closed, vehicle trouble \u2014 anything worth telling the office.</p>' +
+    '<input type="text" id="trip-note" value="' + esc(state.tripNote) + '" placeholder="Leave blank if nothing" />' +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="close-skip">Skip</button>' +
+      '<button class="primary" data-action="close-done">Done</button>' +
+    '</div>' +
+    (waiting
+      ? '<div class="hint" style="margin-top:12px;">Closing your trip\u2026</div>'
+      : '<div class="hint" style="margin-top:12px; color:var(--green); font-weight:600;">Trip closed.</div>') +
+    '</div>';
+}
+
+/******************** SUMMARY ********************/
+function summaryHTML(){
+  var total = state.orders.length;
+  var delivered = 0, notDelivered = 0, cashTotal = 0;
+  for (var i = 0; i < state.orders.length; i++) {
+    var cs = state.orders[i].currentStatus;
+    if (!cs) continue;
+    if (cs['Status'] === 'Delivered') delivered++;
+    else notDelivered++;
+    cashTotal += Number(cs['Cash Collected'] || 0);
+  }
+
+  var stats =
+    '<div class="stat"><span class="l">Delivered</span><span class="n">' + delivered + '/' + total + '</span></div>' +
+    '<div class="stat"><span class="l">Not delivered</span><span class="n">' + notDelivered + '</span></div>';
+
+  var cashCard =
+    '<div class="card cash-card">' +
+      '<p class="hint" style="margin:0 0 5px;">Cash to deposit</p>' +
+      '<p class="cash-amt">' + money(cashTotal) + '</p>' +
+    '</div>';
+
+  if (state.tripClosed) {
+    return '' +
+      '<div class="card" style="text-align:center;">' +
+        '<p style="font-size:18px; font-weight:700; margin:0 0 5px;">Day closed</p>' +
+        '<p class="hint" style="margin:0;">Trip end time recorded. Thanks for the run today.</p>' +
+      '</div>' +
+      stats + cashCard + errHTML() +
+      '<div style="margin-top:4px;"><button class="secondary" data-action="reopen-trip" style="width:100%;">Reopen this trip</button></div>' +
+      '<div style="margin-top:10px;"><button class="primary" data-action="logout">Log out</button></div>';
+  }
+
+  return '' + stats + cashCard + errHTML() +
+    '<button class="primary" data-action="ask-end-trip">End trip</button>' +
+    '<div style="margin-top:10px;"><button class="secondary" data-action="back-to-orders" style="width:100%;">Back to orders</button></div>';
+}
+
+/******************** MODALS ********************/
+function modalHTML(){
+  if (!state.modal) return '';
+  var m = state.modal;
+  return '<div class="overlay" data-action="close-modal"><div class="modal" data-stop="1">' +
+    '<h3>' + esc(m.title) + '</h3>' +
+    '<p>' + esc(m.body) + '</p>' +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="close-modal">' + esc(m.cancelText || 'Cancel') + '</button>' +
+      '<button class="primary" data-action="' + m.confirmAction + '">' + esc(m.confirmText || 'Confirm') + '</button>' +
+    '</div></div></div>';
+}
+
+/******************** EVENTS ********************/
+function attachEvents(){
+  var app = document.getElementById('app');
+  if(!app) return;
+
+  var nodes = app.querySelectorAll('[data-action]');
+  for (var i = 0; i < nodes.length; i++) {
+    nodes[i].addEventListener('click', onAction);
+  }
+
+  var stops = app.querySelectorAll('[data-stop]');
+  for (var j = 0; j < stops.length; j++) {
+    stops[j].addEventListener('click', function(ev){ ev.stopPropagation(); });
+  }
+
+  var reasonSel = document.getElementById('reason-select');
+  if (reasonSel) {
+    reasonSel.addEventListener('change', function(){
+      state.reasonInput = reasonSel.value;
+      render();
+    });
+  }
+
+  var cashEl = document.getElementById('cash-input');
+  var upiEl = document.getElementById('upi-input');
+  if (cashEl && upiEl) {
+    cashEl.addEventListener('input', function(){
+      state.cashInput = cashEl.value;
+      var o = currentOrder();
+      var due = o ? collectedDue(o) : 0;
+      state.upiInput = (state.cashInput === '') ? '' : String(Math.max(0, +(due - (Number(state.cashInput)||0)).toFixed(2)));
+      upiEl.value = state.upiInput;
+      refreshSplitHint();
+    });
+    upiEl.addEventListener('input', function(){
+      state.upiInput = upiEl.value;
+      var o = currentOrder();
+      var due = o ? collectedDue(o) : 0;
+      state.cashInput = (state.upiInput === '') ? '' : String(Math.max(0, +(due - (Number(state.upiInput)||0)).toFixed(2)));
+      cashEl.value = state.cashInput;
+      refreshSplitHint();
+    });
+  }
+
+  var itEl = document.getElementById('issue-type');
+  if (itEl) itEl.addEventListener('change', function(){ state.issueType = itEl.value; render(); });
+  var iiEl = document.getElementById('issue-items');
+  if (iiEl) iiEl.addEventListener('input', function(){
+    var was = !!String(state.issueItems || '').trim();
+    state.issueItems = iiEl.value;
+    // Only redraw when the Confirm button needs to switch on or off.
+    if (was !== !!iiEl.value.trim()) render();
+  });
+  var inEl = document.getElementById('issue-note');
+  if (inEl) inEl.addEventListener('input', function(){ state.issueNote = inEl.value; });
+
+  var collEl = document.getElementById('collected-input');
+  if (collEl) collEl.addEventListener('input', function(){ state.collectedInput = collEl.value; });
+  var srEl = document.getElementById('short-reason');
+  if (srEl) srEl.addEventListener('change', function(){ state.shortReason = srEl.value; render(); });
+  var snEl = document.getElementById('short-note');
+  if (snEl) snEl.addEventListener('input', function(){ state.shortNote = snEl.value; });
+  var tnEl = document.getElementById('trip-note');
+  if (tnEl) tnEl.addEventListener('input', function(){ state.tripNote = tnEl.value; });
+
+  var podInput = document.getElementById('pod-photo-input');
+  if (podInput) podInput.addEventListener('change', function(){
+    addPodFiles(podInput, false);
+  });
+  var podGallery = document.getElementById('pod-gallery-input');
+  if (podGallery) podGallery.addEventListener('change', function(){
+    addPodFiles(podGallery, true);
+  });
+
+  var skipSel = document.getElementById('pod-skip-reason');
+  if (skipSel) skipSel.addEventListener('change', function(){
+    state.podSkipReason = skipSel.value; render();
+  });
+  var skipNote = document.getElementById('pod-skip-note');
+  if (skipNote) skipNote.addEventListener('input', function(){ state.podSkipNote = skipNote.value; });
+
+  setupSignaturePad();
+
+  var retInput = document.getElementById('return-photo-input');
+  if (retInput) {
+    retInput.addEventListener('change', function(){
+      var file = retInput.files && retInput.files[0];
+      if (!file) return;
+      state.loading = true; state.loadingMsg = 'Preparing photo...'; render();
+      compressImage(file, function(out){
+        state.returnPhotoPreview = out.dataUrl;
+        state.returnPhotoMime = out.mime;
+        state.returnPhoto = out.base64;
+        state.loading = false;
+        render();
+      });
+    });
+  }
+
+  var shotEl = document.getElementById('screenshot-input');
+  if (shotEl) {
+    shotEl.addEventListener('change', function(){
+      var file = shotEl.files && shotEl.files[0];
+      if(!file) return;
+      state.loading = true; state.loadingMsg = 'Preparing photo...'; render();
+      compressImage(file, function(out){
+        state.screenshotPreview = out.dataUrl;
+        state.screenshotMime = out.mime;
+        state.screenshotBase64 = out.base64;
+        state.screenshotLink = null;
+        state.loading = false;
+        render();
+
+        // Start the upload now so it overlaps with the DA filling in
+        // the rest of the form.
+        var o = currentOrder();
+        if (!o) return;
+        state.screenshotUploading = true;
+        api('uploadPhoto', {
+          code: state.code,
+          invoiceNo: o.invoiceNo,
+          isProof: (state.markStatus === 'Not Delivered'),
+          screenshotBase64: out.base64,
+          screenshotMime: out.mime
+        }).then(function(res){
+          state.screenshotUploading = false;
+          if (res && res.success && res.link) state.screenshotLink = res.link;
+        });
+      });
+    });
+  }
+}
+
+function refreshSplitHint(){
+  var o = currentOrder();
+  if(!o) return;
+  var due = collectedDue(o);
+  var total = (Number(state.cashInput)||0) + (Number(state.upiInput)||0);
+  var el = document.getElementById('split-hint');
+  if (el) el.textContent = 'Must add up to ' + money(due) + '. Currently ' + money(total) + '.';
+}
+
+// If the DA tapped "Change this status" then navigated away without
+// re-marking, put the original status back rather than leaving the
+// order looking unmarked.
+function restoreSaved(){
+  var o = currentOrder();
+  if (o && o._saved) { o.currentStatus = o._saved; delete o._saved; }
+}
+
+// The app redraws by replacing innerHTML, which would wipe a drawn
+// signature. So every stroke is kept as a data URL in state and painted
+// back onto a fresh canvas after each render.
+function setupSignaturePad(){
+  var cv = document.getElementById('pod-sig');
+  if (!cv) return;
+
+  // Match the backing store to the element's real size, allowing for a
+  // phone's pixel ratio, or the line comes out blurred and offset.
+  var ratio = window.devicePixelRatio || 1;
+  var rect = cv.getBoundingClientRect();
+  cv.width = Math.max(1, Math.round(rect.width * ratio));
+  cv.height = Math.max(1, Math.round(rect.height * ratio));
+  var ctx = cv.getContext('2d');
+  ctx.scale(ratio, ratio);
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#111';
+
+  if (state.podSigPreview) {
+    var img = new Image();
+    img.onload = function(){ ctx.drawImage(img, 0, 0, rect.width, rect.height); };
+    img.src = state.podSigPreview;
+  }
+
+  var drawing = false;
+  var pos = function(ev){
+    var r = cv.getBoundingClientRect();
+    var t = (ev.touches && ev.touches[0]) || ev;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+
+  var start = function(ev){
+    ev.preventDefault();
+    drawing = true;
+    var p = pos(ev);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  };
+  var move = function(ev){
+    if (!drawing) return;
+    ev.preventDefault();
+    var p = pos(ev);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  };
+  var end = function(){
+    if (!drawing) return;
+    drawing = false;
+    // Kept without a re-render, so drawing stays smooth. The confirm
+    // button is enabled by hand instead.
+    try {
+      state.podSigPreview = cv.toDataURL('image/png');
+      state.podSigBase64 = state.podSigPreview.split(',')[1];
+    } catch (e) {}
+    var hint = document.getElementById('pod-sig-hint');
+    if (hint) hint.textContent = 'Signed';
+    refreshPodConfirm();
+  };
+
+  cv.addEventListener('pointerdown', start);
+  cv.addEventListener('pointermove', move);
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointerleave', end);
+  // Older Android browsers without pointer events.
+  cv.addEventListener('touchstart', start, { passive: false });
+  cv.addEventListener('touchmove', move, { passive: false });
+  cv.addEventListener('touchend', end);
+  cv.addEventListener('mousedown', start);
+  cv.addEventListener('mousemove', move);
+  cv.addEventListener('mouseup', end);
+}
+
+function refreshPodConfirm(){
+  var btn = document.getElementById('pod-confirm');
+  if (!btn) return;
+  if (state.podPhotos.length && state.podSigBase64) btn.removeAttribute('disabled');
+  else btn.setAttribute('disabled', 'disabled');
+}
+
+function clearSignature(){
+  state.podSigBase64 = null;
+  state.podSigPreview = null;
+  var cv = document.getElementById('pod-sig');
+  if (cv) {
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+  }
+  render();
+}
+
+// The photo goes up while the signature is being taken, so the queued
+// mark carries a link rather than an image. If it fails, the raw data
+// goes with the mark instead and the server saves it.
+// A thumbnail for a photo, from the link once it has uploaded and from
+// the bytes before that. Built when it is drawn rather than kept.
+function podThumbSrc(sh){
+  if (sh.link) return thumbFor(sh.link);
+  if (sh.base64) return 'data:' + (sh.mime || 'image/jpeg') + ';base64,' + sh.base64;
+  return '';
+}
+
+// A Drive file's thumbnail, which is a fraction of the full image.
+function thumbFor(url){
+  var m = String(url || '').match(/[-\w]{25,}/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w200' : url;
+}
+
+/**
+ * Proof photos already uploaded for the stop in hand.
+ *
+ * The camera is heavy enough to get the page evicted on a phone with
+ * little memory, and the reload loses everything held in the tab. The
+ * pictures themselves are already safe on Drive by then, so only
+ * their links are kept here - a few hundred bytes, not megabytes -
+ * and the DA comes back to a stop that still has its photos rather
+ * than being sent to the camera a second time.
+ */
+function savePodProgress(){
+  try {
+    if (state.isDemo) return;
+    var o = currentOrder();
+    if (!o) return;
+    var links = state.podPhotos.filter(function(sh){ return sh.link; })
+                               .map(function(sh){ return sh.link; });
+    if (!links.length && !state.podSkipReason) { localStorage.removeItem('bm_pod'); return; }
+    localStorage.setItem('bm_pod', JSON.stringify({
+      day: todayKey(), code: state.code, invoiceNo: o.invoiceNo,
+      links: links, skip: state.podSkipReason || ''
+    }));
+  } catch(e){}
+}
+
+function clearPodProgress(){
+  try { localStorage.removeItem('bm_pod'); } catch(e){}
+}
+
+// Returns the saved proof for this stop, or null. Anything from
+// another day, route or order is not his and is thrown away.
+function loadPodProgress(invoiceNo){
+  try {
+    var raw = localStorage.getItem('bm_pod');
+    if (!raw) return null;
+    var p = JSON.parse(raw);
+    if (!p || p.day !== todayKey() || p.code !== state.code) { clearPodProgress(); return null; }
+    if (p.invoiceNo !== invoiceNo) return null;
+    return p;
+  } catch(e){ return null; }
+}
+
+function uploadPodPhotos(){
+  if (state.isDemo) return;
+  var inv = (currentOrder() || {}).invoiceNo;
+  state.podPhotos.forEach(function(sh){
+    if (sh.link || sh.uploading) return;
+    sh.uploading = true;
+    api('uploadPhoto', {
+      code: state.code, invoiceNo: inv, kind: 'pod',
+      screenshotBase64: sh.base64, screenshotMime: sh.mime
+    }).then(function(res){
+      sh.uploading = false;
+      if (res && res.success && res.link) {
+        sh.link = res.link;
+        // The server has the picture now, so the copy on the phone is
+        // dead weight. Dropping it is what keeps a long route from
+        // filling the browser's memory one stop at a time.
+        sh.base64 = null;
+        // And its link is written down, so the camera killing the page
+        // does not cost the DA the photo he has just taken.
+        savePodProgress();
+      }
+      // Only repaint the little upload marks, and only while the proof
+      // screen is still up - a redraw mid-signature would wipe it.
+      if (state.view === 'pod') render();
+    }).catch(function(){ sh.uploading = false; });
+  });
+}
+
+function resetPodState(){
+  clearPodProgress();
+  state.podPhotos = [];
+  state.podSigBase64 = null;
+  state.podSigPreview = null;
+  state.podSkipOpen = false;
+  state.podSkipReason = '';
+  state.podSkipNote = '';
+}
+
+function resetMarkState(){
+  state.markStatus = null;
+  state.payMode = null;
+  state.cashInput = '';
+  state.upiInput = '';
+  state.reasonInput = '';
+  state.screenshotBase64 = null;
+  state.screenshotMime = null;
+  state.screenshotPreview = null;
+  state.screenshotLink = null;
+  state.screenshotUploading = false;
+  state.amountChoice = null;
+  state.amountDone = false;
+  state.issueOpen = false;
+  state.issueType = '';
+  state.issueItems = '';
+  state.issueNote = '';
+  state.collectedInput = '';
+  state.shortReason = '';
+  state.shortNote = '';
+}
+
+function onAction(ev){
+  var el = ev.currentTarget;
+  var action = el.getAttribute('data-action');
+  if (!action) return;
+  ev.stopPropagation();
+  state.error = '';
+
+  if (action === 'toggle-menu') { state.menuOpen = !state.menuOpen; render(); return; }
+  if (action === 'toggle-theme') { toggleTheme(); return; }
+  if (action === 'close-modal') { state.modal = null; render(); return; }
+
+  if (action === 'install-app') {
+    state.menuOpen = false;
+    if (state.deferredInstall) {
+      state.deferredInstall.prompt();
+      state.deferredInstall = null;
+    }
+    render();
+    return;
+  }
+
+  if (action === 'open-profile') {
+    state.menuOpen = false; state.profileMsg = ''; state.view = 'profile'; render(); return;
+  }
+  if (action === 'back-from-profile') {
+    state.view = state.orders.length ? 'order' : 'code'; render(); return;
+  }
+
+  if (action === 'logout') {
+    // Unsent marks are NOT discarded on logout. They stay on the phone
+    // and keep sending, each still recorded under the DA who made it.
+    state.confirmingLogout = false;
+    clearSession();
+    if (state.isDemo) state.pending = [];
+    state.isDemo = false;
+    state.loginName = ''; state.pin = ''; state.code = ''; state.vehicleNo = '';
+    state.orders = []; state.orderIndex = 0; state.openTrip = null;
+    state.tripClosed = false; state.menuOpen = false; state.modal = null;
+    resetMarkState();
+    resetPodState();
+    state.view = 'login';
+    render();
+    return;
+  }
+
+  if (action === 'show-stuck') { state.view = 'stuck'; render(); return; }
+  if (action === 'stuck-back') {
+    state.view = !state.loginName ? 'login'
+      : (state.orders.length ? 'order' : (state.openTrip ? 'resume' : 'code'));
+    render(); return;
+  }
+  if (action === 'stuck-retry') { retryNow(); render(); return; }
+  if (action === 'stuck-drop') {
+    var idx = Number(el.getAttribute('data-idx'));
+    var job = state.pending[idx];
+    if (!job) return;
+    state.modal = {
+      title: 'Remove this update?',
+      body: 'The server will not accept it, so it cannot be saved from here. Removing it means ' +
+            shortId(job.payload.invoiceNo) + ' stays unmarked — tell the office, then mark it again.',
+      confirmText: 'Remove',
+      confirmAction: 'stuck-drop-confirm',
+      confirmIdx: idx
+    };
+    render(); return;
+  }
+  if (action === 'stuck-drop-confirm') {
+    var di = state.modal ? state.modal.confirmIdx : -1;
+    state.modal = null;
+    if (di > -1 && state.pending[di]) {
+      var inv = state.pending[di].payload.invoiceNo;
+      state.pending.splice(di, 1);
+      for (var oi = 0; oi < state.orders.length; oi++) {
+        // Show it as unmarked again so the DA can re-do it properly.
+        if (state.orders[oi].invoiceNo === inv && state.orders[oi]._unsaved) {
+          state.orders[oi].currentStatus = null;
+          delete state.orders[oi]._unsaved;
+        }
+      }
+      state.syncFailed = rejectedJobs().length > 0;
+      saveQueue();
+    }
+    render(); return;
+  }
+
+  if (action === 'flush-retry') { flushThen(state.flushNext || afterLogin); return; }
+  if (action === 'menu-stuck') { state.menuOpen = false; state.view = 'stuck'; render(); return; }
+
+  if (action === 'flush-continue') {
+    var nx = state.flushNext || afterLogin;
+    state.flushNext = null; state.flushFailed = false;
+    pumpQueue();
+    nx();
+    return;
+  }
+
+  if (action === 'do-login')        { doLogin(); return; }
+  if (action === 'do-enter-code')   { doEnterCode(false); return; }
+  if (action === 'confirm-handover'){ state.modal = null; doEnterCode(true); return; }
+  if (action === 'resume-trip')     { doResume(); return; }
+
+  if (action === 'reopen-retry') {
+    var sess = loadSession();
+    if (sess) { state.reopenError = ''; resumeSession(sess); }
+    else { state.view = 'login'; render(); }
+    return;
+  }
+  if (action === 'reopen-login') {
+    // Only here, where the DA has chosen it, is the session dropped.
+    clearSession();
+    state.loginName = ''; state.code = ''; state.reopenError = '';
+    state.view = 'login';
+    render();
+    return;
+  }
+
+  if (action === 'prev-order') {
+    restoreSaved();
+    if (state.orderIndex > 0) { state.orderIndex--; saveSession(); render(); }
+    return;
+  }
+  if (action === 'next-order') {
+    restoreSaved();
+    if (state.orderIndex < state.orders.length - 1) { state.orderIndex++; saveSession(); render(); }
+    return;
+  }
+  if (action === 'go-summary')      { state.view = 'summary'; render(); return; }
+  if (action === 'back-to-orders')  { state.view = 'order'; render(); return; }
+
+  if (action === 'start-mark') {
+    var wasRestored = currentOrder() ? loadPodProgress(currentOrder().invoiceNo) : null;
+    resetMarkState();
+    resetPodState();
+    // Put back what survived the reload, now that the proof state is
+    // fresh and will not be cleared out from under it.
+    if (wasRestored) {
+      state.podPhotos = (wasRestored.links || []).map(function(u){
+        return { base64: null, mime: 'image/jpeg', link: u, uploading: false };
+      });
+      state.podSkipReason = wasRestored.skip || '';
+      savePodProgress();
+    }
+    state.podRestored = 0;
+    state.markStatus = el.getAttribute('data-status');
+    state.view = 'mark';
+    render();
+    return;
+  }
+
+  if (action === 'remark') {
+    resetMarkState();
+    resetPodState();
+    var o = currentOrder();
+    if (o) { o._saved = o.currentStatus; o.currentStatus = null; }
+    state.view = 'order';
+    render();
+    return;
+  }
+
+  if (action === 'cancel-mark') {
+    var co = currentOrder();
+    if (co && co._saved) { co.currentStatus = co._saved; delete co._saved; }
+    resetMarkState();
+    resetPodState();
+    state.view = 'order';
+    render();
+    return;
+  }
+
+  if (action === 'issue-open') {
+    state.issueOpen = true;
+    state.issueType = ''; state.issueItems = ''; state.issueNote = '';
+    state.screenshotBase64 = null; state.screenshotMime = null;
+    state.screenshotPreview = null; state.screenshotLink = null;
+    state.error = '';
+    render();
+    return;
+  }
+  if (action === 'issue-cancel') {
+    state.issueOpen = false;
+    state.issueType = ''; state.issueItems = ''; state.issueNote = '';
+    state.screenshotBase64 = null; state.screenshotMime = null;
+    state.screenshotPreview = null; state.screenshotLink = null;
+    state.error = '';
+    render();
+    return;
+  }
+
+  if (action === 'amt-full') {
+    state.amountChoice = 'full';
+    state.collectedInput = '';
+    state.shortReason = ''; state.shortNote = '';
+    state.screenshotBase64 = null; state.screenshotMime = null;
+    state.screenshotPreview = null; state.screenshotLink = null;
+    render();
+    return;
+  }
+  if (action === 'amt-diff') {
+    state.amountChoice = 'diff';
+    state.amountDone = false;
+    state.payMode = null;
+    state.collectedInput = '';
+    state.screenshotBase64 = null; state.screenshotMime = null;
+    state.screenshotPreview = null; state.screenshotLink = null;
+    render();
+    return;
+  }
+  if (action === 'amt-back') {
+    state.amountChoice = null;
+    state.amountDone = false;
+    state.collectedInput = ''; state.shortReason = ''; state.shortNote = '';
+    state.screenshotBase64 = null; state.screenshotMime = null;
+    state.screenshotPreview = null; state.screenshotLink = null;
+    render();
+    return;
+  }
+  if (action === 'amt-next') {
+    var ao = currentOrder();
+    var inv = Number(ao.balanceDue || 0);
+    var got = Number(state.collectedInput);
+    if (isNaN(got) || got < 0) { state.error = 'Enter the amount collected.'; render(); return; }
+    if (got > inv + 0.01) { state.error = 'Cannot be more than the invoice ' + money(inv) + '.'; render(); return; }
+    if (!state.shortReason) { state.error = 'Pick a reason.'; render(); return; }
+    if (!state.screenshotBase64) { state.error = 'Take a photo.'; render(); return; }
+    // Keep the short-payment photo; the payment screenshot, if any,
+    // replaces it only when UPI is chosen.
+    state.amountDone = true;
+    state.payMode = null;
+    state.error = '';
+    render();
+    return;
+  }
+  if (action === 'pay-back') {
+    if (state.amountChoice === 'diff') { state.amountDone = false; state.payMode = null; }
+    else { state.amountChoice = null; }
+    state.error = '';
+    render();
+    return;
+  }
+
+  if (action === 'pick-pay') {
+    state.payMode = el.getAttribute('data-mode');
+    var po = currentOrder();
+    var due = po ? collectedDue(po) : 0;
+    if (state.payMode === 'Cash') { state.cashInput = String(due); state.upiInput = '0'; }
+    if (state.payMode === 'UPI')  { state.cashInput = '0'; state.upiInput = String(due); }
+    if (state.payMode === 'Split'){ state.cashInput = ''; state.upiInput = ''; }
+    render();
+    return;
+  }
+
+  if (action === 'start-collect') {
+    var rid = el.getAttribute('data-rid');
+    var ord = currentOrder();
+    var found = null;
+    if (ord && ord.returns) {
+      for (var ri = 0; ri < ord.returns.length; ri++) {
+        if (ord.returns[ri].requestId === rid) { found = ord.returns[ri]; break; }
+      }
+    }
+    state.collectingReturn = found;
+    state.returnPhoto = null; state.returnPhotoMime = null; state.returnPhotoPreview = null;
+    state.view = 'collect';
+    render();
+    return;
+  }
+
+  if (action === 'cancel-collect') {
+    state.collectingReturn = null;
+    state.deferring = false; state.deferReason = '';
+    state.returnPhoto = null; state.returnPhotoMime = null; state.returnPhotoPreview = null;
+    state.view = 'order';
+    render();
+    return;
+  }
+
+  if (action === 'confirm-collect') { doCollectReturn(); return; }
+
+  if (action === 'start-defer') {
+    state.deferring = true; state.deferReason = ''; state.error = '';
+    render();
+    return;
+  }
+  if (action === 'cancel-defer') {
+    state.deferring = false; state.error = '';
+    render();
+    return;
+  }
+  if (action === 'confirm-defer') { doDeferReturn(); return; }
+
+  if (action === 'confirm-mark')    { doConfirmMark(); return; }
+  if (action === 'pod-sig-clear')   { clearSignature(); return; }
+  if (action === 'pod-camera-open') { openCamera(); return; }
+  if (action === 'pod-photo-remove'){
+    var pi = Number(el.getAttribute('data-i'));
+    if (pi >= 0) state.podPhotos.splice(pi, 1);
+    render();
+    return;
+  }
+  if (action === 'pod-skip-open')   { state.podSkipOpen = true; state.error = ''; render(); return; }
+  if (action === 'pod-skip-close')  { state.podSkipOpen = false; state.error = ''; render(); return; }
+  if (action === 'pod-confirm')     { submitMark(); return; }
+  if (action === 'pod-skip-confirm'){
+    if (!state.podSkipReason) { state.error = 'Pick a reason.'; render(); return; }
+    var nEl = document.getElementById('pod-skip-note');
+    if (nEl) state.podSkipNote = nEl.value;
+    submitMark();
+    return;
+  }
+  if (action === 'save-pin')        { doSavePin(); return; }
+
+  if (action === 'ask-end-trip' || action === 'ask-end-trip-resume') {
+    state.menuOpen = false;
+    var pending = 0;
+    for (var i = 0; i < state.orders.length; i++) {
+      if (!state.orders[i].currentStatus) pending++;
+    }
+    var msg = (action === 'ask-end-trip-resume')
+      ? 'Any orders not yet marked will be recorded as not delivered.'
+      : (pending > 0
+          ? pending + ' order(s) are still unmarked. They will be recorded as not delivered.'
+          : 'All orders are marked. This will close your day.');
+    state.modal = {
+      title: 'End trip?',
+      body: msg,
+      confirmText: 'End trip',
+      confirmAction: (action === 'ask-end-trip-resume') ? 'do-end-trip-resume' : 'do-end-trip'
+    };
+    render();
+    return;
+  }
+
+  if (action === 'close-blocking-trip'){ doCloseBlockingTrip(); return; }
+  if (action === 'close-skip') { state.tripNote = ''; finishClose(); return; }
+  if (action === 'close-done') {
+    var tn = document.getElementById('trip-note');
+    state.tripNote = tn ? tn.value.trim() : '';
+    finishClose();
+    return;
+  }
+  if (action === 'close-retry') {
+    var rcode = state.endingFromResume
+      ? (state.openTrip ? state.openTrip.code : state.code) : state.code;
+    state.closeError = '';
+    render();
+    fireCloseRequest(rcode, state.tripNote);
+    return;
+  }
+  if (action === 'close-cancel') {
+    state.closeError = '';
+    state.view = state.endingFromResume ? 'resume' : 'order';
+    render();
+    return;
+  }
+
+  if (action === 'do-end-trip')        { doEndTrip(false); return; }
+  if (action === 'do-end-trip-resume') { doEndTrip(true); return; }
+  if (action === 'reopen-trip')        { doReopenTrip(); return; }
+}
+
+/******************** SESSION ON THE PHONE ********************/
+// A DA tapping Back used to land on the login screen and think the app
+// had thrown their work away. The session is kept on the phone instead,
+// so the app reopens on the stop they were on. It holds no PIN - only
+// who was working, which route, and where they had got to - and it
+// expires at the end of the day.
+function todayKey(){
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+
+function saveSession(){
+  try {
+    if (state.isDemo || !state.loginName || !state.code) return;
+    localStorage.setItem('bm_session', JSON.stringify({
+      loginName: state.loginName,
+      code: state.code,
+      vehicleNo: state.vehicleNo || '',
+      orderIndex: state.orderIndex || 0,
+      day: todayKey()
+    }));
+  } catch(e){}
+}
+
+function clearSession(){
+  try { localStorage.removeItem('bm_session'); } catch(e){}
+}
+
+function loadSession(){
+  try {
+    var raw = localStorage.getItem('bm_session');
+    if (!raw) return null;
+    var s = JSON.parse(raw);
+    // A new day means a new route, so make them log in again.
+    if (!s || !s.loginName || !s.code || s.day !== todayKey()) { clearSession(); return null; }
+    return s;
+  } catch(e){ return null; }
+}
+
+// Reopens the route the DA was working, without the login screen.
+function resumeSession(s){
+  state.loginName = s.loginName;
+  state.code = s.code;
+  state.vehicleNo = s.vehicleNo || '';
+  // So the handover prompt below has a code to confirm with - it is
+  // the same prompt the manual path uses, and it reads pendingCode.
+  state.pendingCode = s.code;
+  state.loading = true;
+  state.loadingMsg = 'Opening your route\u2026';
+  render();
+
+  // Reopening is the one call a DA cannot do anything else during, so
+  // it is the one that must not hang. Twenty-five seconds, then the
+  // retry screen - which at least has a button on it.
+  api('enterCode', { loginName: s.loginName, code: s.code, vehicleNo: s.vehicleNo || '' }, 25000)
+    .then(function(res){
+      state.loading = false;
+
+      // A call that never reached the server says nothing about the
+      // route. Coming back from the camera on a weak signal looks
+      // exactly like this, and throwing the DA back to the login
+      // screen mid-round - with his code only on a printed sheet he
+      // may not still have - was the worst possible reading of it.
+      if (!res || res.network) {
+        state.reopenError = (res && res.error) || 'No connection.';
+        state.view = 'reopen';
+        render();
+        return;
+      }
+
+      // Somebody else has opened this code since - a supervisor
+      // checking it, or dispatch. The server will not reopen it
+      // without being told to, and that is not a reason to sign the
+      // DA out of his own route: he is offered it back, exactly as he
+      // would be if he had typed the code in himself.
+      if (res.needsHandover) {
+        state.modal = {
+          title: 'Route already assigned',
+          body: 'This code is assigned to ' + res.claimedBy +
+                '. Continue anyway? The handover will be recorded.',
+          confirmText: 'Continue',
+          confirmAction: 'confirm-handover'
+        };
+        state.view = 'code';
+        render();
+        return;
+      }
+
+      // His own earlier trip is still open. Also a question, not a
+      // refusal.
+      if (res.blockingTrip) {
+        state.modal = {
+          title: 'Close your open trip?',
+          body: 'Trip ' + res.blockingTrip + ' is still open. Ending it will ' +
+                'record any unmarked orders as not delivered.',
+          confirmText: 'End that trip',
+          confirmAction: 'close-blocking-trip'
+        };
+        state.blockingTrip = res.blockingTrip;
+        state.view = 'code';
+        render();
+        return;
+      }
+
+      // The server answered and refused outright. That is a real
+      // answer: the route was cancelled or replaced. Only now is the
+      // saved session worth throwing away.
+      if (!res.success || !res.orders) {
+        clearSession();
+        state.loginName = ''; state.code = '';
+        state.error = res.error || '';
+        state.view = 'login';
+        render();
+        return;
+      }
+      state.reopenError = '';
+      state.orders = res.orders;
+      state.vehicleNo = res.vehicleNo || state.vehicleNo;
+      state.isDemo = !!res.isDemo;
+      state.podRequired = !!res.podRequired;
+      state.tripClosed = false;
+      overlayPending();
+      pumpQueue();
+      // Back to the stop they were on, unless it is already done.
+      var idx = Number(s.orderIndex || 0);
+      state.orderIndex = (idx >= 0 && idx < state.orders.length && !state.orders[idx].currentStatus)
+        ? idx : firstPendingIndex();
+      state.view = 'order';
+
+      // If the page died while he was taking proof of this stop, give
+      // him the photos back. He still has to confirm the delivery, but
+      // he does not have to open the camera again - which is what got
+      // the page killed in the first place.
+      var cur = currentOrder();
+      var saved = cur ? loadPodProgress(cur.invoiceNo) : null;
+      // Only noted here. The photos are reattached when he starts the
+      // mark again, because starting it clears the proof state - so
+      // putting them in now would simply lose them a second time.
+      if (saved && !cur.currentStatus) state.podRestored = (saved.links || []).length;
+
+      render();
+    });
+}
+
+/******************** BACKGROUND SAVE QUEUE ********************/
+// Marks are applied on screen immediately and sent in the background,
+// so the DA never waits on the network. The queue is also written to
+// the phone, so closing the app or losing signal never loses a mark.
+var pumping = false;
+var retryTimer = null;
+
+function enqueueMark(payload){
+  saveSession();
+  // A re-mark of the same order replaces the older unsent one, so the
+  // server only ever receives the DA's latest decision.
+  state.pending = state.pending.filter(function(j){
+    return !(j.payload.code === payload.code && j.payload.invoiceNo === payload.invoiceNo);
+  });
+  state.pending.push({ payload: payload, attempts: 0 });
+  saveQueue();
+  syncIndicators();
+  pumpQueue();
+}
+
+function saveQueue(){
+  try {
+    // A practice route must leave nothing behind, not even locally.
+    if (state.isDemo) return;
+    var jobs = state.pending.filter(function(j){ return !isDemoPayload(j.payload); });
+    if (!jobs.length) { localStorage.removeItem('bm_queue'); state.storageFull = false; return; }
+    localStorage.setItem('bm_queue', JSON.stringify({ jobs: jobs }));
+    state.storageFull = false;
+  } catch(e){
+    // Browser storage is full - usually several marks waiting with
+    // photos still on board. The marks are safe in memory, but a crash
+    // or a closed tab would lose them, so this cannot stay silent.
+    state.storageFull = true;
+    try { syncIndicators(); } catch (e2) {}
+  }
+}
+
+function isDemoPayload(p){
+  return String(p && p.code || '').toUpperCase().indexOf('DEMO') === 0;
+}
+
+// Called straight after login, before the DA can choose anything.
+// Every saved job carries its own DA name and route code, so it is
+// always recorded against the person and route it belongs to - even if
+// someone else happens to log in on the same phone.
+function restoreQueue(){
+  try {
+    var raw = localStorage.getItem('bm_queue');
+    if (!raw) return 0;
+    var saved = JSON.parse(raw);
+    var jobs = (saved && saved.jobs) || [];
+    if (!jobs.length) return 0;
+
+    var have = {};
+    state.pending.forEach(function(j){ have[j.payload.code + '|' + j.payload.invoiceNo] = true; });
+    jobs.forEach(function(j){
+      var k = j.payload.code + '|' + j.payload.invoiceNo;
+      if (!have[k]) { state.pending.push({ payload: j.payload, attempts: 0 }); have[k] = true; }
+    });
+    syncIndicators();
+    return state.pending.length;
+  } catch(e){ return 0; }
+}
+
+function pumpQueue(){
+  if (pumping) return;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  var job = state.pending[0];
+  if (!job) { state.syncFailed = false; saveQueue(); syncIndicators(); return; }
+
+  pumping = true;
+
+  // If a reply never arrives - which is what weak signal does - the
+  // queue must not freeze. Give up waiting and treat it as a failure,
+  // so the next attempt still happens.
+  var settled = false;
+  var watchdog = setTimeout(function(){
+    if (settled) return;
+    settled = true;
+    pumping = false;
+    job.attempts++;
+    job.lastError = 'No reply from the server.';
+    if (job.attempts >= 2) state.syncFailed = true;
+    saveQueue();
+    syncIndicators();
+    reconcileQueue();
+    retryTimer = setTimeout(pumpQueue, 3000);
+  }, 25000);
+
+  api('markInvoice', job.payload).then(function(res){
+    if (settled) return;
+    settled = true;
+    clearTimeout(watchdog);
+    pumping = false;
+    if (res && res.success) {
+      state.pending.shift();
+      state.syncFailed = rejectedJobs().length > 0;
+      clearUnsaved(job.payload);
+      saveQueue();
+      syncIndicators();
+      pumpQueue();
+      return;
+    }
+    job.attempts++;
+    job.lastError = (res && res.error) || 'Save failed.';
+
+    // The server answered and refused it. Retrying forever will never
+    // help, so mark it rather than calling it a signal problem.
+    job.rejected = !!(res && res.success === false && res.error && !res.network);
+
+    if (job.rejected || job.attempts >= 3) state.syncFailed = true;
+
+    // Two failures in a row often means the save worked but the reply
+    // was lost. Ask the server what it actually has before retrying.
+    if (!job.rejected && job.attempts === 2) reconcileQueue();
+    saveQueue();
+    syncIndicators();
+
+    // A refused job must not block the good ones behind it.
+    if (job.rejected && state.pending.length > 1) {
+      state.pending.push(state.pending.shift());
+      saveQueue();
+    }
+
+    var delay = job.rejected ? 20000
+      : Math.min(30000, 1500 * Math.pow(2, Math.min(job.attempts - 1, 4)));
+    retryTimer = setTimeout(pumpQueue, delay);
+  });
+}
+
+// Signal back, or the app brought back to the front: try immediately
+// instead of waiting out the retry delay.
+// Drops anything the server already holds, so a lost reply does not
+// leave the DA staring at "not saved" for work that is done.
+var reconciling = false;
+function reconcileQueue(){
+  if (reconciling || !state.pending.length) return;
+  var code = state.pending[0].payload.code;
+  var invs = state.pending
+    .filter(function(j){ return j.payload.code === code; })
+    .map(function(j){ return j.payload.invoiceNo; });
+  if (!invs.length) return;
+
+  reconciling = true;
+  api('checkSaved', { code: code, invoiceNos: invs }).then(function(res){
+    reconciling = false;
+    if (!res || !res.success || !res.saved || !res.saved.length) return;
+    var done = {};
+    res.saved.forEach(function(i){ done[i] = true; });
+    state.pending = state.pending.filter(function(j){
+      if (j.payload.code === code && done[j.payload.invoiceNo]) {
+        clearUnsaved(j.payload);
+        return false;
+      }
+      return true;
+    });
+    state.syncFailed = rejectedJobs().length > 0;
+    saveQueue();
+    syncIndicators();
+    if (state.view === 'stuck' || state.view === 'order') render();
+  });
+}
+
+function retryNow(){
+  if (!state.pending.length) return;
+  // Check what the server already has first, then send what is left.
+  reconcileQueue();
+  state.pending.forEach(function(j){ if (!j.rejected) j.attempts = 0; });
+  pumpQueue();
+}
+
+function pendingFor(code, invoiceNo){
+  for (var i = 0; i < state.pending.length; i++) {
+    var p = state.pending[i].payload;
+    if (p.code === code && p.invoiceNo === invoiceNo) return state.pending[i];
+  }
+  return null;
+}
+
+function clearUnsaved(payload){
+  for (var i = 0; i < state.orders.length; i++) {
+    var o = state.orders[i];
+    if (state.code === payload.code && o.invoiceNo === payload.invoiceNo) delete o._unsaved;
+  }
+}
+
+// After a route loads, show anything still waiting to send as already
+// marked - otherwise the DA sees it as unmarked and thinks it was lost.
+function overlayPending(){
+  state.pending.forEach(function(j){
+    var p = j.payload;
+    if (p.code !== state.code) return;
+    for (var i = 0; i < state.orders.length; i++) {
+      var o = state.orders[i];
+      if (o.invoiceNo !== p.invoiceNo) continue;
+      o.currentStatus = {
+        'Status': p.status,
+        'Reason': p.reason || '',
+        'Payment Mode': p.paymentMode || '',
+        'Cash Collected': p.cashCollected || 0,
+        'UPI Collected': p.upiCollected || 0
+      };
+      o._unsaved = true;
+    }
+  });
+}
+
+function rejectedJobs(){
+  return state.pending.filter(function(j){ return j.rejected; });
+}
+
+function unsavedText(){
+  var n = state.pending.length;
+  if (!n) return '';
+
+  // Storage is full, so these are held in memory only. Closing the tab
+  // or a crash loses them, and the DA is the only one who can stop
+  // that happening - so it is said plainly rather than buried.
+  if (state.storageFull) {
+    return n + (n === 1 ? ' update is' : ' updates are') +
+      ' waiting and this phone\u2019s storage is full. ' +
+      'Do not close the app. Find signal so they send, or close other ' +
+      'browser tabs to free space.';
+  }
+
+  if (!state.syncFailed) return 'Saving ' + n + (n === 1 ? ' update' : ' updates') + '\u2026';
+
+  var bad = rejectedJobs();
+  if (bad.length) {
+    // The server answered and refused these. Retrying will not help, so
+    // say what it actually said instead of blaming the signal.
+    return bad.length + (bad.length === 1 ? ' update was refused' : ' updates were refused') +
+      ': ' + bad[0].lastError + ' \u2014 tap here to see them.';
+  }
+  return n + (n === 1 ? ' update' : ' updates') +
+    ' not saved yet \u2014 no connection. Keep the app open; it will send when signal returns.';
+}
+
+// Updates the header badge and the banner in place, so a background
+// save never re-renders a form the DA is filling in.
+function syncIndicators(){
+  var el = document.getElementById('sync-badge');
+  if (el) {
+    var n = state.pending.length;
+    el.textContent = n ? (state.syncFailed ? n + ' not saved' : 'Saving ' + n + '\u2026') : '';
+    el.style.display = n ? 'inline' : 'none';
+    el.style.color = state.syncFailed ? '#FFD4D4' : 'rgba(255,255,255,0.8)';
+  }
+  var bar = document.getElementById('sync-banner');
+  if (bar) {
+    var txt = unsavedText();
+    bar.textContent = txt;
+    bar.style.display = txt ? 'block' : 'none';
+    bar.className = 'sync-banner' + ((state.syncFailed || state.storageFull) ? ' bad' : '');
+  }
+  // Card tags change as saves land; only redraw screens with no inputs.
+  if ((state.view === 'order' || state.view === 'summary') && !state.modal && !state.loading) {
+    var tags = document.querySelectorAll('[data-unsaved]');
+    for (var i = 0; i < tags.length; i++) {
+      var inv = tags[i].getAttribute('data-unsaved');
+      if (!pendingFor(state.code, inv)) tags[i].style.display = 'none';
+    }
+  }
+}
+
+// Kept so older call sites still work.
+function badgeText(){
+  var n = state.pending.length;
+  if (!n) return '';
+  return state.syncFailed ? n + ' not saved' : 'Saving ' + n + '\u2026';
+}
+function updateBadge(){ syncIndicators(); }
+
+/******************** ACTIONS ********************/
+function doLogin(){
+  var nameEl = document.getElementById('login-name');
+  var pinEl = document.getElementById('login-pin');
+  var name = nameEl ? nameEl.value.trim() : '';
+  var pin = pinEl ? pinEl.value.trim() : '';
+  if (!name || !pin) { state.error = 'Enter your login name and PIN.'; render(); return; }
+
+  state.loading = true; state.loadingMsg = 'Signing in...'; render();
+  // login also returns any open trip, so this is a single round trip.
+  api('login', { loginName: name, pin: pin }).then(function(res){
+    state.loading = false;
+    if (!res || !res.success) {
+      state.error = (res && res.error) || 'Login failed.';
+      render();
+      return;
+    }
+    state.loginName = res.loginName || name;
+    state.pin = pin;
+    state.openTrip = res.openTrip || null;
+
+    // Anything saved on this phone goes out first, before the DA can
+    // choose Resume or End - so End can never overwrite a real mark.
+    restoreQueue();
+    if (state.pending.length) {
+      flushThen(afterLogin);
+      return;
+    }
+    afterLogin();
+  });
+}
+
+function afterLogin(){
+  state.view = state.openTrip ? 'resume' : 'code';
+  render();
+}
+
+// Tries to send everything waiting, showing progress. If signal is too
+// weak it says so plainly and lets the DA carry on - End trip will still
+// refuse until the queue is empty.
+function flushThen(next){
+  state.flushNext = next;
+  state.view = 'flush';
+  state.flushFailed = false;
+  render();
+  waitForQueue(function(ok){
+    if (ok) { var n = state.flushNext; state.flushNext = null; n(); return; }
+    state.flushFailed = true;
+    render();
+  });
+}
+
+function doResume(){
+  var t = state.openTrip || {};
+  state.loading = true; state.loadingMsg = 'Loading your route...'; render();
+  api('enterCode', {
+    loginName: state.loginName, code: t.code, vehicleNo: t.vehicleNo,
+    isResume: true, confirmHandover: true
+  }).then(function(res){
+    state.loading = false;
+    if (res && res.success) {
+      state.code = t.code;
+      state.vehicleNo = t.vehicleNo || '';
+      state.orders = sortOrders(res.orders);
+      state.orderIndex = firstPendingIndex();
+      state.tripClosed = false;
+      state.view = 'order';
+      overlayPending();
+      pumpQueue();
+      saveSession();
+    } else {
+      state.error = (res && res.error) || 'Could not resume that trip.';
+    }
+    render();
+  });
+}
+
+function doEnterCode(confirmHandover){
+  var codeEl = document.getElementById('code-input');
+  var vehEl = document.getElementById('vehicle-input');
+  var code = state.pendingCode;
+  var veh = state.vehicleNo;
+
+  if (!confirmHandover) {
+    code = codeEl ? codeEl.value.trim().toUpperCase() : '';
+    veh = vehEl ? vehEl.value.trim().toUpperCase() : '';
+    if (!code) { state.error = 'Enter your manifest code.'; render(); return; }
+    state.pendingCode = code;
+    state.vehicleNo = veh;
+  }
+
+  state.loading = true; state.loadingMsg = 'Loading your route...'; render();
+  api('enterCode', {
+    loginName: state.loginName, code: code, vehicleNo: veh,
+    confirmHandover: confirmHandover === true
+  }).then(function(res){
+    state.loading = false;
+    if (res && res.needsHandover) {
+      state.modal = {
+        title: 'Route already assigned',
+        body: 'This code is assigned to ' + res.claimedBy + '. Continue anyway? The handover will be recorded.',
+        confirmText: 'Continue',
+        confirmAction: 'confirm-handover'
+      };
+      render();
+      return;
+    }
+    if (res && res.blockingTrip) {
+      state.modal = {
+        title: 'Close your open trip?',
+        body: 'Trip ' + res.blockingTrip + ' is still open. Ending it will record any unmarked orders as not delivered.',
+        confirmText: 'End that trip',
+        confirmAction: 'close-blocking-trip'
+      };
+      state.blockingTrip = res.blockingTrip;
+      render();
+      return;
+    }
+    if (res && res.success) {
+      state.code = code;
+      state.orders = sortOrders(res.orders);
+      state.orderIndex = firstPendingIndex();
+      state.tripClosed = false;
+      state.isDemo = !!res.isDemo;
+      state.podRequired = !!res.podRequired;
+      state.view = 'order';
+      if (!state.isDemo) { overlayPending(); pumpQueue(); saveSession(); }
+    } else {
+      state.error = (res && res.error) || 'Could not load that code.';
+    }
+    render();
+  });
+}
+
+function doCloseBlockingTrip(){
+  state.modal = null;
+  var code = state.blockingTrip;
+
+  // Marks still waiting for that trip must reach the server first.
+  // Closing over them would record delivered orders as not attempted -
+  // which is exactly what End trip itself refuses to do.
+  var waiting = state.pending.filter(function(j){ return j.payload.code === code; });
+  if (waiting.length) {
+    state.loading = true; state.loadingMsg = 'Saving updates from the old trip\u2026'; render();
+    reconcileQueue();
+    retryNow();
+    waitForQueueCode(code, function(ok){
+      state.loading = false;
+      if (!ok) {
+        var stuck = state.pending
+          .filter(function(j){ return j.payload.code === code; })
+          .map(function(j){ return shortId(j.payload.invoiceNo); });
+        state.modal = {
+          title: 'Can\u2019t close that trip yet',
+          body: stuck.length + (stuck.length === 1 ? ' update from trip ' : ' updates from trip ') + code +
+                ' has not reached the server (' + stuck.join(', ') + '). Closing now would record them as ' +
+                'not delivered. Move to better signal and try again.',
+          confirmText: 'Try again',
+          confirmAction: 'close-blocking-trip',
+          cancelText: 'Not now'
+        };
+        render();
+        return;
+      }
+      doCloseBlockingTrip();
+    });
+    return;
+  }
+
+  state.loading = true; state.loadingMsg = 'Closing old trip...'; render();
+  api('endTrip', { loginName: state.loginName, code: code }).then(function(res){
+    state.loading = false;
+    state.blockingTrip = null;
+    if (res && res.success) {
+      state.error = '';
+      doEnterCode(false);
+    } else {
+      state.error = (res && res.error) || 'Could not close that trip.';
+      render();
+    }
+  });
+}
+
+function sortOrders(list){
+  var arr = (list || []).slice();
+  arr.sort(function(a,b){ return Number(a.sequence) - Number(b.sequence); });
+  return arr;
+}
+
+function firstPendingIndex(){
+  for (var i = 0; i < state.orders.length; i++) {
+    if (!state.orders[i].currentStatus) return i;
+  }
+  return 0;
+}
+
+// Everything up to here settles the money. A delivery then stops on
+// the proof screen; a failed delivery already has its own photo and
+// goes straight through.
+function doConfirmMark(){
+  var o = currentOrder();
+  if (!o) return;
+
+  if (state.markStatus === 'Delivered' && state.podRequired &&
+      state.view !== 'pod' && !podDone()) {
+    if (!validateMark()) return;
+    state.error = '';
+    state.view = 'pod';
+    render();
+    return;
+  }
+
+  submitMark();
+}
+
+function podDone(){
+  return !!(state.podPhotos.length || state.podSigBase64 || state.podSkipReason);
+}
+
+// Split out of doConfirmMark so the proof screen can run the same
+// checks before it opens, rather than finding a problem afterwards.
+function validateMark(){
+  var o = currentOrder();
+  if (!o) return false;
+
+  // Validate here so the background queue only ever carries good data.
+  if (state.issueOpen) {
+    if (!state.issueType) { state.error = 'Pick what was wrong.'; render(); return; }
+    if (!String(state.issueItems || '').trim()) {
+      state.error = 'Say which items and how many.'; render(); return;
+    }
+  }
+
+  // The server will not accept a UPI or split payment without proof, so
+  // stop it here. Queueing it would leave a mark that can never be sent
+  // and cash that is never recorded.
+  if (state.markStatus === 'Delivered' && isCodOrder(o) &&
+      (state.payMode === 'UPI' || state.payMode === 'Split') &&
+      !state.screenshotBase64 && !state.screenshotLink) {
+    state.error = 'Take the UPI screenshot before confirming.';
+    render();
+    return;
+  }
+
+  if (state.markStatus === 'Delivered' && isCodOrder(o)) {
+    var due = collectedDue(o);
+    var sum = (Number(state.cashInput)||0) + (Number(state.upiInput)||0);
+    if (Math.abs(sum - due) > 0.01) {
+      state.error = 'Cash + UPI must equal ' + money(due) + '. Currently ' + money(sum) + '.';
+      render();
+      return;
+    }
+  }
+
+  if (state.markStatus === 'Delivered') {
+    var pend = (o.returns || []).filter(function(r){ return !r._collected && !r._deferred; });
+    if (pend.length) {
+      state.error = 'Collect the pending return for this shop first, or mark the order not delivered.';
+      render();
+      return;
+    }
+  }
+
+  return true;
+}
+
+function submitMark(){
+  var o = currentOrder();
+  if (!o) return;
+  if (!validateMark()) { state.view = 'mark'; render(); return; }
+
+  delete o._saved;
+
+  var payload = {
+    loginName: state.loginName,
+    code: state.code,
+    invoiceNo: o.invoiceNo,
+    shopPhone: o.phone,
+    shopName: cleanName(o.partyName),
+    status: state.markStatus,
+    orderType: o.orderType,
+    balanceDue: o.balanceDue
+  };
+
+  if (state.markStatus === 'Delivered') {
+    if (state.issueOpen) {
+      payload.issueType = state.issueType;
+      payload.issueDetails = state.issueItems.trim() +
+        (state.issueNote.trim() ? ' \u2014 ' + state.issueNote.trim() : '');
+    }
+
+    if (isCodOrder(o)) {
+      payload.paymentMode = state.payMode;
+      payload.cashCollected = Number(state.cashInput || 0);
+      payload.upiCollected = Number(state.upiInput || 0);
+      payload.collectedAmount = collectedDue(o);
+      if (state.amountChoice === 'diff') {
+        payload.shortReason = state.shortReason +
+          (state.shortNote ? ' \u2014 ' + state.shortNote : '');
+      }
+    }
+  } else {
+    var rs = document.getElementById('reason-select');
+    if (rs) state.reasonInput = rs.value;
+    payload.reason = state.reasonInput;
+  }
+
+  // Prefer the link from the background upload; fall back to raw data
+  // if the upload has not finished yet.
+  var anyDeferred = (o.returns || []).some(function(r){ return r._deferred; });
+  if (anyDeferred) payload.returnDeferred = true;
+
+  if (state.screenshotLink) {
+    payload.screenshotLink = state.screenshotLink;
+  } else if (state.screenshotBase64) {
+    payload.screenshotBase64 = state.screenshotBase64;
+    payload.screenshotMime = state.screenshotMime;
+  }
+
+  // Proof of delivery. The link is preferred so a queued mark stays
+  // small; the raw image only travels when the upload has not landed.
+  if (state.markStatus === 'Delivered') {
+    // A link per photo that finished uploading, the raw image for any
+    // that did not, so a queued mark stays as small as it can be.
+    var links = [], raw = [];
+    state.podPhotos.forEach(function(sh){
+      if (sh.link) links.push(sh.link);
+      else if (sh.base64) raw.push({ base64: sh.base64, mime: sh.mime });
+    });
+    if (links.length) payload.podPhotoLinks = links;
+    if (raw.length) payload.podPhotoShots = raw;
+    if (state.podSigBase64) payload.podSignatureBase64 = state.podSigBase64;
+    if (state.podSkipReason) {
+      payload.podSkipReason = state.podSkipReason +
+        (state.podSkipNote.trim() ? ' \u2014 ' + state.podSkipNote.trim() : '');
+    }
+  }
+
+  // Apply on screen straight away, then send in the background.
+  o.currentStatus = {
+    'Status': state.markStatus,
+    'Reason': payload.reason || '',
+    'Payment Mode': payload.paymentMode || '',
+    'Cash Collected': payload.cashCollected || 0,
+    'UPI Collected': payload.upiCollected || 0
+  };
+
+  enqueueMark(payload);
+
+  resetMarkState();
+  resetPodState();
+  state.view = 'order';
+  var next = firstPendingIndex();
+  if (state.orders[next] && !state.orders[next].currentStatus) state.orderIndex = next;
+  saveSession();
+  render();
+}
+
+// Polls until the background queue drains. Gives up after ~60s so a
+// dead connection doesn't hang the DA on this screen forever.
+// Waits only for the marks belonging to one route.
+function waitForQueueCode(code, cb){
+  var waited = 0;
+  pumpQueue();
+  var timer = setInterval(function(){
+    var left = state.pending.filter(function(j){ return j.payload.code === code; }).length;
+    if (!left) { clearInterval(timer); cb(true); return; }
+    waited += 1000;
+    if (waited >= 12000) { clearInterval(timer); cb(false); }
+  }, 1000);
+}
+
+function waitForQueue(cb){
+  var waited = 0;
+  pumpQueue();
+  var timer = setInterval(function(){
+    if (!state.pending.length) { clearInterval(timer); cb(true); return; }
+    waited += 1000;
+    // Give up quickly and tell the DA which orders are stuck, rather
+    // than leaving them staring at a spinner for a minute.
+    if (waited >= 10000) { clearInterval(timer); cb(false); }
+  }, 1000);
+}
+
+function doCollectReturn(){
+  var rq = state.collectingReturn;
+  if (!rq) return;
+  if (!state.returnPhoto) { state.error = 'Take a photo first.'; render(); return; }
+
+  state.loading = true; state.loadingMsg = 'Saving return...'; render();
+  api('collectReturn', {
+    loginName: state.loginName,
+    code: state.code,
+    requestId: rq.requestId,
+    screenshotBase64: state.returnPhoto,
+    screenshotMime: state.returnPhotoMime
+  }).then(function(res){
+    state.loading = false;
+    if (!res || !res.success) {
+      state.error = (res && res.error) || 'Could not save that.';
+      render();
+      return;
+    }
+    // The request belongs to the shop, so clear it everywhere it shows.
+    for (var i = 0; i < state.orders.length; i++) {
+      var list = state.orders[i].returns || [];
+      for (var j = 0; j < list.length; j++) {
+        if (list[j].requestId === rq.requestId) list[j]._collected = true;
+      }
+    }
+    state.collectingReturn = null;
+    state.returnPhoto = null; state.returnPhotoMime = null; state.returnPhotoPreview = null;
+    state.view = 'order';
+    render();
+  });
+}
+
+function doDeferReturn(){
+  var rq = state.collectingReturn;
+  if (!rq) return;
+  var el = document.getElementById('defer-reason');
+  state.deferReason = el ? el.value.trim() : '';
+  if (!state.deferReason) { state.error = 'Give a short reason.'; render(); return; }
+
+  state.loading = true; state.loadingMsg = 'Saving...'; render();
+  api('deferReturn', {
+    loginName: state.loginName,
+    requestId: rq.requestId,
+    reason: state.deferReason
+  }).then(function(res){
+    state.loading = false;
+    if (!res || !res.success) {
+      state.error = (res && res.error) || 'Could not save that.';
+      render();
+      return;
+    }
+    // Stays open for next time, but no longer blocks today's delivery.
+    for (var i = 0; i < state.orders.length; i++) {
+      var list = state.orders[i].returns || [];
+      for (var j = 0; j < list.length; j++) {
+        if (list[j].requestId === rq.requestId) list[j]._deferred = true;
+      }
+    }
+    state.deferring = false;
+    state.collectingReturn = null;
+    state.deferReason = '';
+    state.view = 'order';
+    render();
+  });
+}
+
+function doEndTrip(fromResume){
+  state.modal = null;
+
+  // Let queued marks land first, so End trip cannot record an order as
+  // not attempted while its real status is still in flight.
+  if (state.pending.length) {
+    state.loading = true; state.loadingMsg = 'Saving your updates\u2026'; render();
+    waitForQueue(function(ok){
+      state.loading = false;
+      if (!ok) {
+        // Never end over unsent marks: that would record delivered orders
+        // as not attempted. Ending genuinely needs signal, so say so.
+        var stuck = state.pending.map(function(j){ return shortId(j.payload.invoiceNo); });
+        state.modal = {
+          title: 'Can\u2019t end the trip yet',
+          body: stuck.length + (stuck.length === 1 ? ' update has' : ' updates have') +
+                ' not reached the server (' + stuck.join(', ') + '). They are saved on this phone. ' +
+                'Move to better signal and tap Try again.',
+          confirmText: 'Try again',
+          confirmAction: fromResume ? 'do-end-trip-resume' : 'do-end-trip',
+          cancelText: 'Not now'
+        };
+        render();
+        return;
+      }
+      doEndTrip(fromResume);
+    });
+    return;
+  }
+
+  var code = fromResume ? (state.openTrip ? state.openTrip.code : state.code) : state.code;
+  state.endingFromResume = !!fromResume;
+  state.closeError = '';
+  state.tripNote = '';
+  state.closing = true;
+
+  // Show the report screen immediately; the request runs behind it.
+  state.view = 'closing';
+  render();
+  fireCloseRequest(code, '');
+}
+
+function fireCloseRequest(code, note){
+  state.closing = true;
+  api('endTrip', {
+    loginName: state.loginName, code: code, tripNote: note || ''
+  }).then(function(res){
+    state.closing = false;
+    if (!res || !res.success) {
+      state.closeError = (res && res.error) || 'Could not end the trip.';
+      render();
+      return;
+    }
+    state.closeError = '';
+    applyTripClosedLocally();
+    if (state.view === 'closing') render();
+  });
+}
+
+function applyTripClosedLocally(){
+  if (state.endingFromResume) return;
+  for (var i = 0; i < state.orders.length; i++) {
+    if (!state.orders[i].currentStatus) {
+      state.orders[i].currentStatus = {
+        'Status': 'Not Delivered',
+        'Reason': 'Trip ended \u2014 not attempted',
+        'Cash Collected': 0, 'UPI Collected': 0
+      };
+    }
+  }
+  state.tripClosed = true;
+}
+
+function finishClose(){
+  var code = state.endingFromResume
+    ? (state.openTrip ? state.openTrip.code : state.code)
+    : state.code;
+
+  // If a note was typed after the close already went through, save it
+  // on its own rather than closing twice.
+  if (state.tripNote && !state.closing && !state.closeError) {
+    api('endTrip', { loginName: state.loginName, code: code, tripNote: state.tripNote });
+  }
+
+  if (state.closing) {
+    state.loading = true; state.loadingMsg = 'Closing your trip\u2026'; render();
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      if (!state.closing) {
+        clearInterval(t);
+        state.loading = false;
+        if (state.closeError) { render(); return; }
+        goAfterClose();
+        return;
+      }
+      if (tries > 20) { clearInterval(t); state.loading = false; render(); }
+    }, 500);
+    return;
+  }
+
+  if (state.closeError) { render(); return; }
+  goAfterClose();
+}
+
+function goAfterClose(){
+  clearSession();
+  if (state.endingFromResume) {
+    state.openTrip = null;
+    state.orders = [];
+    state.code = '';
+    state.vehicleNo = '';
+    state.view = 'code';
+  } else {
+    state.tripClosed = true;
+    state.view = 'summary';
+  }
+  render();
+}
+
+function doReopenTrip(){
+  state.loading = true; state.loadingMsg = 'Reopening trip...'; render();
+  api('reopenTrip', { loginName: state.loginName, code: state.code }).then(function(res){
+    state.loading = false;
+    if (!res || !res.success) {
+      state.error = (res && res.error) || 'Could not reopen the trip.';
+      render();
+      return;
+    }
+    for (var i = 0; i < state.orders.length; i++) {
+      var cs = state.orders[i].currentStatus;
+      if (cs && cs['Reason'] === 'Trip ended \u2014 not attempted') {
+        state.orders[i].currentStatus = null;
+      }
+    }
+    state.tripClosed = false;
+    state.orderIndex = firstPendingIndex();
+    state.view = 'order';
+    render();
+  });
+}
+
+function doSavePin(){
+  var cur = document.getElementById('cur-pin');
+  var np = document.getElementById('new-pin');
+  var np2 = document.getElementById('new-pin2');
+  var curV = cur ? cur.value.trim() : '';
+  var newV = np ? np.value.trim() : '';
+  var new2V = np2 ? np2.value.trim() : '';
+
+  state.profileMsg = '';
+  if (!curV || !newV || !new2V) { state.error = 'Fill in all fields.'; render(); return; }
+  if (newV !== new2V) { state.error = 'New PINs do not match.'; render(); return; }
+  if (newV.length < 4) { state.error = 'New PIN must be at least 4 characters.'; render(); return; }
+
+  state.loading = true; state.loadingMsg = 'Updating PIN...'; render();
+  api('changePin', { loginName: state.loginName, currentPin: curV, newPin: newV }).then(function(res){
+    state.loading = false;
+    if (res && res.success) {
+      state.pin = newV;
+      state.profileMsg = 'PIN updated.';
+    } else {
+      state.error = (res && res.error) || 'Could not update PIN.';
+    }
+    render();
+  });
+}
+
+/******************** PWA INSTALL ********************/
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  state.deferredInstall = e;
+  render();
+});
+
+/******************** BOOT ********************/
+function boot(){
+  setTheme(getTheme());
+  document.addEventListener('click', function(){
+    if (state.menuOpen) { state.menuOpen = false; render(); }
+  });
+
+  // Signal returned, or the app came back to the front: send now rather
+  // than waiting out the retry delay.
+  window.addEventListener('online', retryNow);
+  // A camera left running in the background holds memory and the
+  // light; the photos already taken are kept.
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden && cam.el) closeCamera();
+  });
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') retryNow();
+  });
+
+  // Marks left over from last time start sending as soon as the page
+  // opens - each one already carries its own DA name and route.
+  if (restoreQueue()) pumpQueue();
+
+  // Back button, closed tab, phone locked - reopen where they were
+  // rather than dropping them on the login screen.
+  var sess = loadSession();
+  if (sess) { resumeSession(sess); return; }
+
+  render();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>
+<script>
+// Keeps the app on the phone. Registered after load so it never
+// slows the first screen down.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
