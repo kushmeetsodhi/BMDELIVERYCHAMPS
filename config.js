@@ -3,6 +3,12 @@
 // It must end in /exec, and "Who has access" must be Anyone.
 var BM_EXEC = 'https://script.google.com/macros/s/AKfycbwCf4drmcMZWZqYLzUKuEeDxD6LxaVFxjMnmgu5sNZ_ueCUU2UBDW2W9_ZtiRpxpyOw/exec';
 
+
+// Live location for the Control Room map. true = on, false = off.
+// Changing only this line and committing is enough: phones pick it
+// up the next time the app is opened.
+window.BM_TRACK_LOCATION = false;
+
 if (/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(BM_EXEC)) {
   window.BM_EXEC_URL = BM_EXEC;
 }

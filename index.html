@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=649b6d741f"></script>
+<script src="config.js?v=42eca4d5f0"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -531,17 +531,20 @@ function isCodOrder(o){
 // fix rides along with every stop marked so a delivery marked far from
 // the shop stands out. Chrome stops a page reading the location once it
 // is in the background, so nothing is sent while the app is closed.
+// The switch. Off unless config.js on the GitHub copy turns it on, so
+// sharing can be paused without rebuilding the app.
+var BM_TRACK = !!(typeof window !== 'undefined' && window.BM_TRACK_LOCATION === true);
 var LOC_EVERY_MS = 180000;      // how often a position is sent
 var LOC_FRESH_MS = 300000;      // a fix older than this is not sent with a mark
 var loc = { timer: null, last: null, sentAt: 0, state: '' };   // state: '', 'on', 'off'
 
 function locActive(){
-  return BM_HOSTED && !!navigator.geolocation && !!state.code && !state.isDemo &&
+  return BM_HOSTED && BM_TRACK && !!navigator.geolocation && !!state.code && !state.isDemo &&
          ['login', 'code', 'closing', 'reopen'].indexOf(state.view) === -1;
 }
 
 function locStart(){
-  if (!BM_HOSTED || !navigator.geolocation || loc.timer) return;
+  if (!BM_HOSTED || !BM_TRACK || !navigator.geolocation || loc.timer) return;
   loc.timer = setInterval(function(){ locTick(); }, LOC_EVERY_MS);
   // The route screen is drawn just after this is called; the first read
   // waits for it, or the "not on a route yet" check would skip it.
@@ -840,7 +843,7 @@ function topbarHTML(){
     if (state.loginName) bits.push(esc(state.loginName));
     if (state.code) bits.push(esc(state.code));
     if (state.vehicleNo) bits.push(esc(state.vehicleNo));
-    if (BM_HOSTED && state.code && loc.state) {
+    if (BM_HOSTED && BM_TRACK && state.code && loc.state) {
       bits.push('<span id="loc-flag" class="loc-flag ' + loc.state + '">' + locFlagText() + '</span>');
     }
   }
