@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=42eca4d5f0"></script>
+<script src="config.js?v=ce4c7ca1de"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -205,6 +205,15 @@
     background:var(--surface-2);
   }
   .pod-btns{ display:flex; gap:8px; }
+  .cam.selfie video{ transform:scaleX(-1); }
+  .selfie-box{ display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+  .selfie-prev{ width:160px; height:160px; object-fit:cover; border-radius:50%; align-self:center;
+    border:3px solid var(--border); }
+  .checkin-where{ margin-top:12px; padding:10px 12px; border-radius:9px; font-size:14px;
+    background:var(--surface-2); color:var(--ink-soft); }
+  .checkin-where.ok{ background:#E4F4EA; color:#1E7F45; font-weight:600; }
+  .checkin-where.bad{ background:#FBE8E8; color:#C13535; }
+  button.primary[disabled]{ opacity:.45; }
   .loc-flag.on{ color:#9BE7B0; }
   .loc-flag.off{ color:#FFB4A8; font-weight:600; }
   .cam{ position:fixed; inset:0; z-index:9999; background:#000; display:flex;
@@ -534,13 +543,16 @@ function isCodOrder(o){
 // The switch. Off unless config.js on the GitHub copy turns it on, so
 // sharing can be paused without rebuilding the app.
 var BM_TRACK = !!(typeof window !== 'undefined' && window.BM_TRACK_LOCATION === true);
+// Selfie check-in at the first login of the day, inside the warehouse
+// fence. Same switch arrangement: off unless config.js turns it on.
+var BM_SELFIE = !!(typeof window !== 'undefined' && window.BM_SELFIE_LOGIN === true);
 var LOC_EVERY_MS = 180000;      // how often a position is sent
 var LOC_FRESH_MS = 300000;      // a fix older than this is not sent with a mark
 var loc = { timer: null, last: null, sentAt: 0, state: '' };   // state: '', 'on', 'off'
 
 function locActive(){
   return BM_HOSTED && BM_TRACK && !!navigator.geolocation && !!state.code && !state.isDemo &&
-         ['login', 'code', 'closing', 'reopen'].indexOf(state.view) === -1;
+         ['login', 'checkin', 'code', 'closing', 'reopen'].indexOf(state.view) === -1;
 }
 
 function locStart(){
@@ -599,7 +611,7 @@ function locForMark(){
 // to it and, short of memory, closes Chrome behind it. A viewfinder
 // inside the page never leaves it. Apps Script forbids camera access in
 // its frame, so this only runs on the hosted copy.
-var cam = { stream: null, el: null, taken: 0 };
+var cam = { stream: null, el: null, taken: 0, mode: 'pod' };   // mode: 'pod' or 'selfie'
 
 function inAppCamera(){
   return BM_HOSTED && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -625,15 +637,18 @@ function camSet(id, text){
   if (el) el.textContent = text;
 }
 function camCount(){
-  camSet('cam-n', state.podPhotos.length + ' / ' + POD_MAX_PHOTOS);
+  camSet('cam-n', cam.mode === 'selfie' ? '' : state.podPhotos.length + ' / ' + POD_MAX_PHOTOS);
 }
 
-function openCamera(){
-  if (cam.el || state.podPhotos.length >= POD_MAX_PHOTOS) return;
+function openCamera(mode){
+  mode = mode === 'selfie' ? 'selfie' : 'pod';
+  if (cam.el) return;
+  if (mode === 'pod' && state.podPhotos.length >= POD_MAX_PHOTOS) return;
+  cam.mode = mode;
   state.error = '';
   var el = document.createElement('div');
   el.id = 'cam';
-  el.className = 'cam';
+  el.className = 'cam' + (mode === 'selfie' ? ' selfie' : '');
   // Outside #app on purpose: the app redraws #app wholesale, and a
   // redraw must never tear down a live video stream.
   el.innerHTML =
@@ -655,7 +670,7 @@ function openCamera(){
     audio: false,
     // Back camera, and no bigger than the photo we keep - a 4K stream
     // costs memory the phone does not have.
-    video: { facingMode: { ideal: 'environment' },
+    video: { facingMode: { ideal: mode === 'selfie' ? 'user' : 'environment' },
              width: { ideal: 1280 }, height: { ideal: 960 } }
   }).then(function(stream){
     if (!cam.el) { stream.getTracks().forEach(function(t){ t.stop(); }); return; }
@@ -666,8 +681,12 @@ function openCamera(){
     if (pl && pl.catch) pl.catch(function(){});
     camSet('cam-msg', '');
   }).catch(function(err){
+    var selfie = cam.mode === 'selfie';
     closeCamera(true);
-    state.error = cameraErrorText(err);
+    state.error = selfie
+      ? cameraErrorText(err).replace(/ ?(Or use|Use) Upload from gallery\.?/, '') +
+        ' The selfie is needed to check in.'
+      : cameraErrorText(err);
     render();
   });
 }
@@ -675,6 +694,7 @@ function openCamera(){
 function shootCamera(){
   var v = document.getElementById('cam-v');
   if (!cam.stream || !v || !v.videoWidth) return;
+  if (cam.mode === 'selfie') { shootSelfie(v); return; }
   if (state.podPhotos.length >= POD_MAX_PHOTOS) { closeCamera(); return; }
 
   // Same size and quality as a compressed camera-app photo, so the
@@ -704,6 +724,22 @@ function shootCamera(){
     setTimeout(function(){ if (cam.el) cam.el.classList.remove('flash'); }, 150);
   }
   if (state.podPhotos.length >= POD_MAX_PHOTOS) closeCamera();
+}
+
+// One face, small: enough to recognise someone, cheap to send at login.
+function shootSelfie(v){
+  var maxEdge = 640;
+  var w = v.videoWidth, h = v.videoHeight;
+  if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
+  else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
+  var canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(v, 0, 0, w, h);
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+  canvas.width = 1; canvas.height = 1;
+  if (state.checkin) state.checkin.selfie = dataUrl.split(',')[1];
+  closeCamera(true);
+  render();
 }
 
 // quiet: the caller draws the screen itself (the error path).
@@ -894,6 +930,7 @@ function menuHTML(){
 
 function bodyHTML(){
   if(state.view === 'login')   return loginHTML();
+  if(state.view === 'checkin') return checkinHTML();
   if(state.view === 'resume')  return resumeHTML();
   if(state.view === 'reopen')  return reopenHTML();
   if(state.view === 'code')    return codeHTML();
@@ -913,6 +950,123 @@ function errHTML(){
   return state.error ? '<div class="err">' + esc(state.error) + '</div>' : '';
 }
 
+/******************** SELFIE CHECK-IN ********************/
+// First login of the day on the new app: a selfie from the front camera
+// and the phone's position, checked against the warehouse fence by the
+// server. Staff are never asked; the server decides who is.
+function startCheckin(res, name, pin){
+  var keep = state.checkin && state.checkin.name === name ? state.checkin : null;
+  state.checkin = {
+    name: res.loginName || name, pin: pin, fence: res.fence || (keep && keep.fence) || null,
+    selfie: keep ? keep.selfie : null,
+    loc: keep ? keep.loc : null, locBusy: false, locErr: ''
+  };
+  state.error = res.error || '';
+  state.view = 'checkin';
+  render();
+  // A refused attempt keeps the selfie but always takes a fresh fix.
+  if (!res.error || res.reason === 'outside' || res.reason === 'vague' || res.reason === 'nolocation') {
+    checkinLocate();
+  }
+}
+
+function checkinLocate(){
+  var c = state.checkin;
+  if (!c || c.locBusy) return;
+  if (!navigator.geolocation) { c.locErr = 'This phone cannot share its location.'; render(); return; }
+  c.locBusy = true; c.locErr = ''; render();
+  navigator.geolocation.getCurrentPosition(function(p){
+    if (state.checkin !== c) return;
+    c.locBusy = false;
+    c.loc = { lat: p.coords.latitude, lng: p.coords.longitude,
+              acc: Math.round(p.coords.accuracy || 0), at: Date.now() };
+    render();
+  }, function(err){
+    if (state.checkin !== c) return;
+    c.locBusy = false;
+    c.locErr = err && err.code === 1
+      ? 'Location is blocked for this app. In Chrome tap the lock icon next to the address, ' +
+        'then Permissions → Location → Allow, and try again.'
+      : 'Could not get a GPS fix. Stand near a door or window and tap Find my location.';
+    render();
+  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+}
+
+// Metres, for the line under the selfie. The server does its own sum.
+function metresBetween(a, b, c, d){
+  var R = 6371000, r = Math.PI / 180;
+  var x = Math.sin((c - a) * r / 2), y = Math.sin((d - b) * r / 2);
+  var h = x * x + Math.cos(a * r) * Math.cos(c * r) * y * y;
+  return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
+}
+
+function checkinWhere(){
+  var c = state.checkin || {};
+  if (c.locBusy) return { cls: '', text: 'Finding your location…' };
+  if (c.locErr) return { cls: 'bad', text: c.locErr };
+  if (!c.loc) return { cls: '', text: 'Location not found yet.' };
+  var f = c.fence;
+  if (!f) return { cls: 'ok', text: 'Location found (±' + c.loc.acc + ' m).' };
+  var d = metresBetween(c.loc.lat, c.loc.lng, f.lat, f.lng);
+  var far = d >= 1000 ? (d / 1000).toFixed(1) + ' km' : d + ' m';
+  if (c.loc.acc > f.vagueM) {
+    return { cls: 'bad', text: 'GPS is not accurate enough yet (±' + c.loc.acc + ' m). Stand near a door or window and tap Find my location.' };
+  }
+  if (d > f.radiusM) return { cls: 'bad', text: far + ' from the warehouse. You can check in within ' + f.radiusM + ' m.' };
+  return { cls: 'ok', text: 'At the warehouse: ' + far + ' away (±' + c.loc.acc + ' m).' };
+}
+
+function checkinHTML(){
+  var c = state.checkin || {};
+  var where = checkinWhere();
+  var ready = !!(c.selfie && c.loc && !c.locBusy && where.cls === 'ok');
+  return '<div class="card">' +
+    '<h3 style="margin:0 0 6px; font-size:17px;">Check in for today</h3>' +
+    '<p class="hint" style="margin:0 0 12px;">' + esc(c.name || '') + ', take a selfie at the warehouse to start your day. ' +
+      'It is saved with the time and where you are.</p>' +
+    errHTML() +
+    '<div class="selfie-box">' +
+      (c.selfie
+        ? '<img class="selfie-prev" src="data:image/jpeg;base64,' + c.selfie + '" alt="Your selfie" />' +
+          '<button type="button" class="secondary" data-action="checkin-selfie">Retake selfie</button>'
+        : '<button type="button" class="file-btn" data-action="checkin-selfie">Take selfie</button>') +
+    '</div>' +
+    '<div class="checkin-where ' + where.cls + '">' + esc(where.text) + '</div>' +
+    (c.locBusy ? '' : '<button type="button" class="secondary" style="margin-top:8px;" data-action="checkin-locate">Find my location</button>') +
+    '<div style="margin-top:16px;"><button class="primary" data-action="checkin-submit"' +
+      (ready ? '' : ' disabled') + '>Check in</button></div>' +
+    '<div style="margin-top:9px;"><button class="secondary" data-action="checkin-back">Back</button></div>' +
+    '</div>';
+}
+
+function submitCheckin(){
+  var c = state.checkin;
+  if (!c || !c.selfie || !c.loc) return;
+  state.loading = true; state.loadingMsg = 'Checking you in...'; render();
+  var p = loginPayload(c.name, c.pin);
+  p.selfieBase64 = c.selfie; p.selfieMime = 'image/jpeg';
+  p.lat = c.loc.lat; p.lng = c.loc.lng; p.acc = c.loc.acc; p.locAt = c.loc.at;
+  api('login', p, 45000).then(function(res){
+    state.loading = false;
+    if (res && res.success) { loginDone(res, c.name, c.pin); return; }
+    if (res && res.needCheckIn) { startCheckin(res, c.name, c.pin); return; }
+    state.error = (res && res.error) || 'Could not check in. Try again.';
+    render();
+  });
+}
+
+// Practice: the sample route, with no name, PIN, selfie or location. It
+// saves nothing, so there is nothing to guard.
+function startPractice(){
+  state.error = '';
+  state.loginName = 'Practice';
+  state.pin = '';
+  state.openTrip = null;
+  state.pendingCode = 'DEMO';
+  state.vehicleNo = '';
+  doEnterCode(true);
+}
+
 /******************** LOGIN ********************/
 function loginHTML(){
   return '<div class="card">' +
@@ -922,6 +1076,10 @@ function loginHTML(){
     '<input type="password" id="login-pin" value="" placeholder="Your PIN" inputmode="numeric" autocomplete="current-password" />' +
     errHTML() +
     '<div style="margin-top:17px;"><button class="primary" data-action="do-login">Log in</button></div>' +
+    (BM_HOSTED
+      ? '<div style="margin-top:9px;"><button class="secondary" data-action="practice">Practice</button></div>' +
+        '<p class="hint" style="margin-top:6px; text-align:center;">Practice opens a sample route. No login, and nothing is saved.</p>'
+      : '') +
     '</div>';
 }
 
@@ -2093,6 +2251,11 @@ function onAction(ev){
   }
 
   if (action === 'do-login')        { doLogin(); return; }
+  if (action === 'practice')        { startPractice(); return; }
+  if (action === 'checkin-selfie')  { state.error = ''; openCamera('selfie'); return; }
+  if (action === 'checkin-locate')  { checkinLocate(); return; }
+  if (action === 'checkin-submit')  { submitCheckin(); return; }
+  if (action === 'checkin-back')    { state.checkin = null; state.error = ''; state.view = 'login'; render(); return; }
   if (action === 'do-enter-code')   { doEnterCode(false); return; }
   if (action === 'confirm-handover'){ state.modal = null; doEnterCode(true); return; }
   if (action === 'resume-trip')     { doResume(); return; }
@@ -2784,26 +2947,41 @@ function doLogin(){
 
   state.loading = true; state.loadingMsg = 'Signing in...'; render();
   // login also returns any open trip, so this is a single round trip.
-  api('login', { loginName: name, pin: pin }).then(function(res){
+  api('login', loginPayload(name, pin)).then(function(res){
     state.loading = false;
+    if (res && res.needCheckIn) { startCheckin(res, name, pin); return; }
     if (!res || !res.success) {
       state.error = (res && res.error) || 'Login failed.';
       render();
       return;
     }
-    state.loginName = res.loginName || name;
-    state.pin = pin;
-    state.openTrip = res.openTrip || null;
-
-    // Anything saved on this phone goes out first, before the DA can
-    // choose Resume or End - so End can never overwrite a real mark.
-    restoreQueue();
-    if (state.pending.length) {
-      flushThen(afterLogin);
-      return;
-    }
-    afterLogin();
+    loginDone(res, name, pin);
   });
+}
+
+// The new app says who it is, so the server only asks it - never the
+// old link - for a selfie.
+function loginPayload(name, pin){
+  var p = { loginName: name, pin: pin };
+  if (BM_HOSTED) p.client = 'gh';
+  if (BM_HOSTED && BM_SELFIE) p.selfieFlow = true;
+  return p;
+}
+
+function loginDone(res, name, pin){
+  state.checkin = null;
+  state.loginName = res.loginName || name;
+  state.pin = pin;
+  state.openTrip = res.openTrip || null;
+
+  // Anything saved on this phone goes out first, before the DA can
+  // choose Resume or End - so End can never overwrite a real mark.
+  restoreQueue();
+  if (state.pending.length) {
+    flushThen(afterLogin);
+    return;
+  }
+  afterLogin();
 }
 
 function afterLogin(){

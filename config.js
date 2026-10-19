@@ -9,6 +9,10 @@ var BM_EXEC = 'https://script.google.com/macros/s/AKfycbwCf4drmcMZWZqYLzUKuEeDxD
 // up the next time the app is opened.
 window.BM_TRACK_LOCATION = false;
 
+// Selfie check-in at the warehouse, first login of the day.
+// true = on, false = off. Needs the matching Apps Script files.
+window.BM_SELFIE_LOGIN = false;
+
 if (/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(BM_EXEC)) {
   window.BM_EXEC_URL = BM_EXEC;
 }
