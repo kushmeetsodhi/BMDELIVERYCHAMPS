@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=6580c0c82c"></script>
+<script src="config.js?v=75a4a667c6"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -709,6 +709,9 @@ function dkOrderHTML(d){
         (o.vehicleNo ? ' · ' + esc(o.vehicleNo) : '') + '</div>' +
     '</div>' + badge(o.status) + '</div>' +
     (o.reason ? '<div class="fnt" style="margin-top:4px;">DA said: ' + esc(o.reason) + '</div>' : '') +
+    (dkDaysAgo(o.routeDay) >= DK_OLD_DAYS
+      ? '<div class="err" style="margin-top:10px;">This order\u2019s route ran on <b>' + esc(dkNiceDay(o.routeDay)) + '</b>, ' +
+        dkDaysAgo(o.routeDay) + ' days ago. Check the SO number on the bill before marking.</div>' : '') +
     (d.data.others && d.data.others.length
       ? '<div class="fnt" style="margin-top:4px;">Also ends in these digits: ' + esc(d.data.others.join(', ')) + '</div>' : '') +
     (ex ? '<div class="ok" style="margin-top:10px;">Already marked today: <b>' + esc(DK_LABEL[ex.type] || ex.type) +
@@ -893,10 +896,28 @@ function dkShrink(src, cb){
   img.src = src;
 }
 
+// How many days ago a yyyy-MM-dd day was; -1 when unknown.
+var DK_OLD_DAYS = 3;
+function dkDaysAgo(day){
+  var m = String(day || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return -1;
+  var then = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.round((now - then) / 86400000);
+}
+function dkNiceDay(day){
+  var m = String(day || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return day;
+  return Number(m[3]) + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m[2]) - 1];
+}
+
 function dkSave(){
   dkCapture();
   var d = state.dk;
   if (!d.data || !d.type) return;
+  var age = d.data.order && !d.data.order.routeOnly ? dkDaysAgo(d.data.order.routeDay) : -1;
+  if (age >= DK_OLD_DAYS && !confirm('This order\u2019s route ran ' + age + ' days ago (' + dkNiceDay(d.data.order.routeDay) +
+      '). Is SO ' + d.data.order.soNo + ' really the bill in your hand?')) return;
   if (d.photos.some(function(p){ return p.failed; })) {
     state.error = 'A photo did not upload. Remove it (×) and take it again.'; render(); return;
   }
