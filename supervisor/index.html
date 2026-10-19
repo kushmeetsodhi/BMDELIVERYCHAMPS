@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=d3b2ab843b"></script>
+<script src="config.js?v=15b1b9f4f2"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -258,6 +258,8 @@
   .dk-up{ position:absolute; left:4px; bottom:4px; background:rgba(0,0,0,.6); color:#fff; border-radius:6px;
     font-size:12px; padding:0 5px; }
   .dk-up.bad{ background:var(--red); }
+  .dk-job{ border-left:4px solid #3C4FD0; }
+  .dk-job.bad{ border-left-color:var(--red); background:var(--red-bg); }
   .dk-add{ width:76px; height:76px; border-radius:9px; border:1.5px dashed var(--border); background:var(--surface-2);
     color:var(--ink-soft); font-size:11.5px; display:flex; flex-direction:column; align-items:center;
     justify-content:center; text-align:center; font-family:inherit; cursor:pointer; }
@@ -315,7 +317,10 @@ var state = {
   flSel:{}, flMsg:'', flErr:'',
   qkText:'', qkOrders:null, qkSel:{}, qkMsg:'', qkErr:'',
   prodCode:'', prodQuery:'', prodData:null, prodErr:'',
-  dk:{ q:'', data:null, type:'', qty:{}, note:'', photos:[], saving:false, list:null, pdfBusy:false, pdfLink:'' }
+  dk:{ q:'', data:null, type:'', qty:{}, note:'', photos:[], saving:false, list:null, pdfBusy:false, pdfLink:'' },
+  // Marks saved on this phone but not yet on the server: they wait for
+  // their photos, then go, while the supervisor gets on with the next.
+  dkQueue:[]
 };
 
 var TABS = [
@@ -650,8 +655,9 @@ function deskHTML(){
   if (d.data) html += dkOrderHTML(d);
 
   html += '<div class="sec">Marked today</div>';
-  if (!L) html += '<div class="empty">Loading…</div>';
-  else if (!L.rows.length) html += '<div class="empty">Nothing marked yet today.</div>';
+  html += state.dkQueue.map(dkJobHTML).join('');
+  if (!L) html += '<div class="empty">Loading\u2026</div>';
+  else if (!L.rows.length && !state.dkQueue.length) html += '<div class="empty">Nothing marked yet today.</div>';
   else html += L.rows.map(dkRowHTML).join('');
   return html;
 }
@@ -687,7 +693,10 @@ function dkOrderHTML(d){
 
   if (needPhoto) {
     html += '<div class="sec">Which items came back</div>';
-    if (d.data.items.length) {
+    if (!d.data.items) {
+      html += '<div class="fnt" style="margin:0 2px 8px;">Loading the order\u2019s items\u2026 ' +
+        'You can take the photos meanwhile.</div>';
+    } else if (d.data.items.length) {
       html += '<div class="card">' + d.data.items.map(function(it, i){
         return '<div class="row dk-item"><div class="grow"><div>' + esc(it.product) + '</div>' +
           (it.variant ? '<div class="fnt">' + esc(it.variant) + '</div>' : '') +
@@ -715,13 +724,15 @@ function dkOrderHTML(d){
       : '') +
     '</div>';
 
-  html += '<div class="sec">Note' + (d.type === 'Items returned' && !d.data.items.length ? '' : ' (optional)') + '</div>' +
+  html += '<div class="sec">Note' + (d.type === 'Items returned' && d.data.items && !d.data.items.length ? '' : ' (optional)') + '</div>' +
     '<textarea id="dk-note" rows="2" placeholder="' +
       (d.type === 'Redispatch' ? 'Why: shop closed, asked for tomorrow…'
        : d.type === 'Cancelled' ? 'Why it was cancelled'
        : 'Anything else about the return') + '">' + esc(d.note) + '</textarea>' +
-    '<button class="btn block" style="margin-top:12px;" data-a="dk-save"' + (d.saving ? ' disabled' : '') + '>' +
-      (d.saving ? 'Saving…' : 'Save: ' + esc(DK_LABEL[d.type] || d.type)) + '</button>';
+    '<button class="btn block" style="margin-top:12px;" data-a="dk-save">' +
+      'Save: ' + esc(DK_LABEL[d.type] || d.type) + '</button>' +
+    '<div class="fnt" style="margin:6px 2px 0; text-align:center;">Saves in the background \u2014 ' +
+      'you can type the next SO straight away.</div>';
   return html;
 }
 
@@ -756,9 +767,27 @@ function dkFind(){
   state.loading = true; render();
   api('deskLookup', { query: q }).then(function(res){
     state.loading = false;
-    if (res && res.success) state.dk.data = res;
-    else state.error = (res && res.error) || 'Could not find that order.';
+    if (res && res.success) {
+      res.items = null;                 // on their way
+      state.dk.data = res;
+      dkLoadItems(res.order.invoiceNo);
+    } else {
+      state.error = (res && res.error) || 'Could not find that order.';
+    }
     render();
+  });
+}
+
+// The item list can take a few seconds (it may come from the ERP), so
+// it arrives behind the order card instead of holding it up.
+function dkLoadItems(inv){
+  api('deskItems', { invoiceNo: inv }).then(function(res){
+    var d = state.dk;
+    if (!d.data || d.data.order.invoiceNo !== inv) return;   // moved on
+    d.data.items = (res && res.success) ? res.items : [];
+    d.data.itemsNote = (res && res.success) ? res.itemsNote : 'Could not load the item list.';
+    // Only redraw when it shows; never under the supervisor's thumbs.
+    if (state.view === 'desk' && d.type === 'Items returned' && !dkTyping()) { dkCapture(); render(); }
   });
 }
 
@@ -768,13 +797,31 @@ function dkAddPhoto(dataUrl){
   var p = { thumb: dataUrl, link: '', uploading: true, failed: false };
   d.photos.push(p);
   dkCapture(); render();
-  api('deskPhoto', { base64: dataUrl.split(',')[1], mime: 'image/jpeg', soNo: d.data ? d.data.order.soNo : '' })
-    .then(function(res){
-      p.uploading = false;
-      if (res && res.success) { p.link = res.link; p.failed = false; }
-      else { p.failed = true; state.error = (res && res.error) || 'A photo did not upload. Remove it and take it again.'; }
-      if (state.view === 'desk') { dkCapture(); render(); }
-    });
+  dkUpload(p, d.data ? d.data.order.soNo : '');
+}
+
+// Sends one photo; tries once more on a bad connection. Whoever is
+// waiting for it - the form, or a queued mark - is told when it lands.
+function dkUpload(p, soNo){
+  p.uploading = true; p.failed = false;
+  var send = function(tries){
+    api('deskPhoto', { base64: p.thumb.split(',')[1], mime: 'image/jpeg', soNo: soNo })
+      .then(function(res){
+        if (res && res.success) { p.link = res.link; p.uploading = false; }
+        else if (tries < 2) { setTimeout(function(){ send(tries + 1); }, 2500); return; }
+        else { p.uploading = false; p.failed = true; }
+        dkPump();
+        if (state.view === 'desk' && !dkTyping()) { dkCapture(); render(); }
+      });
+  };
+  send(1);
+}
+
+// True while a text box on the desk has the keyboard; redrawing then
+// would close the keyboard mid-word.
+function dkTyping(){
+  var a = document.activeElement;
+  return !!(a && (a.id === 'dk-q' || a.id === 'dk-note' || (a.hasAttribute && a.hasAttribute('data-dk-qty'))));
 }
 
 // Same size and quality as the DA app's proof photos.
@@ -796,35 +843,112 @@ function dkSave(){
   dkCapture();
   var d = state.dk;
   if (!d.data || !d.type) return;
-  if (d.photos.some(function(p){ return p.uploading; })) {
-    state.error = 'Wait for the photos to finish uploading.'; render(); return;
+  if (d.photos.some(function(p){ return p.failed; })) {
+    state.error = 'A photo did not upload. Remove it (×) and take it again.'; render(); return;
   }
-  var items = d.data.items.map(function(it, i){
+  var items = (d.data.items || []).map(function(it, i){
     return { product: it.product, variant: it.variant, qty: Number(d.qty[i]) || 0 };
   }).filter(function(x){ return x.qty > 0; });
-  var photos = d.photos.filter(function(p){ return p.link; }).map(function(p){ return p.link; });
   if (d.type === 'Items returned') {
-    if (!photos.length) { state.error = 'Take at least one photo of the returned items.'; render(); return; }
+    if (!d.photos.length) { state.error = 'Take at least one photo of the returned items.'; render(); return; }
     if (!items.length && !String(d.note).trim()) {
-      state.error = 'Enter how many of each item came back, or write it in the note.'; render(); return;
+      state.error = d.data.items
+        ? 'Enter how many of each item came back, or write it in the note.'
+        : 'The item list is still loading. Wait a moment, or write what came back in the note.';
+      render(); return;
     }
   }
-  d.saving = true; state.error = ''; render();
-  api('deskMark', { soNo: d.data.order.soNo, type: d.type, items: items, note: d.note, photos: photos })
-    .then(function(res){
-      d.saving = false;
-      if (res && res.success) {
-        state.note = 'SO ' + d.data.order.soNo + ' saved as ' + (DK_LABEL[d.type] || d.type) +
-          (res.replaced ? ' (replaced the earlier mark)' : '') + '.';
-        var keepList = d.list;
-        dkReset(false); state.dk.list = keepList;
-        render();
-        dkLoadList();
-        var q = document.getElementById('dk-q'); if (q) q.focus();
-      } else {
-        state.error = (res && res.error) || 'Could not save.'; render();
-      }
-    });
+  var o = d.data.order;
+  state.dkQueue.unshift({
+    key: 'q' + Date.now(), soNo: o.soNo, invoiceNo: o.invoiceNo, party: o.partyName, code: o.code,
+    type: d.type, items: items, note: d.note, photos: d.photos.slice(),
+    status: 'waiting', error: ''
+  });
+  state.error = '';
+  state.note = 'SO ' + o.soNo + ': ' + (DK_LABEL[d.type] || d.type) + ' — saving in the background.';
+  var keepList = d.list;
+  dkReset(false); state.dk.list = keepList;
+  render();
+  var q = document.getElementById('dk-q'); if (q) q.focus();
+  dkPump();
+}
+
+// Sends every queued mark whose photos have all landed. Called on save,
+// on each photo upload, and on Retry.
+function dkPump(){
+  state.dkQueue.forEach(function(job){
+    if (job.status !== 'waiting') return;
+    if (job.photos.some(function(p){ return p.uploading; })) return;
+    if (job.photos.some(function(p){ return p.failed; })) {
+      job.status = 'failed';
+      job.error = 'A photo did not upload.';
+      dkQueueChanged(); return;
+    }
+    job.status = 'saving';
+    api('deskMark', { soNo: job.soNo, invoiceNo: job.invoiceNo, type: job.type, items: job.items,
+                      note: job.note, photos: job.photos.map(function(p){ return p.link; }) })
+      .then(function(res){
+        if (res && res.success) {
+          state.dkQueue = state.dkQueue.filter(function(j){ return j !== job; });
+          dkListAdd(res.row);
+        } else {
+          job.status = 'failed';
+          job.error = (res && res.error) || 'Could not save.';
+        }
+        dkQueueChanged();
+      });
+  });
+}
+
+function dkQueueChanged(){
+  if (state.view === 'desk' && !dkTyping()) { dkCapture(); render(); }
+}
+
+// The saved mark goes straight into today's list; no reload needed.
+function dkListAdd(row){
+  var L = state.dk.list;
+  if (!row || !L) { dkLoadList(); return; }
+  L.rows = [row].concat(L.rows.filter(function(x){ return x.invoiceNo !== row.invoiceNo; }));
+  L.counts = { returned: 0, redispatch: 0, cancelled: 0 };
+  L.rows.forEach(function(x){
+    if (x.type === 'Items returned') L.counts.returned++;
+    if (x.type === 'Redispatch') L.counts.redispatch++;
+    if (x.type === 'Cancelled') L.counts.cancelled++;
+  });
+}
+
+function dkRetry(key){
+  state.dkQueue.forEach(function(job){
+    if (job.key !== key) return;
+    job.photos.forEach(function(p){ if (p.failed) dkUpload(p, job.soNo); });
+    job.status = 'waiting'; job.error = '';
+  });
+  render();
+  dkPump();
+}
+
+function dkDrop(key){
+  if (!confirm('Throw this mark away? It has not been saved.')) return;
+  state.dkQueue = state.dkQueue.filter(function(j){ return j.key !== key; });
+  render();
+}
+
+function dkJobHTML(j){
+  var left = j.photos.filter(function(p){ return p.uploading; }).length;
+  var line = j.status === 'failed' ? '<span style="color:var(--red);">Not saved: ' + esc(j.error) + '</span>'
+           : j.status === 'saving' ? 'Saving…'
+           : left ? 'Waiting for ' + left + ' photo' + (left > 1 ? 's' : '') + ' to upload…'
+           : 'Saving…';
+  return '<div class="card dk-job' + (j.status === 'failed' ? ' bad' : '') + '"><div class="row"><div class="grow">' +
+    '<div class="ttl trunc">' + esc(cleanName(j.party) || j.invoiceNo) + '</div>' +
+    '<div class="mut">SO ' + esc(j.soNo) + ' · ' + esc(j.code) + '</div>' +
+    '<div class="fnt">' + line + '</div>' +
+    '</div><div style="text-align:right;">' + badge(DK_LABEL[j.type] || j.type, DK_CLS[j.type]) +
+    (j.status === 'failed'
+      ? '<div style="margin-top:8px;"><button class="btn sm" data-a="dk-retry" data-k="' + esc(j.key) + '">Retry</button> ' +
+        '<button class="btn sm ghost" data-a="dk-drop" data-k="' + esc(j.key) + '">×</button></div>'
+      : '') +
+    '</div></div></div>';
 }
 
 function dkUndo(id){
@@ -915,6 +1039,10 @@ function scamClose(){
   scam.el = null;
 }
 document.addEventListener('visibilitychange', function(){ if (document.hidden && scam.el) scamClose(); });
+// A mark still in the queue only exists on this phone.
+window.addEventListener('beforeunload', function(ev){
+  if (state.dkQueue && state.dkQueue.length) { ev.preventDefault(); ev.returnValue = ''; }
+});
 
 /******************** RENDER ********************/
 function render(){
@@ -1686,6 +1814,8 @@ function onClick(ev){
   if (a === 'dk-cam')   { dkCapture(); state.error = ''; scamOpen(); return; }
   if (a === 'dk-photo-x'){ dkCapture(); state.dk.photos.splice(Number(el.getAttribute('data-i')), 1); render(); return; }
   if (a === 'dk-save')  { dkSave(); return; }
+  if (a === 'dk-retry') { dkRetry(el.getAttribute('data-k')); return; }
+  if (a === 'dk-drop')  { dkDrop(el.getAttribute('data-k')); return; }
   if (a === 'dk-undo')  { dkUndo(el.getAttribute('data-id')); return; }
   if (a === 'dk-pdf')   { dkPdf(); return; }
 }
