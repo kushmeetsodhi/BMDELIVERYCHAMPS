@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=15b1b9f4f2"></script>
+<script src="config.js?v=04a461ad3a"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -259,6 +259,12 @@
     font-size:12px; padding:0 5px; }
   .dk-up.bad{ background:var(--red); }
   .dk-job{ border-left:4px solid #3C4FD0; }
+  .dk-types.four{ grid-template-columns:1fr 1fr; }
+  .dk-link{ background:none; border:none; color:var(--brand); font-size:13px; font-weight:600;
+    padding:10px 0 0; text-decoration:underline; font-family:inherit; cursor:pointer; }
+  html[data-theme="dark"] .dk-link{ color:#9AA6FF; }
+  .dk-xrow{ width:30px; height:30px; border-radius:50%; border:none; background:var(--red-bg); color:var(--red);
+    font-size:17px; line-height:1; flex:none; }
   .dk-job.bad{ border-left-color:var(--red); background:var(--red-bg); }
   .dk-add{ width:76px; height:76px; border-radius:9px; border:1.5px dashed var(--border); background:var(--surface-2);
     color:var(--ink-soft); font-size:11.5px; display:flex; flex-direction:column; align-items:center;
@@ -317,7 +323,8 @@ var state = {
   flSel:{}, flMsg:'', flErr:'',
   qkText:'', qkOrders:null, qkSel:{}, qkMsg:'', qkErr:'',
   prodCode:'', prodQuery:'', prodData:null, prodErr:'',
-  dk:{ q:'', data:null, type:'', qty:{}, note:'', photos:[], saving:false, list:null, pdfBusy:false, pdfLink:'' },
+  dk:{ q:'', data:null, type:'', qty:{}, note:'', photos:[], saving:false, list:null, pdfBusy:false, pdfLink:'',
+       mode:'so', extra:[{ name:'', qty:'' }] },
   // Marks saved on this phone but not yet on the server: they wait for
   // their photos, then go, while the supervisor gets on with the next.
   dkQueue:[]
@@ -616,7 +623,8 @@ var DK_MAX_PHOTOS = 6;
 function dkReset(keepQuery){
   state.dk = { q: keepQuery ? state.dk.q : '', data: null, type: '', qty: {}, note: '',
                photos: [], saving: false, list: state.dk ? state.dk.list : null,
-               pdfBusy: false, pdfLink: '' };
+               pdfBusy: false, pdfLink: '', mode: state.dk ? state.dk.mode : 'so',
+               extra: [{ name: '', qty: '' }] };
 }
 
 // Before anything redraws the screen, keep what has been typed.
@@ -628,6 +636,16 @@ function dkCapture(){
   for (var i = 0; i < qs.length; i++) {
     d.qty[qs[i].getAttribute('data-dk-qty')] = qs[i].value;
   }
+  var xn = document.querySelectorAll('[data-dk-xname]');
+  for (var j = 0; j < xn.length; j++) {
+    var k = Number(xn[j].getAttribute('data-dk-xname'));
+    if (d.extra[k]) d.extra[k].name = xn[j].value;
+  }
+  var xq = document.querySelectorAll('[data-dk-xqty]');
+  for (var m = 0; m < xq.length; m++) {
+    var k2 = Number(xq[m].getAttribute('data-dk-xqty'));
+    if (d.extra[k2]) d.extra[k2].qty = xq[m].value;
+  }
 }
 
 function deskHTML(){
@@ -638,18 +656,28 @@ function deskHTML(){
       (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s RD + cancelled (PDF)') + '</button>' +
     (d.pdfLink ? '<div class="fnt" style="margin:6px 2px 0;">Also saved in Drive: ' +
       '<a href="' + esc(d.pdfLink) + '" target="_blank" rel="noopener">open the PDF</a></div>' : '') +
-    (L ? '<div class="stats" style="grid-template-columns:repeat(3,1fr); margin-top:12px;">' +
+    (L ? '<div class="stats" style="grid-template-columns:repeat(2,1fr); margin-top:12px;">' +
         st('Returned', L.counts.returned, 'items back') +
         st('RD', L.counts.redispatch, 'redispatch') +
-        st('Cancelled', L.counts.cancelled, 'orders') + '</div>' : '') +
+        st('Cancelled', L.counts.cancelled, 'orders') +
+        st('Extra items', L.counts.extra || 0, 'sent by mistake') + '</div>' : '') +
 
     '<div class="card" style="margin-top:12px;">' +
-      '<label class="f">SO number</label>' +
-      '<div class="row">' +
-        '<input id="dk-q" class="grow dk-q" type="text" inputmode="numeric" maxlength="7" ' +
-          'placeholder="e.g. 38081" value="' + esc(d.q) + '" autocomplete="off" />' +
-        '<button class="btn" data-a="dk-find">Find</button>' +
-      '</div>' +
+      (d.mode === 'route'
+        ? '<label class="f">Route code (extra items with no order)</label>' +
+          '<div class="row">' +
+            '<input id="dk-q" class="grow dk-q" type="text" autocapitalize="characters" maxlength="6" ' +
+              'placeholder="e.g. JWHUCM" value="' + esc(d.q) + '" autocomplete="off" />' +
+            '<button class="btn" data-a="dk-find">Find</button>' +
+          '</div>' +
+          '<button class="dk-link" data-a="dk-mode" data-v="so">Back to SO number</button>'
+        : '<label class="f">SO number</label>' +
+          '<div class="row">' +
+            '<input id="dk-q" class="grow dk-q" type="text" inputmode="numeric" maxlength="7" ' +
+              'placeholder="e.g. 38081" value="' + esc(d.q) + '" autocomplete="off" />' +
+            '<button class="btn" data-a="dk-find">Find</button>' +
+          '</div>' +
+          '<button class="dk-link" data-a="dk-mode" data-v="route">Extra items with no order? Use the route code</button>') +
     '</div>';
 
   if (d.data) html += dkOrderHTML(d);
@@ -662,13 +690,18 @@ function deskHTML(){
   return html;
 }
 
-var DK_LABEL = { 'Items returned': 'Items returned', 'Redispatch': 'Redispatch (RD)', 'Cancelled': 'Cancelled' };
-var DK_CLS = { 'Items returned': 'b-warn', 'Redispatch': 'b-blue', 'Cancelled': 'b-bad' };
+var DK_LABEL = { 'Items returned': 'Items returned', 'Redispatch': 'Redispatch (RD)', 'Cancelled': 'Cancelled', 'Extra items': 'Extra items' };
+var DK_CLS = { 'Items returned': 'b-warn', 'Redispatch': 'b-blue', 'Cancelled': 'b-bad', 'Extra items': 'b-grey' };
+var DK_EXTRA = 'Extra items';
 
 function dkOrderHTML(d){
   var o = d.data.order;
   var ex = d.data.existing;
-  var html = '<div class="card dk-order">' +
+  var html = o.routeOnly
+    ? '<div class="card dk-order"><div class="ttl">Route ' + esc(o.code) + '</div>' +
+      '<div class="mut">' + esc(o.daName || 'No DA recorded') + (o.vehicleNo ? ' \u00b7 ' + esc(o.vehicleNo) : '') + '</div>' +
+      '<div class="fnt" style="margin-top:4px;">Extra items that came back on this vehicle and belong to no order.</div></div>'
+    : '<div class="card dk-order">' +
     '<div class="row"><div class="grow">' +
       '<div class="ttl">' + esc(cleanName(o.partyName) || o.invoiceNo) + '</div>' +
       '<div class="mut">SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + '</div>' +
@@ -682,16 +715,28 @@ function dkOrderHTML(d){
       '</b> at ' + esc(ex.markedAt) + ' by ' + esc(ex.markedBy) + '. Marking again replaces it.</div>' : '') +
     '</div>';
 
-  html += '<div class="sec">What happened?</div><div class="dk-types">' +
+  html += '<div class="sec">What happened?</div><div class="dk-types' + (d.data.types.length > 3 ? ' four' : '') + '">' +
     d.data.types.map(function(t){
       return '<button class="dk-type' + (d.type === t ? ' on ' + (DK_CLS[t] || '') : '') +
         '" data-a="dk-type" data-v="' + esc(t) + '">' + esc(DK_LABEL[t] || t) + '</button>';
     }).join('') + '</div>';
 
   if (!d.type) return html;
-  var needPhoto = d.type === 'Items returned';
+  var needPhoto = d.type === 'Items returned' || d.type === DK_EXTRA;
 
-  if (needPhoto) {
+  if (d.type === DK_EXTRA) {
+    html += '<div class="sec">Which extra items</div><div class="card">' +
+      d.extra.map(function(x, i){
+        return '<div class="row dk-item">' +
+          '<input type="text" class="grow" data-dk-xname="' + i + '" placeholder="Item, e.g. Sprite 600ml x 24" value="' + esc(x.name) + '" />' +
+          '<input type="number" inputmode="numeric" min="0" class="dk-n" data-dk-xqty="' + i + '" placeholder="Qty" value="' + esc(x.qty) + '" />' +
+          (d.extra.length > 1 ? '<button class="dk-xrow" data-a="dk-xdel" data-i="' + i + '">\u00d7</button>' : '') +
+          '</div>';
+      }).join('') +
+      '<button class="dk-link" data-a="dk-xadd">+ Add another item</button></div>';
+  }
+
+  if (d.type === 'Items returned') {
     html += '<div class="sec">Which items came back</div>';
     if (!d.data.items) {
       html += '<div class="fnt" style="margin:0 2px 8px;">Loading the order\u2019s items\u2026 ' +
@@ -728,6 +773,7 @@ function dkOrderHTML(d){
     '<textarea id="dk-note" rows="2" placeholder="' +
       (d.type === 'Redispatch' ? 'Why: shop closed, asked for tomorrow…'
        : d.type === 'Cancelled' ? 'Why it was cancelled'
+       : d.type === DK_EXTRA ? 'Where they were found, who loaded them\u2026'
        : 'Anything else about the return') + '">' + esc(d.note) + '</textarea>' +
     '<button class="btn block" style="margin-top:12px;" data-a="dk-save">' +
       'Save: ' + esc(DK_LABEL[d.type] || d.type) + '</button>' +
@@ -738,8 +784,9 @@ function dkOrderHTML(d){
 
 function dkRowHTML(x){
   return '<div class="card"><div class="row"><div class="grow">' +
-    '<div class="ttl trunc">' + esc(cleanName(x.partyName) || x.invoiceNo) + '</div>' +
-    '<div class="mut">SO ' + esc(x.soNo) + ' · ' + esc(x.code) + (x.daName ? ' · ' + esc(x.daName) : '') + '</div>' +
+    '<div class="ttl trunc">' + esc(cleanName(x.partyName) || x.invoiceNo || ('Route ' + x.code)) + '</div>' +
+    '<div class="mut">' + (x.soNo ? 'SO ' + esc(x.soNo) + ' · ' : 'No order · ') + esc(x.code) +
+      (x.daName ? ' · ' + esc(x.daName) : '') + '</div>' +
     (x.items ? '<div class="fnt">' + esc(x.items) + '</div>' : '') +
     (x.note ? '<div class="fnt">' + esc(x.note) + '</div>' : '') +
     '<div class="fnt">' + esc(x.markedAt) + ' · ' + esc(x.markedBy) +
@@ -759,8 +806,13 @@ function dkLoadList(){
 
 function dkFind(){
   dkCapture();
-  var q = String(state.dk.q || '').replace(/\D/g, '');
-  if (q.length < 4) { state.error = 'Enter the SO number (the last 5 digits).'; render(); return; }
+  var byRoute = state.dk.mode === 'route';
+  var q = byRoute ? String(state.dk.q || '').trim().toUpperCase()
+                  : String(state.dk.q || '').replace(/\D/g, '');
+  if (byRoute && !/^(?=.*[A-Z])[A-Z0-9]{6}$/.test(q)) {
+    state.error = 'A route code is 6 letters and numbers, like JWHUCM.'; render(); return;
+  }
+  if (!byRoute && q.length < 4) { state.error = 'Enter the SO number (the last 5 digits).'; render(); return; }
   state.error = ''; state.note = '';
   var keepList = state.dk.list;
   dkReset(true); state.dk.list = keepList; state.dk.q = q;
@@ -770,7 +822,8 @@ function dkFind(){
     if (res && res.success) {
       res.items = null;                 // on their way
       state.dk.data = res;
-      dkLoadItems(res.order.invoiceNo);
+      if (res.order.routeOnly) { res.items = []; state.dk.type = DK_EXTRA; }
+      else dkLoadItems(res.order.invoiceNo);
     } else {
       state.error = (res && res.error) || 'Could not find that order.';
     }
@@ -821,7 +874,8 @@ function dkUpload(p, soNo){
 // would close the keyboard mid-word.
 function dkTyping(){
   var a = document.activeElement;
-  return !!(a && (a.id === 'dk-q' || a.id === 'dk-note' || (a.hasAttribute && a.hasAttribute('data-dk-qty'))));
+  return !!(a && (a.id === 'dk-q' || a.id === 'dk-note' || (a.hasAttribute &&
+    (a.hasAttribute('data-dk-qty') || a.hasAttribute('data-dk-xname') || a.hasAttribute('data-dk-xqty')))));
 }
 
 // Same size and quality as the DA app's proof photos.
@@ -849,6 +903,14 @@ function dkSave(){
   var items = (d.data.items || []).map(function(it, i){
     return { product: it.product, variant: it.variant, qty: Number(d.qty[i]) || 0 };
   }).filter(function(x){ return x.qty > 0; });
+  if (d.type === DK_EXTRA) {
+    items = d.extra.map(function(x){ return { product: String(x.name || '').trim(), variant: '', qty: Number(x.qty) || 0 }; })
+      .filter(function(x){ return x.product && x.qty > 0; });
+    if (!d.photos.length) { state.error = 'Take at least one photo of the extra items.'; render(); return; }
+    if (!items.length && !String(d.note).trim()) {
+      state.error = 'Enter each extra item and how many, or write them in the note.'; render(); return;
+    }
+  }
   if (d.type === 'Items returned') {
     if (!d.photos.length) { state.error = 'Take at least one photo of the returned items.'; render(); return; }
     if (!items.length && !String(d.note).trim()) {
@@ -861,11 +923,12 @@ function dkSave(){
   var o = d.data.order;
   state.dkQueue.unshift({
     key: 'q' + Date.now(), soNo: o.soNo, invoiceNo: o.invoiceNo, party: o.partyName, code: o.code,
-    type: d.type, items: items, note: d.note, photos: d.photos.slice(),
+    routeOnly: !!o.routeOnly, type: d.type, items: items, note: d.note, photos: d.photos.slice(),
     status: 'waiting', error: ''
   });
   state.error = '';
-  state.note = 'SO ' + o.soNo + ': ' + (DK_LABEL[d.type] || d.type) + ' — saving in the background.';
+  state.note = (o.routeOnly ? 'Route ' + o.code : 'SO ' + o.soNo) + ': ' + (DK_LABEL[d.type] || d.type) +
+    ' — saving in the background.';
   var keepList = d.list;
   dkReset(false); state.dk.list = keepList;
   render();
@@ -885,7 +948,7 @@ function dkPump(){
       dkQueueChanged(); return;
     }
     job.status = 'saving';
-    api('deskMark', { soNo: job.soNo, invoiceNo: job.invoiceNo, type: job.type, items: job.items,
+    api('deskMark', { soNo: job.soNo, invoiceNo: job.invoiceNo, code: job.code, type: job.type, items: job.items,
                       note: job.note, photos: job.photos.map(function(p){ return p.link; }) })
       .then(function(res){
         if (res && res.success) {
@@ -908,12 +971,16 @@ function dkQueueChanged(){
 function dkListAdd(row){
   var L = state.dk.list;
   if (!row || !L) { dkLoadList(); return; }
-  L.rows = [row].concat(L.rows.filter(function(x){ return x.invoiceNo !== row.invoiceNo; }));
-  L.counts = { returned: 0, redispatch: 0, cancelled: 0 };
+  // Same rule as the server: an order has one main mark and one extra-
+  // items entry; a route-only entry is keyed by its route.
+  var slot = function(x){ return (x.type === DK_EXTRA ? 'x|' : 'm|') + (x.invoiceNo || ('route:' + x.code)); };
+  L.rows = [row].concat(L.rows.filter(function(x){ return slot(x) !== slot(row); }));
+  L.counts = { returned: 0, redispatch: 0, cancelled: 0, extra: 0 };
   L.rows.forEach(function(x){
     if (x.type === 'Items returned') L.counts.returned++;
     if (x.type === 'Redispatch') L.counts.redispatch++;
     if (x.type === 'Cancelled') L.counts.cancelled++;
+    if (x.type === DK_EXTRA) L.counts.extra++;
   });
 }
 
@@ -940,8 +1007,8 @@ function dkJobHTML(j){
            : left ? 'Waiting for ' + left + ' photo' + (left > 1 ? 's' : '') + ' to upload…'
            : 'Saving…';
   return '<div class="card dk-job' + (j.status === 'failed' ? ' bad' : '') + '"><div class="row"><div class="grow">' +
-    '<div class="ttl trunc">' + esc(cleanName(j.party) || j.invoiceNo) + '</div>' +
-    '<div class="mut">SO ' + esc(j.soNo) + ' · ' + esc(j.code) + '</div>' +
+    '<div class="ttl trunc">' + esc(cleanName(j.party) || j.invoiceNo || ('Route ' + j.code)) + '</div>' +
+    '<div class="mut">' + (j.soNo ? 'SO ' + esc(j.soNo) + ' · ' : 'No order · ') + esc(j.code) + '</div>' +
     '<div class="fnt">' + line + '</div>' +
     '</div><div style="text-align:right;">' + badge(DK_LABEL[j.type] || j.type, DK_CLS[j.type]) +
     (j.status === 'failed'
@@ -1815,6 +1882,13 @@ function onClick(ev){
   if (a === 'dk-photo-x'){ dkCapture(); state.dk.photos.splice(Number(el.getAttribute('data-i')), 1); render(); return; }
   if (a === 'dk-save')  { dkSave(); return; }
   if (a === 'dk-retry') { dkRetry(el.getAttribute('data-k')); return; }
+  if (a === 'dk-mode')  { var keepL = state.dk.list; state.dk.mode = el.getAttribute('data-v'); dkReset(false);
+                          state.dk.list = keepL; state.error = ''; render();
+                          var qi = document.getElementById('dk-q'); if (qi) qi.focus(); return; }
+  if (a === 'dk-xadd')  { dkCapture(); state.dk.extra.push({ name: '', qty: '' }); render();
+                          var xs = document.querySelectorAll('[data-dk-xname]'); if (xs.length) xs[xs.length - 1].focus(); return; }
+  if (a === 'dk-xdel')  { dkCapture(); state.dk.extra.splice(Number(el.getAttribute('data-i')), 1);
+                          if (!state.dk.extra.length) state.dk.extra.push({ name: '', qty: '' }); render(); return; }
   if (a === 'dk-drop')  { dkDrop(el.getAttribute('data-k')); return; }
   if (a === 'dk-undo')  { dkUndo(el.getAttribute('data-id')); return; }
   if (a === 'dk-pdf')   { dkPdf(); return; }
