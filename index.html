@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=7f9b9a2f28"></script>
+<script src="config.js?v=470675a5f0"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1952,7 +1952,8 @@ function retproofHTML(){
       '<div style="display:flex; align-items:center; gap:10px;">' +
       '<div style="flex:1; min-width:0;">' +
         '<div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
-          'SO ' + esc(j.q) + (name ? ' · ' + esc(cleanName(name)) : '') + '</div>' +
+          'SO ' + esc(j.invoiceNo ? (String(j.invoiceNo).match(/\d+/g) || [j.q]).pop() : j.q) +
+          (name ? ' · ' + esc(cleanName(name)) : '') + '</div>' +
         '<div class="hint" style="margin:0;">' + j.photos.length + ' photo' + (j.photos.length === 1 ? '' : 's') +
           ' · ' + line + '</div>' +
       '</div>' + act +
