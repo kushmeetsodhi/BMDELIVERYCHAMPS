@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=0a12b9dbdf"></script>
+<script src="config.js?v=7f9b9a2f28"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1780,7 +1780,8 @@ function summaryHTML(){
       '</div>' +
       stats + cashCard +
       (state.rp && state.rp.list && state.rp.list.length
-        ? '<p class="hint" style="margin:-4px 2px 12px;">Return proofs saved: ' + state.rp.list.length + '</p>' : '') +
+        ? '<p class="hint" style="margin:-4px 2px 12px;">Return proofs saved: ' +
+            state.rp.list.filter(function(j){ return j.status === 'saved'; }).length + '</p>' : '') +
       errHTML() +
       '<div style="margin-top:4px;"><button class="secondary" data-action="reopen-trip" style="width:100%;">Reopen this trip</button></div>' +
       '<div style="margin-top:10px;"><button class="primary" data-action="logout">Log out</button></div>';
@@ -1793,30 +1794,45 @@ function summaryHTML(){
 
 /******************** RETURN PROOFS (end of trip, new app only) ********************/
 // Before ending the trip the DA types the SO number of each order he is
-// bringing back and photographs the goods, one order at a time. Accounts
-// see the photos in the collection report. The old Apps Script link
-// keeps its old End trip; this runs only on the GitHub app.
+// bringing back and photographs the goods. Nothing makes him wait: Save
+// takes whatever he typed, the form clears for the next one, and the
+// photos upload and the proof saves behind it. The SO number is checked
+// against the route already on the phone - no server call - and one that
+// is not on this route is only raised when he taps End day, where he can
+// fix the number or remove it. The old Apps Script link keeps its old
+// End trip; this runs only on the GitHub app.
 var RP_MAX_PHOTOS = 4;
+var RP_STORE = 'bm_rp_v1';
 
 function rpEnabled(){ return BM_HOSTED && !!state.code && !state.tripClosed; }
 
-function rpBlank(){ return { q: '', match: null, photos: [] }; }
+function rpBlank(){ return { q: '', photos: [] }; }
 
 function openReturnProofs(){
   state.menuOpen = false;
   // A different route (or a new login) starts its own list.
-  if (!state.rp || state.rp.code !== state.code) state.rp = { list: [], loaded: false, code: state.code };
-  var keep = state.rp;
-  state.rp = Object.assign(keep, rpBlank());
+  if (!state.rp || state.rp.code !== state.code) {
+    state.rp = { code: state.code, list: rpRestore(state.code), loaded: false, check: false };
+  }
+  var r = state.rp;
+  if (r.q == null) Object.assign(r, rpBlank());
   state.view = 'retproof';
   render();
-  if (!keep.loaded && !state.isDemo) {
+  rpPump();
+  if (!r.loaded && !state.isDemo) {
     api('listReturnProofs', { code: state.code }).then(function(res){
-      if (res && res.success) {
-        state.rp.list = res.items || [];
-        state.rp.loaded = true;
-        if (state.view === 'retproof' && !rpTyping()) render();
-      }
+      if (!(res && res.success)) return;
+      r.loaded = true;
+      // What the server already has, minus anything this phone is
+      // still sending or has replaced since.
+      (res.items || []).forEach(function(x){
+        var mine = r.list.some(function(j){ return j.invoiceNo === x.invoiceNo; });
+        if (!mine) r.list.push({ key: 's' + x.invoiceNo, q: x.soNo, invoiceNo: x.invoiceNo,
+          partyName: x.partyName, photos: x.photos.map(function(l){ return { link: l }; }),
+          status: 'saved', at: x.at });
+      });
+      rpPersist();
+      if (state.view === 'retproof' && !rpTyping()) render();
     });
   }
 }
@@ -1853,12 +1869,41 @@ function rpTyping(){
 
 function rpThumb(sh){
   if (sh.base64) return 'data:' + (sh.mime || 'image/jpeg') + ';base64,' + sh.base64;
-  return sh.link ? thumbFor(sh.link) : '';
+  return sh.link && sh.link !== 'demo' ? thumbFor(sh.link) : '';
+}
+
+function rpBusy(j){ return j.status === 'uploading' || j.status === 'saving'; }
+function rpOffRoute(){ return state.rp ? state.rp.list.filter(function(j){ return j.status === 'offroute'; }) : []; }
+function rpFailed(){ return state.rp ? state.rp.list.filter(function(j){ return j.status === 'failed'; }) : []; }
+function rpPending(){ return state.rp ? state.rp.list.filter(rpBusy) : []; }
+
+// The list survives the page being killed: photos still on the phone
+// are kept until they have uploaded.
+function rpPersist(){
+  var r = state.rp; if (!r) return;
+  try {
+    localStorage.setItem(RP_STORE, JSON.stringify({ code: r.code, list: r.list.filter(function(j){
+      return j.status !== 'saved';
+    }).map(function(j){
+      return { key: j.key, q: j.q, invoiceNo: j.invoiceNo, partyName: j.partyName, status: j.status,
+               photos: j.photos.map(function(p){ return { link: p.link || null, base64: p.link ? null : p.base64, mime: p.mime }; }) };
+    }) }));
+  } catch (e) {}
+}
+function rpRestore(code){
+  try {
+    var s = JSON.parse(localStorage.getItem(RP_STORE) || 'null');
+    if (!s || s.code !== code) return [];
+    return (s.list || []).map(function(j){
+      j.status = rpMatch(j.q) ? 'uploading' : 'offroute';
+      j.photos.forEach(function(p){ p.uploading = false; });
+      return j;
+    });
+  } catch (e) { return []; }
 }
 
 function retproofHTML(){
-  var r = state.rp || rpBlank();
-  var m = r.match;
+  var r = state.rp || Object.assign({ list: [] }, rpBlank());
   var shots = r.photos || [];
   var full = shots.length >= RP_MAX_PHOTOS;
   var rows = shots.length
@@ -1867,86 +1912,88 @@ function retproofHTML(){
           '<img src="' + rpThumb(sh) + '" alt="Photo ' + (i + 1) + '" />' +
           '<button type="button" class="shot-x" data-action="rp-photo-remove" data-i="' + i + '" ' +
             'aria-label="Remove photo ' + (i + 1) + '">&times;</button>' +
-          (sh.uploading ? '<span class="shot-up">↑</span>' : '') +
-          (sh.failed ? '<span class="shot-up" style="background:#B42318;">!</span>' : '') +
           '</div>';
       }).join('') + '</div>'
     : '';
+  var label = shots.length ? 'Add another photo' : 'Take photo of the goods';
   var camBtn = full ? '' : (inAppCamera()
-    ? '<button type="button" class="file-btn" id="rp-cam" data-action="rp-cam"' + (m ? '' : ' disabled') + '>' +
-        (shots.length ? 'Add another photo' : 'Take photo of the goods') + '</button>'
-    : '<label class="file-btn">' + (shots.length ? 'Add another photo' : 'Take photo of the goods') +
-        '<input type="file" accept="image/*" capture="environment" id="rp-file" style="display:none;"' +
-        (m ? '' : ' disabled') + ' /></label>');
+    ? '<button type="button" class="file-btn" data-action="rp-cam">' + label + '</button>'
+    : '<label class="file-btn">' + label +
+        '<input type="file" accept="image/*" capture="environment" id="rp-file" style="display:none;" /></label>');
 
-  var list = (r.list || []).map(function(x){
-    return '<div class="card" style="padding:11px 13px; margin-bottom:8px;"><div style="display:flex; align-items:center; gap:10px;">' +
+  // Raised only at End day: entries that are not on this route.
+  var off = r.check ? rpOffRoute() : [];
+  var failed = r.check ? rpFailed() : [];
+  var problems = (off.length || failed.length)
+    ? '<div class="err" style="margin-bottom:12px;">' +
+        (off.length ? '<b>Not on your route ' + esc(state.code) + ':</b> ' +
+          off.map(function(j){ return 'SO ' + esc(j.q); }).join(', ') +
+          '. Tap <b>Fix</b> to correct the number, or <b>Remove</b>.' : '') +
+        (off.length && failed.length ? '<br>' : '') +
+        (failed.length ? '<b>' + failed.length + ' not saved</b> (no signal?). Tap <b>Retry</b>.' : '') +
+      '</div>'
+    : '';
+
+  var list = (r.list || []).slice().reverse().map(function(j){
+    var o = j.invoiceNo ? null : rpMatch(j.q);
+    var name = j.partyName || (o && o.partyName) || '';
+    var line, act;
+    if (j.status === 'saved') { line = '✔ Saved' + (j.at ? ' · ' + esc(j.at) : ''); }
+    else if (j.status === 'offroute') { line = r.check ? '<span style="color:var(--red,#B42318);">Not on this route</span>' : 'Will be checked at End day'; }
+    else if (j.status === 'failed') { line = '<span style="color:var(--red,#B42318);">Not saved: ' + esc(j.error || 'no signal') + '</span>'; }
+    else { line = j.status === 'saving' ? 'Saving…' : 'Uploading…'; }
+    act = (j.status === 'offroute'
+            ? '<button type="button" class="secondary" style="width:auto; padding:6px 10px;" data-action="rp-fix" data-k="' + esc(j.key) + '">Fix</button> ' : '') +
+          (j.status === 'failed'
+            ? '<button type="button" class="secondary" style="width:auto; padding:6px 10px;" data-action="rp-retry" data-k="' + esc(j.key) + '">Retry</button> ' : '') +
+          '<button type="button" class="secondary" style="width:auto; padding:6px 10px;" data-action="rp-del" data-k="' + esc(j.key) + '">Remove</button>';
+    return '<div class="card" style="padding:11px 13px; margin-bottom:8px;' +
+        (r.check && j.status === 'offroute' ? ' border-color:#B42318;' : '') + '">' +
+      '<div style="display:flex; align-items:center; gap:10px;">' +
       '<div style="flex:1; min-width:0;">' +
         '<div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
-          esc(cleanName(x.partyName) || x.invoiceNo) + '</div>' +
-        '<div class="hint" style="margin:0;">SO ' + esc(x.soNo) + ' · ' + x.photos.length +
-          ' photo' + (x.photos.length === 1 ? '' : 's') + (x.at ? ' · ' + esc(x.at) : '') + '</div>' +
-      '</div>' +
-      '<button type="button" class="secondary" style="width:auto; padding:6px 12px;" data-action="rp-del" ' +
-        'data-inv="' + esc(x.invoiceNo) + '">Remove</button>' +
+          'SO ' + esc(j.q) + (name ? ' · ' + esc(cleanName(name)) : '') + '</div>' +
+        '<div class="hint" style="margin:0;">' + j.photos.length + ' photo' + (j.photos.length === 1 ? '' : 's') +
+          ' · ' + line + '</div>' +
+      '</div>' + act +
     '</div></div>';
   }).join('');
 
-  var busy = r.saving || r.waitSave;
-  return '<div class="card">' +
+  var sending = rpPending().length;
+  return problems +
+    '<div class="card">' +
       '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Return proofs</p>' +
       '<p class="hint">For each order you are bringing back: type its SO number, take a photo of the goods, ' +
         'then tap Save. When all are done, tap <b>End day</b>.</p>' +
       errHTML() +
       '<label>SO number</label>' +
-      '<input type="text" id="rp-q" inputmode="numeric" autocomplete="off" placeholder="Last digits, e.g. 38307" value="' +
+      '<input type="text" id="rp-q" inputmode="numeric" autocomplete="off" placeholder="e.g. 38307" value="' +
         esc(r.q) + '" />' +
-      '<p class="hint" id="rp-match" style="margin:6px 0 0;">' + rpMatchText(r) + '</p>' +
       '<label style="margin-top:12px;">Photos' +
         (shots.length ? ' <span class="hint">(' + shots.length + ' of ' + RP_MAX_PHOTOS + ')</span>' : '') +
       '</label>' + rows +
       (camBtn ? '<div class="pod-btns">' + camBtn + '</div>' : '') +
-      '<div style="margin-top:14px;"><button class="primary" data-action="rp-save" style="width:100%;"' +
-        (busy ? ' disabled' : '') + '>' +
-        (r.waitSave ? 'Waiting for the photo to upload…' : r.saving ? 'Saving…' : 'Save & next SO') +
-      '</button></div>' +
+      '<div style="margin-top:14px;"><button class="primary" data-action="rp-save" style="width:100%;">Save & next SO</button></div>' +
     '</div>' +
-    (list ? '<p class="hint" style="margin:14px 2px 6px;"><b>Saved (' + r.list.length + ')</b></p>' + list
-          : '<p class="hint" style="margin:14px 2px 6px;">No return proofs saved yet.</p>') +
+    (list ? '<p class="hint" style="margin:14px 2px 6px;"><b>Entered (' + r.list.length + ')</b>' +
+              (sending ? ' · sending ' + sending + '…' : '') + '</p>' + list
+          : '<p class="hint" style="margin:14px 2px 6px;">No return proofs entered yet.</p>') +
     '<div class="card cash-card">' +
       '<p class="hint" style="margin:0 0 5px;">Cash to hand over</p>' +
       '<p class="cash-amt">' + money(rpCash()) + '</p>' +
     '</div>' +
-    '<button class="primary" data-action="ask-end-trip"' + (busy ? ' disabled' : '') + '>End day</button>' +
+    '<button class="primary" data-action="rp-end"' + (r.ending ? ' disabled' : '') + '>' +
+      (r.ending ? 'Sending return proofs…' : 'End day') + '</button>' +
     '<div style="margin-top:10px;"><button class="secondary" data-action="back-to-orders" style="width:100%;">Back to orders</button></div>';
 }
 
-function rpMatchText(r){
-  var q = String(r.q || '').replace(/\D/g, '');
-  if (!q) return '';
-  if (r.match) return '✔ ' + esc(cleanName(r.match.partyName)) + ' · ' + esc(shortId(r.match.invoiceNo));
-  return q.length < 3 ? 'Keep typing…' : 'Not on this route. Check the number.';
-}
+function rpOnType(el){ if (state.rp) state.rp.q = el.value; }
 
-function rpOnType(el){
-  var r = state.rp; if (!r) return;
-  r.q = el.value;
-  var was = r.match;
-  r.match = rpMatch(r.q);
-  // A new order means the photos were of something else.
-  if (was && r.match !== was) r.photos = [];
-  var t = document.getElementById('rp-match');
-  if (t) t.innerHTML = rpMatchText(r);
-  var b = document.getElementById('rp-cam');
-  if (b) b.disabled = !r.match;
-  var f = document.getElementById('rp-file');
-  if (f) f.disabled = !r.match;
-}
-
-function rpUpload(){
-  var r = state.rp; if (!r || !r.match) return;
-  var inv = r.match.invoiceNo;
-  r.photos.forEach(function(sh){
+// Photos start uploading the moment they are taken.
+function rpUploadPhotos(photos, q){
+  var o = rpMatch(q);
+  var inv = o ? o.invoiceNo : ('SO-' + (String(q || '').replace(/\D/g, '') || 'RET'));
+  photos.forEach(function(sh){
     if (sh.link || sh.uploading) return;
     if (state.isDemo) { sh.link = 'demo'; return; }
     sh.uploading = true; sh.failed = false;
@@ -1955,57 +2002,130 @@ function rpUpload(){
       sh.uploading = false;
       if (res && res.success && res.link) { sh.link = res.link; sh.base64 = null; }
       else sh.failed = true;
-      if (r.waitSave) { rpSave(); return; }
-      if (state.view === 'retproof' && !rpTyping()) render();
+      rpPersist();
+      rpPump();
     });
   });
 }
+// Kept for the camera, which uploads what it takes into the form.
+function rpUpload(){ if (state.rp) rpUploadPhotos(state.rp.photos, state.rp.q); }
 
+// Save never waits: it takes the entry and clears the form.
 function rpSave(){
   var r = state.rp; if (!r) return;
-  var el = document.getElementById('rp-q'); if (el) rpOnType(el);
-  if (!r.match) { r.waitSave = false; state.error = 'Type the SO number of an order on this route.'; render(); return; }
-  if (!r.photos.length) { r.waitSave = false; state.error = 'Take a photo of the goods first.'; render(); return; }
-  if (r.photos.some(function(p){ return p.failed; })) {
-    r.waitSave = false;
-    state.error = 'A photo did not upload. Remove it (×) and take it again.'; render(); return;
-  }
-  if (r.photos.some(function(p){ return p.uploading || !p.link; })) {
-    r.waitSave = true; render(); rpUpload(); return;
-  }
-  r.waitSave = false;
-  var o = r.match;
-  var links = r.photos.map(function(p){ return p.link; });
-  var done = function(item){
-    r.list = r.list.filter(function(x){ return x.invoiceNo !== item.invoiceNo; }).concat([item]);
-    var keepList = r.list, loaded = r.loaded;
-    state.rp = Object.assign(rpBlank(), { list: keepList, loaded: loaded, code: r.code });
-    state.note = '';
-    render();
-    var q = document.getElementById('rp-q'); if (q) q.focus();
-  };
-  var local = { invoiceNo: o.invoiceNo, soNo: shortId(o.invoiceNo).replace(/\D/g, '') || shortId(o.invoiceNo),
-                partyName: o.partyName, photos: links, at: '' };
-  if (state.isDemo) { done(local); return; }
-  r.saving = true; render();
-  api('saveReturnProof', { loginName: state.loginName, code: state.code, invoiceNo: o.invoiceNo, photos: links })
-    .then(function(res){
-      r.saving = false;
-      if (res && res.success) { done(res.item || local); return; }
-      state.error = (res && res.error) || 'Could not save. Check signal and tap Save again.';
-      render();
-    });
+  var el = document.getElementById('rp-q'); if (el) r.q = el.value;
+  var q = String(r.q || '').replace(/\D/g, '');
+  if (!q) { state.error = 'Type the SO number.'; render(); return; }
+  if (!r.photos.length) { state.error = 'Take a photo of the goods first.'; render(); return; }
+  var o = rpMatch(q);
+  var job = { key: 'j' + Date.now(), q: q, invoiceNo: o ? o.invoiceNo : '', partyName: o ? o.partyName : '',
+              photos: r.photos, status: o ? 'uploading' : 'offroute' };
+  // The same order typed twice: the newer photos win.
+  r.list = r.list.filter(function(j){ return o ? j.invoiceNo !== o.invoiceNo : j.q !== q; }).concat([job]);
+  r.q = ''; r.photos = [];
+  state.error = '';
+  rpUploadPhotos(job.photos, q);
+  rpPersist();
+  render();
+  var qi = document.getElementById('rp-q'); if (qi) qi.focus();
+  rpPump();
 }
 
-function rpDelete(inv){
+// Moves every entry along: photos up, then the proof saved.
+function rpPump(){
   var r = state.rp; if (!r) return;
-  if (!confirm('Remove this return proof?')) return;
-  var drop = function(){ r.list = r.list.filter(function(x){ return x.invoiceNo !== inv; }); render(); };
-  if (state.isDemo) { drop(); return; }
-  api('deleteReturnProof', { code: state.code, invoiceNo: inv }).then(function(res){
-    if (res && res.success) drop();
-    else { state.error = (res && res.error) || 'Could not remove it.'; render(); }
+  r.list.forEach(function(j){
+    if (j.status !== 'uploading') return;
+    if (j.photos.some(function(p){ return !p.link && !p.uploading && !p.failed; })) rpUploadPhotos(j.photos, j.q);
+    if (j.photos.some(function(p){ return p.uploading; })) return;
+    if (j.photos.some(function(p){ return p.failed || !p.link; })) {
+      j.status = 'failed'; j.error = 'a photo did not upload'; return;
+    }
+    var links = j.photos.map(function(p){ return p.link; });
+    if (state.isDemo) { j.status = 'saved'; return; }
+    j.status = 'saving';
+    api('saveReturnProof', { loginName: state.loginName, code: state.code, invoiceNo: j.invoiceNo, photos: links })
+      .then(function(res){
+        if (res && res.success) {
+          j.status = 'saved';
+          if (res.item) { j.at = res.item.at; j.partyName = res.item.partyName || j.partyName; }
+        } else {
+          j.status = 'failed';
+          j.error = (res && res.error) || 'no signal';
+        }
+        rpPersist();
+        if (state.view === 'retproof' && !rpTyping()) render();
+        if (r.ending) rpEnd();
+      });
   });
+  rpPersist();
+  if (state.view === 'retproof' && !rpTyping() && !cam.el) render();
+  if (r.ending) rpEnd();
+}
+
+function rpFind(key){
+  var r = state.rp; if (!r) return null;
+  for (var i = 0; i < r.list.length; i++) if (r.list[i].key === key) return r.list[i];
+  return null;
+}
+
+function rpRetry(key){
+  var j = rpFind(key); if (!j) return;
+  j.photos.forEach(function(p){ p.failed = false; });
+  j.status = rpMatch(j.q) ? 'uploading' : 'offroute';
+  j.error = '';
+  rpPump();
+  render();
+}
+
+// Back into the form with its photos, to correct the number.
+function rpFix(key){
+  var r = state.rp, j = rpFind(key); if (!j) return;
+  r.list = r.list.filter(function(x){ return x !== j; });
+  r.q = j.q; r.photos = j.photos;
+  rpPersist();
+  render();
+  var qi = document.getElementById('rp-q'); if (qi) { qi.focus(); qi.select && qi.select(); }
+}
+
+function rpDelete(key){
+  var r = state.rp, j = rpFind(key); if (!j) return;
+  if (!confirm('Remove the return proof for SO ' + j.q + '?')) return;
+  r.list = r.list.filter(function(x){ return x !== j; });
+  rpPersist();
+  render();
+  if (j.status === 'saved' && j.invoiceNo && !state.isDemo) {
+    api('deleteReturnProof', { code: state.code, invoiceNo: j.invoiceNo });
+  }
+}
+
+// End day: wait for anything still sending, then raise what is not on
+// the route or did not save. Only a clean list goes on to End trip.
+function rpEnd(){
+  var r = state.rp; if (!r) return;
+  if (rpPending().length) {
+    if (!r.ending) { r.ending = true; render(); }
+    if (!r.endTimer) r.endTimer = setTimeout(function(){
+      r.endTimer = null;
+      if (!r.ending) return;
+      r.ending = false;
+      rpPending().forEach(function(j){ j.status = 'failed'; j.error = 'no signal'; });
+      r.check = true;
+      render();
+    }, 45000);
+    return;
+  }
+  if (r.endTimer) { clearTimeout(r.endTimer); r.endTimer = null; }
+  r.ending = false;
+  r.check = true;
+  if (rpOffRoute().length || rpFailed().length) {
+    render();
+    window.scrollTo(0, 0);
+    return;
+  }
+  try { localStorage.removeItem(RP_STORE); } catch (e) {}
+  // The usual End trip confirmation.
+  onAction({ currentTarget: { getAttribute: function(){ return 'ask-end-trip'; } }, stopPropagation: function(){} });
 }
 
 function rpAddFile(input){
@@ -2726,9 +2846,12 @@ function onAction(ev){
     openReturnProofs();
     return;
   }
-  if (action === 'rp-cam')  { if (state.rp && state.rp.match) openCamera('ret'); return; }
-  if (action === 'rp-save') { rpSave(); return; }
-  if (action === 'rp-del')  { rpDelete(el.getAttribute('data-inv')); return; }
+  if (action === 'rp-cam')   { var qe = document.getElementById('rp-q'); if (qe && state.rp) state.rp.q = qe.value; openCamera('ret'); return; }
+  if (action === 'rp-save')  { rpSave(); return; }
+  if (action === 'rp-end')   { rpEnd(); return; }
+  if (action === 'rp-del')   { rpDelete(el.getAttribute('data-k')); return; }
+  if (action === 'rp-fix')   { rpFix(el.getAttribute('data-k')); return; }
+  if (action === 'rp-retry') { rpRetry(el.getAttribute('data-k')); return; }
   if (action === 'rp-photo-remove') {
     var ri = Number(el.getAttribute('data-i'));
     if (state.rp && ri >= 0) state.rp.photos.splice(ri, 1);
