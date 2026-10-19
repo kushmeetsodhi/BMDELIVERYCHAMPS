@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=7e21e3c0c2"></script>
+<script src="config.js?v=0a12b9dbdf"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -345,6 +345,9 @@ var state = {
   // A big order needs more than one angle, so this is a list:
   // [{ base64, mime, preview, link, uploading }].
   podPhotos: [],
+  // Return proofs at the end of the trip (new app only):
+  // { q, match, photos:[{base64,mime,link,uploading,failed}], list:[], loaded, saving, waitSave }
+  rp: null,
   podSigBase64: null,
   podSigPreview: null,
   podSkipOpen: false,
@@ -637,14 +640,18 @@ function camSet(id, text){
   if (el) el.textContent = text;
 }
 function camCount(){
-  camSet('cam-n', cam.mode === 'selfie' ? '' : state.podPhotos.length + ' / ' + POD_MAX_PHOTOS);
+  camSet('cam-n', cam.mode === 'selfie' ? '' : camList().length + ' / ' + camMax());
 }
+// The photos the open camera is adding to: a delivery's proof, or the
+// return proof being taken at the end of the trip.
+function camList(){ return cam.mode === 'ret' && state.rp ? state.rp.photos : state.podPhotos; }
+function camMax(){ return cam.mode === 'ret' ? RP_MAX_PHOTOS : POD_MAX_PHOTOS; }
 
 function openCamera(mode){
-  mode = mode === 'selfie' ? 'selfie' : 'pod';
+  mode = mode === 'selfie' ? 'selfie' : mode === 'ret' ? 'ret' : 'pod';
   if (cam.el) return;
-  if (mode === 'pod' && state.podPhotos.length >= POD_MAX_PHOTOS) return;
   cam.mode = mode;
+  if (mode !== 'selfie' && camList().length >= camMax()) return;
   state.error = '';
   var el = document.createElement('div');
   el.id = 'cam';
@@ -695,7 +702,8 @@ function shootCamera(){
   var v = document.getElementById('cam-v');
   if (!cam.stream || !v || !v.videoWidth) return;
   if (cam.mode === 'selfie') { shootSelfie(v); return; }
-  if (state.podPhotos.length >= POD_MAX_PHOTOS) { closeCamera(); return; }
+  var list = camList(), max = camMax();
+  if (list.length >= max) { closeCamera(); return; }
 
   // Same size and quality as a compressed camera-app photo, so the
   // server and the thumbnails see no difference.
@@ -712,18 +720,18 @@ function shootCamera(){
   var dataUrl = canvas.toDataURL('image/jpeg', 0.6);
   canvas.width = 1; canvas.height = 1;
 
-  state.podPhotos.push({ base64: dataUrl.split(',')[1], mime: 'image/jpeg',
-                         link: null, uploading: false });
+  list.push({ base64: dataUrl.split(',')[1], mime: 'image/jpeg',
+              link: null, uploading: false });
   cam.taken++;
   camCount();
   // Start sending now; the DA may take several before tapping Done.
-  uploadPodPhotos();
+  if (cam.mode === 'ret') rpUpload(); else uploadPodPhotos();
 
   if (cam.el) {
     cam.el.classList.add('flash');
     setTimeout(function(){ if (cam.el) cam.el.classList.remove('flash'); }, 150);
   }
-  if (state.podPhotos.length >= POD_MAX_PHOTOS) closeCamera();
+  if (list.length >= max) closeCamera();
 }
 
 // One face, small: enough to recognise someone, cheap to send at login.
@@ -942,6 +950,7 @@ function bodyHTML(){
   if(state.view === 'flush') return flushHTML();
   if(state.view === 'stuck') return stuckHTML();
   if(state.view === 'summary') return summaryHTML();
+  if(state.view === 'retproof') return retproofHTML();
   if(state.view === 'profile') return profileHTML();
   return '';
 }
@@ -1769,7 +1778,10 @@ function summaryHTML(){
         '<p style="font-size:18px; font-weight:700; margin:0 0 5px;">Day closed</p>' +
         '<p class="hint" style="margin:0;">Trip end time recorded. Thanks for the run today.</p>' +
       '</div>' +
-      stats + cashCard + errHTML() +
+      stats + cashCard +
+      (state.rp && state.rp.list && state.rp.list.length
+        ? '<p class="hint" style="margin:-4px 2px 12px;">Return proofs saved: ' + state.rp.list.length + '</p>' : '') +
+      errHTML() +
       '<div style="margin-top:4px;"><button class="secondary" data-action="reopen-trip" style="width:100%;">Reopen this trip</button></div>' +
       '<div style="margin-top:10px;"><button class="primary" data-action="logout">Log out</button></div>';
   }
@@ -1777,6 +1789,236 @@ function summaryHTML(){
   return '' + stats + cashCard + errHTML() +
     '<button class="primary" data-action="ask-end-trip">End trip</button>' +
     '<div style="margin-top:10px;"><button class="secondary" data-action="back-to-orders" style="width:100%;">Back to orders</button></div>';
+}
+
+/******************** RETURN PROOFS (end of trip, new app only) ********************/
+// Before ending the trip the DA types the SO number of each order he is
+// bringing back and photographs the goods, one order at a time. Accounts
+// see the photos in the collection report. The old Apps Script link
+// keeps its old End trip; this runs only on the GitHub app.
+var RP_MAX_PHOTOS = 4;
+
+function rpEnabled(){ return BM_HOSTED && !!state.code && !state.tripClosed; }
+
+function rpBlank(){ return { q: '', match: null, photos: [] }; }
+
+function openReturnProofs(){
+  state.menuOpen = false;
+  // A different route (or a new login) starts its own list.
+  if (!state.rp || state.rp.code !== state.code) state.rp = { list: [], loaded: false, code: state.code };
+  var keep = state.rp;
+  state.rp = Object.assign(keep, rpBlank());
+  state.view = 'retproof';
+  render();
+  if (!keep.loaded && !state.isDemo) {
+    api('listReturnProofs', { code: state.code }).then(function(res){
+      if (res && res.success) {
+        state.rp.list = res.items || [];
+        state.rp.loaded = true;
+        if (state.view === 'retproof' && !rpTyping()) render();
+      }
+    });
+  }
+}
+
+// The order on this route whose number ends in what was typed. An exact
+// number wins; otherwise only a single order ending in it counts.
+function rpMatch(q){
+  q = String(q || '').replace(/\D/g, '');
+  if (q.length < 3) return null;
+  var exact = null, ends = [];
+  for (var i = 0; i < state.orders.length; i++) {
+    var o = state.orders[i];
+    var runs = String(o.invoiceNo || '').match(/\d+/g);
+    var tail = runs ? runs[runs.length - 1] : '';
+    if (tail === q) exact = o;
+    else if (tail.slice(-q.length) === q) ends.push(o);
+  }
+  return exact || (ends.length === 1 ? ends[0] : null);
+}
+
+function rpCash(){
+  var total = 0;
+  for (var i = 0; i < state.orders.length; i++) {
+    var cs = state.orders[i].currentStatus;
+    if (cs) total += Number(cs['Cash Collected'] || 0);
+  }
+  return total;
+}
+
+function rpTyping(){
+  var a = document.activeElement;
+  return !!(a && a.id === 'rp-q');
+}
+
+function rpThumb(sh){
+  if (sh.base64) return 'data:' + (sh.mime || 'image/jpeg') + ';base64,' + sh.base64;
+  return sh.link ? thumbFor(sh.link) : '';
+}
+
+function retproofHTML(){
+  var r = state.rp || rpBlank();
+  var m = r.match;
+  var shots = r.photos || [];
+  var full = shots.length >= RP_MAX_PHOTOS;
+  var rows = shots.length
+    ? '<div class="shot-row">' + shots.map(function(sh, i){
+        return '<div class="shot">' +
+          '<img src="' + rpThumb(sh) + '" alt="Photo ' + (i + 1) + '" />' +
+          '<button type="button" class="shot-x" data-action="rp-photo-remove" data-i="' + i + '" ' +
+            'aria-label="Remove photo ' + (i + 1) + '">&times;</button>' +
+          (sh.uploading ? '<span class="shot-up">↑</span>' : '') +
+          (sh.failed ? '<span class="shot-up" style="background:#B42318;">!</span>' : '') +
+          '</div>';
+      }).join('') + '</div>'
+    : '';
+  var camBtn = full ? '' : (inAppCamera()
+    ? '<button type="button" class="file-btn" id="rp-cam" data-action="rp-cam"' + (m ? '' : ' disabled') + '>' +
+        (shots.length ? 'Add another photo' : 'Take photo of the goods') + '</button>'
+    : '<label class="file-btn">' + (shots.length ? 'Add another photo' : 'Take photo of the goods') +
+        '<input type="file" accept="image/*" capture="environment" id="rp-file" style="display:none;"' +
+        (m ? '' : ' disabled') + ' /></label>');
+
+  var list = (r.list || []).map(function(x){
+    return '<div class="card" style="padding:11px 13px; margin-bottom:8px;"><div style="display:flex; align-items:center; gap:10px;">' +
+      '<div style="flex:1; min-width:0;">' +
+        '<div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
+          esc(cleanName(x.partyName) || x.invoiceNo) + '</div>' +
+        '<div class="hint" style="margin:0;">SO ' + esc(x.soNo) + ' · ' + x.photos.length +
+          ' photo' + (x.photos.length === 1 ? '' : 's') + (x.at ? ' · ' + esc(x.at) : '') + '</div>' +
+      '</div>' +
+      '<button type="button" class="secondary" style="width:auto; padding:6px 12px;" data-action="rp-del" ' +
+        'data-inv="' + esc(x.invoiceNo) + '">Remove</button>' +
+    '</div></div>';
+  }).join('');
+
+  var busy = r.saving || r.waitSave;
+  return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Return proofs</p>' +
+      '<p class="hint">For each order you are bringing back: type its SO number, take a photo of the goods, ' +
+        'then tap Save. When all are done, tap <b>End day</b>.</p>' +
+      errHTML() +
+      '<label>SO number</label>' +
+      '<input type="text" id="rp-q" inputmode="numeric" autocomplete="off" placeholder="Last digits, e.g. 38307" value="' +
+        esc(r.q) + '" />' +
+      '<p class="hint" id="rp-match" style="margin:6px 0 0;">' + rpMatchText(r) + '</p>' +
+      '<label style="margin-top:12px;">Photos' +
+        (shots.length ? ' <span class="hint">(' + shots.length + ' of ' + RP_MAX_PHOTOS + ')</span>' : '') +
+      '</label>' + rows +
+      (camBtn ? '<div class="pod-btns">' + camBtn + '</div>' : '') +
+      '<div style="margin-top:14px;"><button class="primary" data-action="rp-save" style="width:100%;"' +
+        (busy ? ' disabled' : '') + '>' +
+        (r.waitSave ? 'Waiting for the photo to upload…' : r.saving ? 'Saving…' : 'Save & next SO') +
+      '</button></div>' +
+    '</div>' +
+    (list ? '<p class="hint" style="margin:14px 2px 6px;"><b>Saved (' + r.list.length + ')</b></p>' + list
+          : '<p class="hint" style="margin:14px 2px 6px;">No return proofs saved yet.</p>') +
+    '<div class="card cash-card">' +
+      '<p class="hint" style="margin:0 0 5px;">Cash to hand over</p>' +
+      '<p class="cash-amt">' + money(rpCash()) + '</p>' +
+    '</div>' +
+    '<button class="primary" data-action="ask-end-trip"' + (busy ? ' disabled' : '') + '>End day</button>' +
+    '<div style="margin-top:10px;"><button class="secondary" data-action="back-to-orders" style="width:100%;">Back to orders</button></div>';
+}
+
+function rpMatchText(r){
+  var q = String(r.q || '').replace(/\D/g, '');
+  if (!q) return '';
+  if (r.match) return '✔ ' + esc(cleanName(r.match.partyName)) + ' · ' + esc(shortId(r.match.invoiceNo));
+  return q.length < 3 ? 'Keep typing…' : 'Not on this route. Check the number.';
+}
+
+function rpOnType(el){
+  var r = state.rp; if (!r) return;
+  r.q = el.value;
+  var was = r.match;
+  r.match = rpMatch(r.q);
+  // A new order means the photos were of something else.
+  if (was && r.match !== was) r.photos = [];
+  var t = document.getElementById('rp-match');
+  if (t) t.innerHTML = rpMatchText(r);
+  var b = document.getElementById('rp-cam');
+  if (b) b.disabled = !r.match;
+  var f = document.getElementById('rp-file');
+  if (f) f.disabled = !r.match;
+}
+
+function rpUpload(){
+  var r = state.rp; if (!r || !r.match) return;
+  var inv = r.match.invoiceNo;
+  r.photos.forEach(function(sh){
+    if (sh.link || sh.uploading) return;
+    if (state.isDemo) { sh.link = 'demo'; return; }
+    sh.uploading = true; sh.failed = false;
+    api('uploadPhoto', { code: state.code, invoiceNo: inv, kind: 'ret',
+                         screenshotBase64: sh.base64, screenshotMime: sh.mime }).then(function(res){
+      sh.uploading = false;
+      if (res && res.success && res.link) { sh.link = res.link; sh.base64 = null; }
+      else sh.failed = true;
+      if (r.waitSave) { rpSave(); return; }
+      if (state.view === 'retproof' && !rpTyping()) render();
+    });
+  });
+}
+
+function rpSave(){
+  var r = state.rp; if (!r) return;
+  var el = document.getElementById('rp-q'); if (el) rpOnType(el);
+  if (!r.match) { r.waitSave = false; state.error = 'Type the SO number of an order on this route.'; render(); return; }
+  if (!r.photos.length) { r.waitSave = false; state.error = 'Take a photo of the goods first.'; render(); return; }
+  if (r.photos.some(function(p){ return p.failed; })) {
+    r.waitSave = false;
+    state.error = 'A photo did not upload. Remove it (×) and take it again.'; render(); return;
+  }
+  if (r.photos.some(function(p){ return p.uploading || !p.link; })) {
+    r.waitSave = true; render(); rpUpload(); return;
+  }
+  r.waitSave = false;
+  var o = r.match;
+  var links = r.photos.map(function(p){ return p.link; });
+  var done = function(item){
+    r.list = r.list.filter(function(x){ return x.invoiceNo !== item.invoiceNo; }).concat([item]);
+    var keepList = r.list, loaded = r.loaded;
+    state.rp = Object.assign(rpBlank(), { list: keepList, loaded: loaded, code: r.code });
+    state.note = '';
+    render();
+    var q = document.getElementById('rp-q'); if (q) q.focus();
+  };
+  var local = { invoiceNo: o.invoiceNo, soNo: shortId(o.invoiceNo).replace(/\D/g, '') || shortId(o.invoiceNo),
+                partyName: o.partyName, photos: links, at: '' };
+  if (state.isDemo) { done(local); return; }
+  r.saving = true; render();
+  api('saveReturnProof', { loginName: state.loginName, code: state.code, invoiceNo: o.invoiceNo, photos: links })
+    .then(function(res){
+      r.saving = false;
+      if (res && res.success) { done(res.item || local); return; }
+      state.error = (res && res.error) || 'Could not save. Check signal and tap Save again.';
+      render();
+    });
+}
+
+function rpDelete(inv){
+  var r = state.rp; if (!r) return;
+  if (!confirm('Remove this return proof?')) return;
+  var drop = function(){ r.list = r.list.filter(function(x){ return x.invoiceNo !== inv; }); render(); };
+  if (state.isDemo) { drop(); return; }
+  api('deleteReturnProof', { code: state.code, invoiceNo: inv }).then(function(res){
+    if (res && res.success) drop();
+    else { state.error = (res && res.error) || 'Could not remove it.'; render(); }
+  });
+}
+
+function rpAddFile(input){
+  var f = input.files && input.files[0];
+  try { input.value = ''; } catch (e) {}
+  if (!f || !state.rp) return;
+  compressImage(f, function(out){
+    if (state.rp.photos.length < RP_MAX_PHOTOS) {
+      state.rp.photos.push({ base64: out.base64, mime: out.mime, link: null, uploading: false });
+    }
+    render();
+    rpUpload();
+  });
 }
 
 /******************** MODALS ********************/
@@ -1856,6 +2098,14 @@ function attachEvents(){
   if (snEl) snEl.addEventListener('input', function(){ state.shortNote = snEl.value; });
   var tnEl = document.getElementById('trip-note');
   if (tnEl) tnEl.addEventListener('input', function(){ state.tripNote = tnEl.value; });
+
+  var rpQ = document.getElementById('rp-q');
+  if (rpQ) {
+    rpQ.addEventListener('input', function(){ rpOnType(rpQ); });
+    rpQ.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') { rpQ.blur(); } });
+  }
+  var rpFile = document.getElementById('rp-file');
+  if (rpFile) rpFile.addEventListener('change', function(){ rpAddFile(rpFile); });
 
   var podInput = document.getElementById('pod-photo-input');
   if (podInput) podInput.addEventListener('change', function(){
@@ -2470,6 +2720,21 @@ function onAction(ev){
   }
   if (action === 'save-pin')        { doSavePin(); return; }
 
+  // New app: the return proofs come first, and End day on that screen
+  // brings the usual confirmation.
+  if (action === 'ask-end-trip' && state.view !== 'retproof' && rpEnabled()) {
+    openReturnProofs();
+    return;
+  }
+  if (action === 'rp-cam')  { if (state.rp && state.rp.match) openCamera('ret'); return; }
+  if (action === 'rp-save') { rpSave(); return; }
+  if (action === 'rp-del')  { rpDelete(el.getAttribute('data-inv')); return; }
+  if (action === 'rp-photo-remove') {
+    var ri = Number(el.getAttribute('data-i'));
+    if (state.rp && ri >= 0) state.rp.photos.splice(ri, 1);
+    render();
+    return;
+  }
   if (action === 'ask-end-trip' || action === 'ask-end-trip-resume') {
     state.menuOpen = false;
     var pending = 0;
