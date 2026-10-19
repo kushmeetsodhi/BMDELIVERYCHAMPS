@@ -1,9 +1,10 @@
-// BM Delivery Champs - offline copy of the app shell.
+// Offline copy of the app shell.
 // The version changes on every build, which is how phones pick up a
 // new release: the new worker installs, clears the old cache, and the
 // next open runs the new code.
 var VERSION = 'ce4c7ca1de';
-var CACHE = 'bm-champs-' + VERSION;
+var PREFIX = 'bm-champs-';
+var CACHE = PREFIX + VERSION;
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest',
              'icon-192.png', 'icon-512.png'];
 
@@ -16,7 +17,7 @@ self.addEventListener('install', function (ev) {
 self.addEventListener('activate', function (ev) {
   ev.waitUntil(caches.keys().then(function (keys) {
     return Promise.all(keys.filter(function (k) {
-      return k.indexOf('bm-champs-') === 0 && k !== CACHE;
+      return k.indexOf(PREFIX) === 0 && k !== CACHE;
     }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
@@ -27,6 +28,9 @@ self.addEventListener('fetch', function (ev) {
   // straight to the network, untouched - a cached answer there would
   // be a wrong answer.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // Another app lives in a folder below this one and has its own cache.
+  var SKIP = '/supervisor/';
+  if (SKIP && new URL(req.url).pathname.indexOf(SKIP) > -1) return;
 
   // The page and its setting: network first, so a release reaches the
   // phone on the next open; the cached copy when there is no signal.

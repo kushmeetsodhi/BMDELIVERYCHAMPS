@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BM Supervisor</title>
+<script src="config.js?v=d3b2ab843b"></script>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<style>
+  :root{
+    --brand:#000066; --brand-ink:#FFFFFF;
+    --bg:#F3F4F8; --surface:#FFFFFF; --surface-2:#F8F9FC;
+    --ink:#14142B; --ink-soft:#5A6072; --ink-faint:#8B91A3; --border:#E2E5EC;
+    --green:#1E7F45; --green-bg:#E4F4EA;
+    --red:#C13535; --red-bg:#FBE8E8;
+    --amber:#B57614; --amber-bg:#FCF0D8;
+    --blue:#2C5A99; --blue-bg:#E4ECF6;
+    --grey-bg:#EDEFF3;
+    --shadow:0 1px 2px rgba(20,20,43,0.06), 0 1px 3px rgba(20,20,43,0.04);
+    --tabbar:62px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --brand:#20233F; --bg:#0E1017; --surface:#171A23; --surface-2:#12141C;
+      --ink:#ECEEF4; --ink-soft:#98A0B3; --ink-faint:#6B7286; --border:#262B38;
+      --green:#4ADE80; --green-bg:#16301F;
+      --red:#F87171; --red-bg:#331A1A;
+      --amber:#FBBF24; --amber-bg:#332A14;
+      --blue:#7FA6E6; --blue-bg:#1A2436;
+      --grey-bg:#222634; --shadow:0 1px 3px rgba(0,0,0,0.35);
+    }
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:15px;
+    padding-bottom:calc(var(--tabbar) + env(safe-area-inset-bottom));
+  }
+
+  /* ---------- login ---------- */
+  .login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:22px; }
+  .login-box{
+    width:100%; max-width:380px; background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; padding:28px 22px; box-shadow:var(--shadow);
+  }
+  .login-box h1{ margin:0 0 4px; font-size:21px; }
+  .login-box p{ margin:0 0 22px; color:var(--ink-soft); font-size:13.5px; }
+
+  /* ---------- chrome ---------- */
+  .top{
+    position:sticky; top:0; z-index:20; background:var(--brand); color:var(--brand-ink);
+    padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .top h1{ margin:0; font-size:17px; font-weight:700; flex:1; }
+  .top .sub{ font-size:11.5px; opacity:0.72; margin-top:2px; font-weight:400; }
+  .top button{
+    background:rgba(255,255,255,0.16); color:#fff; border:0; border-radius:8px;
+    padding:7px 11px; font-size:12.5px; font-weight:600;
+  }
+  .back{
+    background:rgba(255,255,255,0.12); color:#fff; border:0; border-radius:8px;
+    width:32px; height:32px; font-size:17px; line-height:1;
+  }
+  .page{ padding:14px 14px 20px; }
+
+  .tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    height:calc(var(--tabbar) + env(safe-area-inset-bottom));
+    padding-bottom:env(safe-area-inset-bottom);
+    background:var(--surface); border-top:1px solid var(--border);
+    display:flex;
+  }
+  .tabbar div{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; font-size:10.5px; color:var(--ink-faint); font-weight:600; position:relative;
+  }
+  .tabbar div.on{ color:var(--brand); }
+  html[data-theme="dark"] .tabbar div.on, :root:not([data-theme="light"]) .tabbar div.on{ color:var(--ink); }
+  .tabbar .ic{ font-size:19px; line-height:1; }
+  .tabbar .dot{
+    position:absolute; top:6px; right:50%; margin-right:-20px;
+    background:var(--red); color:#fff; font-size:9.5px; font-weight:800;
+    min-width:16px; height:16px; border-radius:9px; padding:0 4px;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ---------- bits ---------- */
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:13px;
+    padding:13px 14px; margin-bottom:10px; box-shadow:var(--shadow);
+  }
+  .card.tap:active{ background:var(--surface-2); }
+  .sec{ font-size:11.5px; font-weight:700; letter-spacing:0.055em; text-transform:uppercase;
+        color:var(--ink-faint); margin:18px 2px 8px; }
+  .sec:first-child{ margin-top:2px; }
+  .row{ display:flex; align-items:center; gap:10px; }
+  .row .grow{ flex:1; min-width:0; }
+  .ttl{ font-weight:650; font-size:15px; }
+  .mut{ color:var(--ink-soft); font-size:12.5px; }
+  .fnt{ color:var(--ink-faint); font-size:11.5px; }
+  .trunc{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .empty{ text-align:center; padding:34px 16px; color:var(--ink-faint); font-size:13.5px; }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:11px 13px;
+        font-size:13px; margin-bottom:10px; }
+  .ok{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:11px 13px;
+       font-size:13px; margin-bottom:10px; }
+  .spin{ text-align:center; padding:40px; color:var(--ink-faint); font-size:13.5px; }
+
+  /* ---------- loading ---------- */
+  /* The same loader as the control room, sized for a phone and sitting
+     above the tab bar rather than over it. */
+  .ldbox{ position:fixed; left:12px; right:12px; bottom:calc(var(--tabbar) + 12px);
+          z-index:55; display:grid; gap:7px; pointer-events:none; }
+  .ld{ background:var(--surface); border:1px solid var(--border); border-radius:11px;
+       padding:9px 12px 11px; box-shadow:0 10px 26px -12px rgba(20,20,43,0.45);
+       transition:opacity .35s, transform .35s; animation:ldIn .25s ease-out; }
+  .ld.out{ opacity:0; transform:translateY(8px); }
+  @keyframes ldIn{ from{ opacity:0; transform:translateY(8px); } }
+  .ld .top{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:13px;
+    /* Not the page header, which shares the class name. */
+    position:static; background:none; color:inherit; padding:0; z-index:auto; }
+  .ld .top b{ font-weight:600; color:var(--ink); }
+  .ld .top span{ color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ld .top em{ font-weight:700; font-size:14px; font-style:normal; color:var(--ink); margin-right:5px; }
+  .ld .trk{ height:5px; border-radius:3px; background:var(--grey-bg); margin-top:7px; overflow:hidden; }
+  .ld .fill{ height:100%; border-radius:3px; background:var(--brand); width:0;
+             transition:width .2s linear; position:relative; overflow:hidden; }
+  .ld .fill::after{ content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    transform:translateX(-100%); animation:ldShine 1.2s infinite; }
+  .ld.done .fill{ background:var(--green); } .ld.done .fill::after{ display:none; }
+  .ld .sub{ color:var(--ink-faint); font-size:11.5px; margin-top:5px; min-height:15px; }
+  @keyframes ldShine{ to{ transform:translateX(100%); } }
+
+  .boot{ position:fixed; inset:0; z-index:70; background:var(--bg);
+         display:flex; align-items:center; justify-content:center; padding:18px; }
+  .boot .card{ width:100%; max-width:380px; background:var(--surface);
+    border:1px solid var(--border); border-radius:15px; padding:22px 22px 18px;
+    box-shadow:0 16px 40px -22px rgba(20,20,43,0.4); }
+  .boot h2{ font-size:18px; margin:0 0 4px; color:var(--ink); }
+  .boot .bsub{ color:var(--ink-soft); font-size:12.5px; margin:0 0 18px; }
+  .boot .big{ display:flex; align-items:baseline; justify-content:space-between; }
+  .boot .big b{ font-size:38px; line-height:1; letter-spacing:-0.03em;
+                font-variant-numeric:tabular-nums; color:var(--ink); }
+  .boot .big span{ color:var(--ink-faint); font-size:13px; font-variant-numeric:tabular-nums; }
+  .boot .trk{ height:7px; border-radius:4px; background:var(--grey-bg); margin:12px 0 17px; overflow:hidden; }
+  .boot .fill{ height:100%; width:2%; border-radius:4px; background:var(--brand);
+               transition:width .2s linear; position:relative; overflow:hidden; }
+  .boot .fill::after{ content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    transform:translateX(-100%); animation:ldShine 1.2s infinite; }
+  .boot ol{ list-style:none; margin:0; padding:0; display:grid; gap:9px; font-size:13.5px; }
+  .boot li{ display:flex; align-items:center; gap:9px; color:var(--ink-faint); }
+  .boot li i{ width:17px; height:17px; border-radius:50%; border:2px solid var(--border);
+              flex:none; font-style:normal; }
+  .boot li.now{ color:var(--ink); }
+  .boot li.now i{ border-color:var(--brand); border-top-color:transparent; animation:spin .8s linear infinite; }
+  .boot li.ok{ color:var(--ink-soft); } .boot li.ok i{ background:var(--green); border-color:var(--green); }
+  .boot li.bad{ color:var(--red); } .boot li.bad i{ background:var(--red); border-color:var(--red); }
+  .boot li small{ margin-left:auto; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+  .boot .note{ margin-top:16px; color:var(--ink-faint); font-size:11.5px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  [hidden]{ display:none !important; }
+
+  @media (prefers-reduced-motion: reduce){
+    .ld, .ld .fill::after, .boot .fill::after, .boot li.now i{ animation:none !important; }
+    .ld, .ld .fill, .boot .fill{ transition:none !important; }
+  }
+
+
+  .badge{
+    display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px;
+    font-weight:700; white-space:nowrap;
+  }
+  .b-ok{ background:var(--green-bg); color:var(--green); }
+  .b-bad{ background:var(--red-bg); color:var(--red); }
+  .b-warn{ background:var(--amber-bg); color:var(--amber); }
+  .b-blue{ background:var(--blue-bg); color:var(--blue); }
+  .b-grey{ background:var(--grey-bg); color:var(--ink-soft); }
+
+  .stats{ display:grid; grid-template-columns:repeat(2,1fr); gap:9px; margin-bottom:4px; }
+  .st{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:11px 12px; box-shadow:var(--shadow);
+  }
+  .st.tap:active{ background:var(--surface-2); }
+  .st .l{ font-size:11px; color:var(--ink-faint); font-weight:650; text-transform:uppercase;
+          letter-spacing:0.04em; }
+  .st .v{ font-size:23px; font-weight:750; margin-top:3px; line-height:1.1; }
+  .st .s{ font-size:11px; color:var(--ink-faint); margin-top:1px; }
+  .st.bad .v{ color:var(--red); }
+  .st.warn .v{ color:var(--amber); }
+  .st.good .v{ color:var(--green); }
+
+  .alert{ border-left:4px solid var(--border); }
+  .alert.lv-alert{ border-left-color:var(--red); background:var(--red-bg); }
+  .alert.lv-warn{ border-left-color:var(--amber); background:var(--amber-bg); }
+  .idle{ font-size:21px; font-weight:800; line-height:1; }
+  .alert.lv-alert .idle{ color:var(--red); }
+  .alert.lv-warn .idle{ color:var(--amber); }
+
+  .bar{ height:6px; background:var(--grey-bg); border-radius:4px; overflow:hidden; margin-top:8px; }
+  .bar i{ display:block; height:100%; background:var(--green); }
+  .bar i.part{ background:var(--amber); }
+
+  .btn{
+    background:var(--brand); color:var(--brand-ink); border:0; border-radius:10px;
+    padding:11px 15px; font-size:14px; font-weight:650; font-family:inherit;
+  }
+  html[data-theme="dark"] .btn, :root:not([data-theme="light"]) .btn{ background:#3B4BAE; color:#fff; }
+  .btn:active{ opacity:0.85; }
+  .btn.block{ display:block; width:100%; }
+  .btn.sm{ padding:7px 12px; font-size:12.5px; border-radius:8px; }
+  .btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--border); }
+  .btn.red{ background:var(--red); color:#fff; }
+  .btn[disabled]{ opacity:0.5; }
+  .call{
+    display:inline-flex; align-items:center; gap:5px; text-decoration:none;
+    background:var(--green-bg); color:var(--green); border-radius:8px;
+    padding:7px 11px; font-size:12.5px; font-weight:700;
+  }
+  .link{ color:var(--blue); text-decoration:none; font-size:12.5px; font-weight:650; }
+
+  label.f{ display:block; font-size:11.5px; font-weight:700; color:var(--ink-faint);
+           text-transform:uppercase; letter-spacing:0.04em; margin:14px 0 5px; }
+  input,select,textarea{
+    font-family:inherit; font-size:16px; padding:11px 12px; border-radius:10px;
+    border:1px solid var(--border); background:var(--surface); color:var(--ink); width:100%;
+  }
+  textarea{ min-height:84px; resize:vertical; }
+  .chips{ display:flex; gap:7px; overflow-x:auto; padding:2px 0 10px; }
+  .chip{
+    flex:0 0 auto; padding:7px 13px; border-radius:20px; font-size:12.5px; font-weight:650;
+    background:var(--surface); border:1px solid var(--border); color:var(--ink-soft);
+  }
+  .chip.on{ background:var(--brand); border-color:var(--brand); color:var(--brand-ink); }
+  html[data-theme="dark"] .chip.on, :root:not([data-theme="light"]) .chip.on{ background:#3B4BAE; border-color:#3B4BAE; color:#fff; }
+  .thumb{ width:52px; height:52px; border-radius:9px; object-fit:cover; border:1px solid var(--border);
+          background:var(--grey-bg); flex:0 0 auto; }
+  .dk-q{ font-size:22px !important; letter-spacing:0.08em; font-weight:700; }
+  .dk-types{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .dk-type{ padding:14px 6px; border-radius:11px; border:1.5px solid var(--border); background:var(--surface);
+    color:var(--ink); font-size:13.5px; font-weight:650; font-family:inherit; }
+  .dk-type.on{ border-color:currentColor; }
+  .dk-item{ padding:8px 0; border-bottom:1px solid var(--border); }
+  .dk-item:last-child{ border-bottom:none; }
+  .dk-n{ width:74px !important; text-align:center; font-size:17px !important; }
+  .dk-shots{ display:flex; flex-wrap:wrap; gap:8px; }
+  .dk-shot{ position:relative; width:76px; height:76px; }
+  .dk-shot img{ width:76px; height:76px; object-fit:cover; border-radius:9px; border:1px solid var(--border); }
+  .dk-x{ position:absolute; top:-7px; right:-7px; width:23px; height:23px; border-radius:50%; border:none;
+    background:var(--red); color:#fff; font-size:15px; line-height:1; }
+  .dk-up{ position:absolute; left:4px; bottom:4px; background:rgba(0,0,0,.6); color:#fff; border-radius:6px;
+    font-size:12px; padding:0 5px; }
+  .dk-up.bad{ background:var(--red); }
+  .dk-add{ width:76px; height:76px; border-radius:9px; border:1.5px dashed var(--border); background:var(--surface-2);
+    color:var(--ink-soft); font-size:11.5px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; text-align:center; font-family:inherit; cursor:pointer; }
+  .scam{ position:fixed; inset:0; z-index:9999; background:#000; display:flex; flex-direction:column; }
+  .scam video{ flex:1; width:100%; min-height:0; object-fit:cover; }
+  .scam.flash video{ opacity:.35; }
+  .scam-bar{ display:flex; align-items:center; justify-content:space-between;
+    padding:18px 22px calc(18px + env(safe-area-inset-bottom)); }
+  #scam-shoot{ width:72px; height:72px; border-radius:50%; border:5px solid #fff; background:#fff;
+    box-shadow:inset 0 0 0 3px #000; }
+  #scam-done{ background:none; border:1.5px solid #fff; color:#fff; border-radius:9px; padding:10px 16px;
+    font-size:15px; min-width:72px; font-family:inherit; }
+  #scam-n{ color:#fff; min-width:72px; text-align:right; }
+  .thumb.noimg{ display:flex; align-items:center; justify-content:center; font-size:20px; opacity:0.5; }
+  .pick{ width:20px; height:20px; }
+  .seq{
+    width:26px; height:26px; border-radius:7px; background:var(--grey-bg); color:var(--ink-soft);
+    font-size:12px; font-weight:750; display:flex; align-items:center; justify-content:center;
+    flex:0 0 auto;
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="spin">Loading&#8230;</div></div>
+<div class="ldbox" id="ldbox" aria-live="polite"></div>
+<div class="boot" id="boot" role="status" aria-live="polite" hidden>
+  <div class="card">
+    <h2>Opening your screen</h2>
+    <p class="bsub">Reading today&#8217;s routes and failures.</p>
+    <div class="big"><b id="bootPct">0%</b><span id="bootTime">0.0 s</span></div>
+    <div class="trk"><div class="fill" id="bootFill"></div></div>
+    <ol id="bootSteps"></ol>
+    <p class="note" id="bootNote">The % is estimated from how long it took last time.</p>
+  </div>
+</div>
+
+<script>
+/********************************************************************
+ * BM SUPERVISOR - mobile
+ * Served from the Control Room project at ?app=supervisor. Built around
+ * two questions: which deliveries failed, and which DA has stopped
+ * moving. Carries no cash figures of any kind - the server strips them
+ * for this role, and nothing here asks for them.
+ ********************************************************************/
+var state = {
+  token:'', name:'', roles:[],
+  view:'home', date:'', loading:false, error:'', note:'',
+  data:{},
+  routeCode:null, routeData:null,
+  failFilter:'',
+  query:'', lookup:null,
+  // Line items for the order on screen: loaded on tap, kept per order
+  // so flicking back and forth does not refetch.
+  items:{}, itemsFor:'', itemsLoading:false, itemsErr:'',
+  flSel:{}, flMsg:'', flErr:'',
+  qkText:'', qkOrders:null, qkSel:{}, qkMsg:'', qkErr:'',
+  prodCode:'', prodQuery:'', prodData:null, prodErr:'',
+  dk:{ q:'', data:null, type:'', qty:{}, note:'', photos:[], saving:false, list:null, pdfBusy:false, pdfLink:'' }
+};
+
+var TABS = [
+  { id:'home',    label:'Alerts',   ic:'⚠' },
+  { id:'fails',   label:'Failed',   ic:'✖' },
+  { id:'routes',  label:'Routes',   ic:'\u{1F69B}' },
+  { id:'lookup',  label:'Lookup',   ic:'\u{1F50D}' },
+  { id:'product', label:'Product',  ic:'\u{1F6D2}' },
+  { id:'floor',   label:'Floor',    ic:'\u{1F4E6}' },
+  { id:'desk',    label:'Returns',  ic:'\u21A9' }
+];
+
+/******************** UTIL ********************/
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function today(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function pct(a,b){ return b ? Math.round(a/b*100) : 0; }
+function cleanName(s){ return String(s == null ? '' : s).replace(/\s*\([^)]*\)\s*$/, '').trim(); }
+
+// 135 -> "2h 15m". Minutes alone stop being readable past an hour, and
+// an hour is exactly where these numbers start to matter.
+function mins(n){
+  var m = Math.max(0, Math.round(Number(n) || 0));
+  if (m < 60) return m + 'm';
+  var h = Math.floor(m / 60);
+  return h + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
+}
+function badge(t, c){ return '<span class="badge ' + (c || statusCls(t)) + '">' + esc(t) + '</span>'; }
+function statusCls(st){
+  var s = String(st || '').toLowerCase();
+  if (s === 'delivered' || s === 'trip ended') return 'b-ok';
+  if (s === 'not delivered' || s === 'absent') return 'b-bad';
+  if (s === 'on route' || s === 'pending') return 'b-warn';
+  if (s === 'left at warehouse' || s === 'moved to another vehicle') return 'b-warn';
+  if (s === 'logged in, no route') return 'b-blue';
+  return 'b-grey';
+}
+// Drive hands back a .../file/d/ID/view link, which is a web page and
+// never renders in an <img>. The thumbnail endpoint does, for any file
+// the viewer can open - so the photo shows and the link still opens the
+// full-size original.
+function thumbUrl(url, size){
+  var m = String(url || '').match(/[-\w]{25,}/);
+  if (!m) return '';
+  return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 220);
+}
+
+// If Drive refuses the thumbnail, fall back to the camera glyph rather
+// than leaving a broken-image box on the card.
+function photoThumb(url){
+  var t = thumbUrl(url, 220);
+  if (!t) return '';
+  return '<img class="thumb" src="' + esc(t) + '" alt="" loading="lazy" ' +
+    'onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement(\'span\'),' +
+    '{className:\'thumb noimg\',textContent:\'\\uD83D\\uDCF7\'}))" />';
+}
+
+function callBtn(phone, label){
+  var p = String(phone || '').replace(/[^\d+]/g, '');
+  if (!p) return '';
+  return '<a class="call" href="tel:' + esc(p) + '">☎ ' + esc(label || 'Call') + '</a>';
+}
+function progressBar(done, total){
+  if (!total) return '';
+  return '<div class="bar"><i class="' + (done < total ? 'part' : '') + '" style="width:' + pct(done,total) + '%"></i></div>';
+}
+
+/******************** API ********************/
+/******************** LOADING PROGRESS ********************/
+/**
+ * Ported from the sales-mix dashboard.
+ *
+ * The honest part is the estimate: each action's typical duration is
+ * remembered in this browser and blended as it changes, so the bar is
+ * calibrated to this person's own connection rather than a guess
+ * baked in here. The percentage eases towards 97% and only reaches
+ * 100% when the data actually arrives - a bar that parks at 60% tells
+ * the reader less than no bar at all.
+ */
+var LD = {};
+var LD_LABEL = {
+  getSupHome:'Alerts', getSupFailures:'Failed deliveries', getSupRoutes:'Routes',
+  getRouteDetail:'Route', trackOrder:'Order lookup', getFloor:'Left on floor',
+  getDaTracker:'DA tracker', getInvoiceItems:'Bill items',
+  findProduct:'Product search', quickPreview:'Finding orders',
+  quickCreate:'Making the route', floorLog:'Logging on floor',
+  floorSend:'Sending out', getDrill:'List',
+  deskLookup:'Finding the order', deskPhoto:'Uploading photo', deskMark:'Saving',
+  deskList:'Today\u2019s returns', deskUndo:'Undoing', deskPdf:'Making the PDF'
+};
+function ldLabel(action){ return LD_LABEL[action] || 'Working'; }
+
+function ldEst(key, def){
+  try { return Number(localStorage.getItem('bm_ld_' + key)) || def; }
+  catch(e){ return def; }
+}
+function ldRemember(key, ms){
+  // Blended, not replaced: one slow morning should nudge the estimate,
+  // not become it.
+  try {
+    var old = Number(localStorage.getItem('bm_ld_' + key));
+    localStorage.setItem('bm_ld_' + key, String(Math.round(old ? old * 0.6 + ms * 0.4 : ms)));
+  } catch(e){}
+}
+
+// The first load after signing in, shown as one card rather than
+// several corner ones appearing and vanishing.
+var BOOT = { on:false, t0:0, keys:[], def:{}, done:{}, cur:'', curT0:0, timer:null };
+
+function bootBegin(keys, labels){
+  BOOT = { on:true, t0:Date.now(), keys:keys, def:{}, done:{},
+           cur:keys[0], curT0:Date.now(), timer:null };
+  keys.forEach(function(k){ BOOT.def[k] = 2500; });
+  document.getElementById('bootSteps').innerHTML = keys.map(function(k, i){
+    return '<li data-k="' + k + '"' + (i === 0 ? ' class="now"' : '') + '><i></i>' +
+      esc(labels[i] || ldLabel(k)) + '<small></small></li>';
+  }).join('');
+  document.getElementById('boot').hidden = false;
+  BOOT.timer = setInterval(bootTick, 100);
+}
+function bootTick(){
+  if (!BOOT.on) return;
+  var est = function(k){ return ldEst(k, BOOT.def[k]); };
+  var total = BOOT.keys.reduce(function(a, k){ return a + est(k); }, 0);
+  var got = BOOT.keys.filter(function(k){ return BOOT.done[k]; })
+                     .reduce(function(a, k){ return a + est(k); }, 0);
+  if (BOOT.cur && !BOOT.done[BOOT.cur]) {
+    got += est(BOOT.cur) * Math.min(0.97,
+      1 - Math.exp(-2.3 * (Date.now() - BOOT.curT0) / est(BOOT.cur)));
+  }
+  var pc = Math.min(99, 100 * got / total), e = (Date.now() - BOOT.t0) / 1000;
+  document.getElementById('bootPct').textContent = Math.floor(pc) + '%';
+  document.getElementById('bootTime').textContent = e.toFixed(1) + ' s';
+  document.getElementById('bootFill').style.width = Math.max(2, pc) + '%';
+  if (e * 1000 > total * 1.6) {
+    document.getElementById('bootNote').textContent =
+      'Taking longer than usual. Google can be slow on the first open of the day; still working…';
+  }
+}
+function bootStep(key, st, ms){
+  var li = document.querySelector('#bootSteps li[data-k="' + key + '"]');
+  if (!li) return;
+  li.className = st;
+  if (ms != null) li.querySelector('small').textContent = (ms / 1000).toFixed(1) + ' s';
+}
+function bootEnd(ok, msg){
+  if (!BOOT.on) return;
+  clearInterval(BOOT.timer);
+  if (!ok) {
+    document.getElementById('bootNote').textContent = msg || 'Could not load.';
+    document.getElementById('bootFill').style.background = 'var(--red)';
+    // Left on screen deliberately: a failure the reader never sees is
+    // a blank dashboard with no explanation.
+    setTimeout(function(){ document.getElementById('boot').hidden = true; BOOT.on = false; }, 2500);
+    return;
+  }
+  BOOT.on = false;
+  document.getElementById('bootPct').textContent = '100%';
+  document.getElementById('bootFill').style.width = '100%';
+  document.getElementById('bootFill').style.background = 'var(--green)';
+  setTimeout(function(){ document.getElementById('boot').hidden = true; }, 220);
+}
+
+function ldStart(key, label, defMs){
+  var est = ldEst(key, defMs || 2500);
+  var inBoot = BOOT.on && BOOT.keys.indexOf(key) >= 0;
+  if (inBoot) { BOOT.cur = key; BOOT.curT0 = Date.now(); bootStep(key, 'now'); }
+
+  var L = LD[key];
+  if (!L) {
+    L = LD[key] = { el: document.createElement('div') };
+    L.el.className = 'ld';
+    document.getElementById('ldbox').appendChild(L.el);
+  }
+  L.el.hidden = inBoot;
+  clearInterval(L.timer); clearTimeout(L.hide);
+  L.el.className = 'ld';
+  L.el.innerHTML = '<div class="top"><b>' + esc(label) + '</b>' +
+    '<span><em>0%</em><i>0.0 s</i></span></div>' +
+    '<div class="trk"><div class="fill"></div></div><div class="sub"></div>';
+
+  var tok = L.tok = {}, t0 = Date.now();
+  var em = L.el.querySelector('em'), ti = L.el.querySelector('i');
+  var fill = L.el.querySelector('.fill'), sub = L.el.querySelector('.sub');
+  sub.textContent = 'Usually about ' + (est / 1000).toFixed(0) + ' s';
+  var tick = function(){
+    var e = Date.now() - t0;
+    var pc = Math.min(97, 100 * (1 - Math.exp(-2.3 * e / est)));
+    em.textContent = Math.floor(pc) + '%';
+    ti.textContent = (e / 1000).toFixed(1) + ' s';
+    fill.style.width = pc + '%';
+    if (e > est * 1.6) sub.textContent = 'Taking longer than usual, still working…';
+  };
+  tick(); L.timer = setInterval(tick, 100);
+  return { key: key, tok: tok, t0: t0 };
+}
+
+function ldEnd(h, ok){
+  var L = LD[h.key];
+  // A second call on the same key replaced this one; its card is not
+  // ours to finish.
+  if (!L || L.tok !== h.tok) return;
+  clearInterval(L.timer);
+  var ms = Date.now() - h.t0;
+  if (BOOT.on && BOOT.keys.indexOf(h.key) >= 0) {
+    BOOT.done[h.key] = ok;
+    bootStep(h.key, ok ? 'ok' : 'bad', ms);
+    if (BOOT.keys.every(function(k){ return BOOT.done[k] != null; })) {
+      bootEnd(BOOT.keys.every(function(k){ return BOOT.done[k]; }));
+    }
+  }
+  if (ok) ldRemember(h.key, ms);
+  L.el.classList.add('done');
+  L.el.querySelector('em').textContent = ok ? '100%' : '';
+  L.el.querySelector('i').textContent = (ms / 1000).toFixed(1) + ' s';
+  L.el.querySelector('.fill').style.width = '100%';
+  L.el.querySelector('.sub').textContent = ok ? 'Loaded' : 'Stopped: there was an error';
+  if (!ok) L.el.querySelector('.fill').style.background = 'var(--red)';
+  L.hide = setTimeout(function(){
+    L.el.classList.add('out');
+    setTimeout(function(){
+      if (L.tok === h.tok) { L.el.remove(); delete LD[h.key]; }
+    }, 380);
+  }, ok ? 700 : 2500);
+}
+
+// Set by config.js on the GitHub copy; absent inside Apps Script.
+var BM_HOSTED = !!(typeof window !== 'undefined' && window.BM_EXEC_URL);
+
+// Where the login is kept. On GitHub the app is installed and closed
+// between uses, which ends a sessionStorage; the server's own session
+// still expires on its usual clock either way.
+function supStore(){
+  try { return BM_HOSTED ? window.localStorage : window.sessionStorage; } catch(e){ return null; }
+}
+
+function api(action, payload){
+  return new Promise(function(resolve){
+    if (!BM_HOSTED && (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      resolve({ success:false, error:'Cannot reach the server.' }); return;
+    }
+    var data = { action:action, token:state.token };
+    for (var k in (payload || {})) { if (payload.hasOwnProperty(k)) data[k] = payload[k]; }
+
+    var h = ldStart(action, ldLabel(action));
+    var settle = function(res){ ldEnd(h, !!(res && res.success)); return res; };
+
+    if (BM_HOSTED) {
+      // The Control Room's doPost hands this to the same router.
+      // text/plain keeps it a simple request; no cookies are sent.
+      fetch(window.BM_EXEC_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: JSON.stringify(data), redirect:'follow', credentials:'omit', cache:'no-store' })
+        .then(function(r){ return r.text(); })
+        .then(function(t){
+          var r;
+          try { r = JSON.parse(t); }
+          catch(e){ r = { success:false, error:'The server sent a page instead of an answer.' }; }
+          if (r && r.expired) doLogout(true);
+          resolve(settle(r));
+        })
+        .catch(function(){ resolve(settle({ success:false, error:'Cannot reach the server. Check your connection.' })); });
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        var r;
+        try { r = typeof res === 'string' ? JSON.parse(res) : res; }
+        catch(e){ r = { success:false, error:'Malformed server response.' }; }
+        if (r && r.expired) doLogout(true);
+        resolve(settle(r));
+      })
+      .withFailureHandler(function(err){
+        resolve(settle({ success:false,
+          error:(err && err.message) ? err.message : 'Connection failed.' }));
+      })
+      .apiCall(JSON.stringify(data));
+  });
+}
+
+/******************** RETURNS DESK ********************/
+// At the warehouse as vehicles come back: SO number in, the order on
+// screen, then one of three marks. Items returned needs photos; the
+// day's redispatch and cancelled orders come out as a PDF.
+var DK_MAX_PHOTOS = 6;
+
+function dkReset(keepQuery){
+  state.dk = { q: keepQuery ? state.dk.q : '', data: null, type: '', qty: {}, note: '',
+               photos: [], saving: false, list: state.dk ? state.dk.list : null,
+               pdfBusy: false, pdfLink: '' };
+}
+
+// Before anything redraws the screen, keep what has been typed.
+function dkCapture(){
+  var d = state.dk; if (!d) return;
+  var q = document.getElementById('dk-q'); if (q) d.q = q.value;
+  var n = document.getElementById('dk-note'); if (n) d.note = n.value;
+  var qs = document.querySelectorAll('[data-dk-qty]');
+  for (var i = 0; i < qs.length; i++) {
+    d.qty[qs[i].getAttribute('data-dk-qty')] = qs[i].value;
+  }
+}
+
+function deskHTML(){
+  var d = state.dk;
+  var L = d.list;
+  var html =
+    '<button class="btn block" data-a="dk-pdf"' + (d.pdfBusy ? ' disabled' : '') + '>' +
+      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s RD + cancelled (PDF)') + '</button>' +
+    (d.pdfLink ? '<div class="fnt" style="margin:6px 2px 0;">Also saved in Drive: ' +
+      '<a href="' + esc(d.pdfLink) + '" target="_blank" rel="noopener">open the PDF</a></div>' : '') +
+    (L ? '<div class="stats" style="grid-template-columns:repeat(3,1fr); margin-top:12px;">' +
+        st('Returned', L.counts.returned, 'items back') +
+        st('RD', L.counts.redispatch, 'redispatch') +
+        st('Cancelled', L.counts.cancelled, 'orders') + '</div>' : '') +
+
+    '<div class="card" style="margin-top:12px;">' +
+      '<label class="f">SO number</label>' +
+      '<div class="row">' +
+        '<input id="dk-q" class="grow dk-q" type="text" inputmode="numeric" maxlength="7" ' +
+          'placeholder="e.g. 38081" value="' + esc(d.q) + '" autocomplete="off" />' +
+        '<button class="btn" data-a="dk-find">Find</button>' +
+      '</div>' +
+    '</div>';
+
+  if (d.data) html += dkOrderHTML(d);
+
+  html += '<div class="sec">Marked today</div>';
+  if (!L) html += '<div class="empty">Loading…</div>';
+  else if (!L.rows.length) html += '<div class="empty">Nothing marked yet today.</div>';
+  else html += L.rows.map(dkRowHTML).join('');
+  return html;
+}
+
+var DK_LABEL = { 'Items returned': 'Items returned', 'Redispatch': 'Redispatch (RD)', 'Cancelled': 'Cancelled' };
+var DK_CLS = { 'Items returned': 'b-warn', 'Redispatch': 'b-blue', 'Cancelled': 'b-bad' };
+
+function dkOrderHTML(d){
+  var o = d.data.order;
+  var ex = d.data.existing;
+  var html = '<div class="card dk-order">' +
+    '<div class="row"><div class="grow">' +
+      '<div class="ttl">' + esc(cleanName(o.partyName) || o.invoiceNo) + '</div>' +
+      '<div class="mut">SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + '</div>' +
+      '<div class="fnt">' + esc(o.code) + (o.daName ? ' · ' + esc(o.daName) : '') +
+        (o.vehicleNo ? ' · ' + esc(o.vehicleNo) : '') + '</div>' +
+    '</div>' + badge(o.status) + '</div>' +
+    (o.reason ? '<div class="fnt" style="margin-top:4px;">DA said: ' + esc(o.reason) + '</div>' : '') +
+    (d.data.others && d.data.others.length
+      ? '<div class="fnt" style="margin-top:4px;">Also ends in these digits: ' + esc(d.data.others.join(', ')) + '</div>' : '') +
+    (ex ? '<div class="ok" style="margin-top:10px;">Already marked today: <b>' + esc(DK_LABEL[ex.type] || ex.type) +
+      '</b> at ' + esc(ex.markedAt) + ' by ' + esc(ex.markedBy) + '. Marking again replaces it.</div>' : '') +
+    '</div>';
+
+  html += '<div class="sec">What happened?</div><div class="dk-types">' +
+    d.data.types.map(function(t){
+      return '<button class="dk-type' + (d.type === t ? ' on ' + (DK_CLS[t] || '') : '') +
+        '" data-a="dk-type" data-v="' + esc(t) + '">' + esc(DK_LABEL[t] || t) + '</button>';
+    }).join('') + '</div>';
+
+  if (!d.type) return html;
+  var needPhoto = d.type === 'Items returned';
+
+  if (needPhoto) {
+    html += '<div class="sec">Which items came back</div>';
+    if (d.data.items.length) {
+      html += '<div class="card">' + d.data.items.map(function(it, i){
+        return '<div class="row dk-item"><div class="grow"><div>' + esc(it.product) + '</div>' +
+          (it.variant ? '<div class="fnt">' + esc(it.variant) + '</div>' : '') +
+          '<div class="fnt">Ordered ' + esc(String(it.qty)) + '</div></div>' +
+          '<input type="number" inputmode="numeric" min="0" max="' + esc(String(it.qty || 999)) + '" ' +
+            'class="dk-n" data-dk-qty="' + i + '" placeholder="0" value="' + esc(d.qty[i] || '') + '" /></div>';
+      }).join('') + '</div>';
+    } else {
+      html += '<div class="fnt" style="margin:0 2px 8px;">' + esc(d.data.itemsNote || 'No item list.') +
+        ' Write what came back in the note.</div>';
+    }
+  }
+
+  html += '<div class="sec">Photos' + (needPhoto ? '' : ' (optional)') + '</div><div class="dk-shots">' +
+    d.photos.map(function(p, i){
+      return '<div class="dk-shot"><img src="' + esc(p.thumb) + '" alt="" />' +
+        (p.uploading ? '<span class="dk-up">↑</span>' : '') +
+        (p.failed ? '<span class="dk-up bad">!</span>' : '') +
+        '<button class="dk-x" data-a="dk-photo-x" data-i="' + i + '">×</button></div>';
+    }).join('') +
+    (d.photos.length < DK_MAX_PHOTOS
+      ? (supCamera()
+          ? '<button class="dk-add" data-a="dk-cam">📷<br>Take photo</button>'
+          : '<label class="dk-add">📷<br>Take photo<input type="file" accept="image/*" capture="environment" id="dk-file" style="display:none;" /></label>')
+      : '') +
+    '</div>';
+
+  html += '<div class="sec">Note' + (d.type === 'Items returned' && !d.data.items.length ? '' : ' (optional)') + '</div>' +
+    '<textarea id="dk-note" rows="2" placeholder="' +
+      (d.type === 'Redispatch' ? 'Why: shop closed, asked for tomorrow…'
+       : d.type === 'Cancelled' ? 'Why it was cancelled'
+       : 'Anything else about the return') + '">' + esc(d.note) + '</textarea>' +
+    '<button class="btn block" style="margin-top:12px;" data-a="dk-save"' + (d.saving ? ' disabled' : '') + '>' +
+      (d.saving ? 'Saving…' : 'Save: ' + esc(DK_LABEL[d.type] || d.type)) + '</button>';
+  return html;
+}
+
+function dkRowHTML(x){
+  return '<div class="card"><div class="row"><div class="grow">' +
+    '<div class="ttl trunc">' + esc(cleanName(x.partyName) || x.invoiceNo) + '</div>' +
+    '<div class="mut">SO ' + esc(x.soNo) + ' · ' + esc(x.code) + (x.daName ? ' · ' + esc(x.daName) : '') + '</div>' +
+    (x.items ? '<div class="fnt">' + esc(x.items) + '</div>' : '') +
+    (x.note ? '<div class="fnt">' + esc(x.note) + '</div>' : '') +
+    '<div class="fnt">' + esc(x.markedAt) + ' · ' + esc(x.markedBy) +
+      (x.photos.length ? ' · ' + x.photos.map(function(u, i){
+        return '<a href="' + esc(u) + '" target="_blank" rel="noopener">photo ' + (i + 1) + '</a>';
+      }).join(', ') : '') + '</div>' +
+    '</div><div style="text-align:right;">' + badge(DK_LABEL[x.type] || x.type, DK_CLS[x.type]) +
+      '<div style="margin-top:8px;"><button class="btn sm ghost" data-a="dk-undo" data-id="' + esc(x.id) + '">Undo</button></div>' +
+    '</div></div></div>';
+}
+
+function dkLoadList(){
+  api('deskList', {}).then(function(res){
+    if (res && res.success) { state.dk.list = res; if (state.view === 'desk') { dkCapture(); render(); } }
+  });
+}
+
+function dkFind(){
+  dkCapture();
+  var q = String(state.dk.q || '').replace(/\D/g, '');
+  if (q.length < 4) { state.error = 'Enter the SO number (the last 5 digits).'; render(); return; }
+  state.error = ''; state.note = '';
+  var keepList = state.dk.list;
+  dkReset(true); state.dk.list = keepList; state.dk.q = q;
+  state.loading = true; render();
+  api('deskLookup', { query: q }).then(function(res){
+    state.loading = false;
+    if (res && res.success) state.dk.data = res;
+    else state.error = (res && res.error) || 'Could not find that order.';
+    render();
+  });
+}
+
+function dkAddPhoto(dataUrl){
+  var d = state.dk;
+  if (d.photos.length >= DK_MAX_PHOTOS) return;
+  var p = { thumb: dataUrl, link: '', uploading: true, failed: false };
+  d.photos.push(p);
+  dkCapture(); render();
+  api('deskPhoto', { base64: dataUrl.split(',')[1], mime: 'image/jpeg', soNo: d.data ? d.data.order.soNo : '' })
+    .then(function(res){
+      p.uploading = false;
+      if (res && res.success) { p.link = res.link; p.failed = false; }
+      else { p.failed = true; state.error = (res && res.error) || 'A photo did not upload. Remove it and take it again.'; }
+      if (state.view === 'desk') { dkCapture(); render(); }
+    });
+}
+
+// Same size and quality as the DA app's proof photos.
+function dkShrink(src, cb){
+  var img = new Image();
+  img.onload = function(){
+    var maxEdge = 1000, w = img.width, h = img.height;
+    if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
+    else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
+    var out = c.toDataURL('image/jpeg', 0.6); c.width = 1; c.height = 1;
+    cb(out);
+  };
+  img.src = src;
+}
+
+function dkSave(){
+  dkCapture();
+  var d = state.dk;
+  if (!d.data || !d.type) return;
+  if (d.photos.some(function(p){ return p.uploading; })) {
+    state.error = 'Wait for the photos to finish uploading.'; render(); return;
+  }
+  var items = d.data.items.map(function(it, i){
+    return { product: it.product, variant: it.variant, qty: Number(d.qty[i]) || 0 };
+  }).filter(function(x){ return x.qty > 0; });
+  var photos = d.photos.filter(function(p){ return p.link; }).map(function(p){ return p.link; });
+  if (d.type === 'Items returned') {
+    if (!photos.length) { state.error = 'Take at least one photo of the returned items.'; render(); return; }
+    if (!items.length && !String(d.note).trim()) {
+      state.error = 'Enter how many of each item came back, or write it in the note.'; render(); return;
+    }
+  }
+  d.saving = true; state.error = ''; render();
+  api('deskMark', { soNo: d.data.order.soNo, type: d.type, items: items, note: d.note, photos: photos })
+    .then(function(res){
+      d.saving = false;
+      if (res && res.success) {
+        state.note = 'SO ' + d.data.order.soNo + ' saved as ' + (DK_LABEL[d.type] || d.type) +
+          (res.replaced ? ' (replaced the earlier mark)' : '') + '.';
+        var keepList = d.list;
+        dkReset(false); state.dk.list = keepList;
+        render();
+        dkLoadList();
+        var q = document.getElementById('dk-q'); if (q) q.focus();
+      } else {
+        state.error = (res && res.error) || 'Could not save.'; render();
+      }
+    });
+}
+
+function dkUndo(id){
+  if (!confirm('Undo this mark?')) return;
+  api('deskUndo', { id: id }).then(function(res){
+    if (res && res.success) { state.note = 'Mark removed.'; dkLoadList(); }
+    else { state.error = (res && res.error) || 'Could not undo.'; }
+    dkCapture(); render();
+  });
+}
+
+function dkPdf(){
+  dkCapture();
+  var d = state.dk;
+  d.pdfBusy = true; d.pdfLink = ''; state.error = ''; render();
+  api('deskPdf', {}).then(function(res){
+    d.pdfBusy = false;
+    if (!res || !res.success) { state.error = (res && res.error) || 'Could not make the PDF.'; render(); return; }
+    d.pdfLink = res.link || '';
+    try {
+      var bin = atob(res.base64), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = res.fileName || 'RD and cancelled.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+      state.note = 'PDF downloaded: ' + res.redispatch + ' RD, ' + res.cancelled + ' cancelled.';
+    } catch (e) {
+      state.note = 'PDF ready — use the Drive link below to open it.';
+    }
+    render();
+  });
+}
+
+/******************** CAMERA (GitHub copy only) ********************/
+// Apps Script forbids the camera in its frame, so there the photo
+// button opens the phone's camera app instead.
+var scam = { stream: null, el: null };
+function supCamera(){
+  return BM_HOSTED && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+function scamOpen(){
+  if (scam.el) return;
+  var el = document.createElement('div');
+  el.className = 'scam';
+  el.innerHTML = '<video id="scam-v" autoplay playsinline muted></video>' +
+    '<div class="scam-bar"><button type="button" id="scam-done">Done</button>' +
+    '<button type="button" id="scam-shoot" aria-label="Take photo"></button>' +
+    '<span id="scam-n"></span></div>';
+  document.body.appendChild(el);
+  scam.el = el;
+  var count = function(){ var n = document.getElementById('scam-n');
+    if (n) n.textContent = state.dk.photos.length + ' / ' + DK_MAX_PHOTOS; };
+  count();
+  document.getElementById('scam-done').onclick = scamClose;
+  document.getElementById('scam-shoot').onclick = function(){
+    var v = document.getElementById('scam-v');
+    if (!scam.stream || !v.videoWidth) return;
+    var c = document.createElement('canvas');
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    var raw = c.toDataURL('image/jpeg', 0.85); c.width = 1; c.height = 1;
+    dkShrink(raw, function(out){
+      dkAddPhoto(out); count();
+      el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 150);
+      if (state.dk.photos.length >= DK_MAX_PHOTOS) scamClose();
+    });
+  };
+  navigator.mediaDevices.getUserMedia({ audio: false,
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } } })
+    .then(function(s){
+      if (!scam.el) { s.getTracks().forEach(function(t){ t.stop(); }); return; }
+      scam.stream = s;
+      var v = document.getElementById('scam-v'); v.srcObject = s;
+      var p = v.play && v.play(); if (p && p.catch) p.catch(function(){});
+    }).catch(function(err){
+      scamClose();
+      state.error = (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError'))
+        ? 'The camera is blocked for this app. In Chrome tap the lock icon next to the address, then Permissions → Camera → Allow.'
+        : 'The camera could not start' + (err && err.name ? ' (' + err.name + ')' : '') + '.';
+      dkCapture(); render();
+    });
+}
+function scamClose(){
+  if (scam.stream) { scam.stream.getTracks().forEach(function(t){ t.stop(); }); scam.stream = null; }
+  if (scam.el && scam.el.parentNode) scam.el.parentNode.removeChild(scam.el);
+  scam.el = null;
+}
+document.addEventListener('visibilitychange', function(){ if (document.hidden && scam.el) scamClose(); });
+
+/******************** RENDER ********************/
+function render(){
+  var app = document.getElementById('app');
+  if (!state.token){ app.innerHTML = loginHTML(); bind(); return; }
+  app.innerHTML = topHTML() +
+    '<div class="page">' + (state.loading ? '<div class="spin">Loading…</div>' : pageHTML()) + '</div>' +
+    tabbarHTML();
+  bind();
+}
+
+function loginHTML(){
+  return '<div class="login"><div class="login-box">' +
+    '<h1>BM Supervisor</h1><p>Delivery floor and route watch</p>' +
+    '<label class="f">Login name</label>' +
+    '<input type="text" id="lg-name" autocomplete="username" autocapitalize="none" />' +
+    '<label class="f">PIN</label>' +
+    '<input type="password" id="lg-pin" inputmode="numeric" autocomplete="current-password" />' +
+    (state.error ? '<div class="err" style="margin-top:14px;">' + esc(state.error) + '</div>' : '') +
+    '<div style="margin-top:18px;"><button class="btn block" data-a="login">' +
+      (state.loading ? 'Signing in…' : 'Sign in') + '</button></div>' +
+    '</div></div>';
+}
+
+function topHTML(){
+  var titles = { home:'Route watch', fails:'Not delivered', routes:'Routes',
+                 lookup:'Order lookup', floor:'Left on floor', quick:'Quick route', desk:'Returns desk',
+                 route:'Route' };
+  var sub = state.view === 'route' ? esc(state.routeCode || '')
+          : (state.date === today() ? 'Today' : esc(state.date));
+  var back = (state.view === 'route' || state.view === 'quick')
+    ? '<button class="back" data-a="back">‹</button>' : '';
+  return '<div class="top">' + back +
+    '<h1>' + esc(titles[state.view] || 'BM Supervisor') +
+      '<div class="sub">' + sub + '</div></h1>' +
+    '<button data-a="refresh">Refresh</button>' +
+    '<button data-a="logout">Exit</button>' +
+    '</div>';
+}
+
+function tabbarHTML(){
+  var home = state.data.home;
+  var counts = {
+    home: home ? (home.stats.alerts + home.stats.warns) : 0,
+    fails: home ? home.stats.failures : 0,
+    floor: (state.data.floor && state.data.floor.onFloor) || 0
+  };
+  return '<div class="tabbar">' + TABS.map(function(t){
+    var n = counts[t.id] || 0;
+    return '<div class="' + (state.view === t.id ? 'on' : '') + '" data-a="tab" data-v="' + t.id + '">' +
+      '<span class="ic">' + t.ic + '</span><span>' + esc(t.label) + '</span>' +
+      (n ? '<span class="dot">' + (n > 99 ? '99+' : n) + '</span>' : '') +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function pageHTML(){
+  var err = state.error ? '<div class="err">' + esc(state.error) + '</div>' : '';
+  var note = state.note ? '<div class="ok">' + esc(state.note) + '</div>' : '';
+  var d = state.data[state.view];
+  if (state.view === 'home')   return err + note + homeHTML(state.data.home);
+  if (state.view === 'fails')  return err + note + failsHTML(state.data.fails);
+  if (state.view === 'routes') return err + note + routesHTML(state.data.routes);
+  if (state.view === 'route')  return err + note + routeHTML();
+  if (state.view === 'lookup') return err + note + lookupHTML();
+  if (state.view === 'product') return err + note + productHTML();
+  if (state.view === 'floor')  return err + note + floorHTML(state.data.floor);
+  if (state.view === 'quick')  return err + note + quickHTML();
+  if (state.view === 'desk')   return err + note + deskHTML();
+  return '';
+}
+
+function st(label, value, sub, cls, act){
+  return '<div class="st ' + (cls || '') + (act ? ' tap' : '') + '"' +
+    (act ? ' data-a="' + act + '"' : '') + '>' +
+    '<div class="l">' + esc(label) + '</div>' +
+    '<div class="v">' + esc(String(value)) + '</div>' +
+    '<div class="s">' + esc(sub || '') + '</div></div>';
+}
+
+/******************** HOME - what needs attention now ********************/
+function homeHTML(d){
+  if (!d) return '<div class="empty">No data yet.</div>';
+  var s = d.stats;
+
+  var html = '<div class="stats">' +
+    st('Stuck', s.alerts + s.warns,
+       s.alerts ? s.alerts + ' over ' + mins(d.thresholds.alertMin) : 'no mark for ' + mins(d.thresholds.warnMin) + '+',
+       s.alerts ? 'bad' : (s.warns ? 'warn' : 'good')) +
+    st('Not delivered', s.notDelivered, 'of ' + s.orders + ' orders',
+       s.notDelivered ? 'bad' : 'good', 'tab-fails') +
+    st('Picked up', (s.assigned || 0) + ' / ' + (s.planned || 0),
+       s.runs ? 'across ' + s.runs + ' run' + (s.runs === 1 ? '' : 's') : 'of routes planned today',
+       s.unassigned ? 'warn' : 'good', 'tab-routes') +
+    st('Routes out', s.routesOpen + ' / ' + s.routes, 'still on the road', s.routesOpen ? 'warn' : 'good', 'tab-routes') +
+    st('Pending', s.pending + ' / ' + s.orders, 'not marked either way', s.pending ? 'warn' : 'good') +
+    st('Absent', (s.absentDas || 0) + ' / ' + (s.activeDas || 0), 'never opened the DA app',
+       s.absentDas ? 'bad' : 'good') +
+    st('On routes', s.onRouteDas || 0, 'partners out delivering', '', 'tab-routes') +
+    '</div>';
+
+  if (s.absentDas) {
+    html += '<div class="sec">Not signed in today</div>';
+    html += '<div class="card">' +
+      '<div class="fnt" style="margin-bottom:4px;">' + s.absentDas + ' of ' + s.activeDas +
+        ' partners have not opened the DA app.</div>' +
+      d.absentDas.map(function(x){
+        return '<div class="row" style="padding:7px 0; border-top:1px solid var(--border);">' +
+          '<div class="grow ttl" style="font-size:14px;">' + esc(cleanName(x.daName)) + '</div>' +
+          badge('Absent', 'b-bad') + callBtn(x.daPhone) + '</div>';
+      }).join('') + '</div>';
+  }
+
+  if (d.plannerError) {
+    html += '<div class="err">Could not read the route planner, so the planned ' +
+      'figures are missing: ' + esc(d.plannerError) + '</div>';
+  }
+
+  if (s.notStarted) {
+    html += '<div class="sec">Never left the warehouse</div>';
+    d.notStarted.forEach(function(x){
+      html += '<div class="card alert lv-alert"><div class="row">' +
+        '<div class="grow"><div class="ttl">' + esc(x.code) + '</div>' +
+        '<div class="mut">' + x.orders + ' orders planned, nobody has opened it</div>' +
+        '<div class="fnt">Should have left by ' + esc(d.thresholds.startBy) + ' — ' + mins(x.lateMin) + ' late</div>' +
+        '</div></div></div>';
+    });
+  }
+
+  if (s.alerts + s.warns) {
+    html += '<div class="sec">Stopped moving</div>';
+    d.stuck.forEach(function(x){ html += stuckCard(x); });
+  }
+
+  if (s.notEnded) {
+    html += '<div class="sec">Trip never closed</div>';
+    d.notEnded.forEach(function(x){
+      html += '<div class="card tap" data-a="route" data-code="' + esc(x.code) + '"><div class="row">' +
+        '<div class="grow"><div class="ttl">' + esc(cleanName(x.daName) || 'Unknown') + '</div>' +
+        '<div class="mut">' + esc(x.code) + (x.vehicleNo ? ' · ' + esc(x.vehicleNo) : '') + '</div>' +
+        '<div class="fnt">Open ' + mins(x.overdueMin) + ' past ' + esc(d.thresholds.endBy) +
+          (x.pending ? ' · ' + x.pending + ' unmarked' : '') + '</div></div>' +
+        callBtn(x.daPhone) + '</div></div>';
+    });
+  }
+
+  if (s.idleDas) {
+    html += '<div class="sec">Logged in, no route</div>';
+    html += '<div class="card">' + d.idleDas.map(function(x){
+      return '<div class="row" style="padding:6px 0;"><div class="grow ttl" style="font-size:14px;">' +
+        esc(cleanName(x.daName)) + '</div>' + callBtn(x.daPhone) + '</div>';
+    }).join('') + '</div>';
+  }
+
+  if (d.failuresTop && d.failuresTop.length) {
+    html += '<div class="sec">Latest failures</div>';
+    d.failuresTop.forEach(function(x){ html += failCard(x, true); });
+    if (s.failures > d.failuresTop.length) {
+      html += '<button class="btn ghost block" data-a="tab-fails">See all ' + s.failures + ' failures</button>';
+    }
+  }
+
+  if (!s.alerts && !s.warns && !s.notStarted && !s.notEnded && !s.failures) {
+    html += '<div class="empty">Nothing needs chasing. Every route is moving and no delivery has failed.</div>';
+  }
+  return html;
+}
+
+function stuckCard(x){
+  var done = x.done, total = x.total;
+  return '<div class="card alert lv-' + x.level + ' tap" data-a="route" data-code="' + esc(x.code) + '">' +
+    '<div class="row">' +
+      '<div class="grow"><div class="ttl">' + esc(cleanName(x.daName) || 'Unknown') +
+        (x.runnerRole && x.runnerRole !== 'DA' ? ' ' + badge(x.runnerRole, 'b-blue') : '') + '</div>' +
+        '<div class="mut">' + esc(x.code) + (x.vehicleNo ? ' · ' + esc(x.vehicleNo) : '') + '</div></div>' +
+      '<div style="text-align:right;"><div class="idle">' + mins(x.idleMin) + '</div>' +
+        '<div class="fnt">since ' + esc(x.basis) + '</div></div>' +
+    '</div>' +
+    '<div class="mut" style="margin-top:7px;">' + done + ' of ' + total + ' done' +
+      (x.notDelivered ? ' · ' + x.notDelivered + ' failed' : '') + '</div>' +
+    progressBar(done, total) +
+    (x.nextStop
+      ? '<div class="fnt" style="margin-top:7px;">Sitting on stop ' + x.nextStop.sequence + ' — ' +
+         esc(x.nextStop.shop || 'unnamed shop') + (x.nextStop.area ? ', ' + esc(x.nextStop.area) : '') + '</div>'
+      : '') +
+    '<div class="row" style="margin-top:10px;">' + callBtn(x.daPhone, 'Call ' + cleanName(x.daName).split(' ')[0]) +
+      '<span class="grow"></span><span class="link">Open route ›</span></div>' +
+    '</div>';
+}
+
+/******************** FAILURES ********************/
+function failCard(x, compact){
+  return '<div class="card"><div class="row">' +
+    (x.photo
+      ? '<a href="' + esc(x.photo) + '" target="_blank" rel="noopener">' + photoThumb(x.photo) + '</a>'
+      : '') +
+    '<div class="grow">' +
+      '<div class="ttl trunc">' + esc(x.shop || x.invoiceNo) + '</div>' +
+      '<div class="mut">' + badge('Not Delivered') + ' ' + esc(x.reason || 'no reason given') + '</div>' +
+      '<div class="fnt">' + esc(cleanName(x.daName)) + (x.vehicleNo ? ' · ' + esc(x.vehicleNo) : '') +
+        ' · ' + esc(x.markedAt) + '</div>' +
+      (compact ? '' : '<div class="fnt">Order ' + esc(x.invoiceNo) + ' · stop ' + (x.sequence || '—') +
+                       (x.area ? ' · ' + esc(x.area) : '') + '</div>') +
+    '</div></div>' +
+    '<div class="row" style="margin-top:9px;">' +
+      callBtn(x.phone, 'Shop') + callBtn(x.daPhone, 'DA') +
+      '<span class="grow"></span>' +
+      (x.photo ? '<a class="link" href="' + esc(x.photo) + '" target="_blank">Photo ›</a>' : '') +
+      '<span class="link" data-a="route" data-code="' + esc(x.code) + '" style="margin-left:12px;">Route ›</span>' +
+    '</div></div>';
+}
+
+function failsHTML(d){
+  if (!d) return '<div class="empty">No data yet.</div>';
+  if (!d.rows.length) return '<div class="empty">No failed deliveries on ' +
+    (d.date === today() ? 'today’s' : esc(d.date)) + ' routes.</div>';
+
+  var html = '<div class="chips">' +
+    '<div class="chip' + (state.failFilter ? '' : ' on') + '" data-a="fail-f" data-v="">All ' + d.rows.length + '</div>' +
+    d.reasons.map(function(r){
+      return '<div class="chip' + (state.failFilter === r.reason ? ' on' : '') + '" data-a="fail-f" data-v="' +
+        esc(r.reason) + '">' + esc(r.reason) + ' ' + r.count + '</div>';
+    }).join('') + '</div>';
+
+  if (d.byDa.length > 1) {
+    html += '<div class="card"><div class="fnt" style="margin-bottom:6px;">Failures by partner</div>' +
+      d.byDa.map(function(x){
+        return '<div class="row" style="padding:4px 0;"><div class="grow trunc" style="font-size:13.5px;">' +
+          esc(cleanName(x.daName)) + '</div><b>' + x.count + '</b></div>';
+      }).join('') + '</div>';
+  }
+
+  var rows = state.failFilter
+    ? d.rows.filter(function(x){ return (x.reason || 'No reason given') === state.failFilter; })
+    : d.rows;
+  html += '<div class="sec">' + rows.length + ' order' + (rows.length === 1 ? '' : 's') + '</div>';
+  rows.forEach(function(x){ html += failCard(x, false); });
+  return html;
+}
+
+/******************** ROUTES ********************/
+function routesHTML(d){
+  if (!d) return '<div class="empty">No data yet.</div>';
+  if (!d.routes.length) return '<div class="empty">No routes started on this day.</div>';
+
+  // A running count, so he can see at a glance how many partners are out
+  // without counting cards. Routes outnumber partners when one runs two.
+  var waiting = (d.unassigned || []).length;
+  var head = (d.plannerError
+      ? '<div class="err">Could not read the route planner: ' + esc(d.plannerError) + '</div>'
+      : '') +
+    '<div class="card" style="padding:11px 14px;"><div class="row">' +
+    '<div class="grow"><div class="ttl" style="font-size:15px;">' +
+      (d.assigned || 0) + ' of ' + (d.planned || 0) + ' routes picked up</div>' +
+    '<div class="fnt">' +
+      (d.runs ? d.runs + ' run' + (d.runs === 1 ? '' : 's') + ' · ' : '') +
+      d.daCount + ' partner' + (d.daCount === 1 ? '' : 's') + ' · ' +
+      d.openCount + ' still out · ' + (d.routes.length - d.openCount) + ' back' +
+      (waiting ? ' · ' + waiting + ' not taken' : '') + '</div></div>' +
+    '</div></div>';
+
+  // Routes nobody has opened yet, listed first so the codes still
+  // sitting on the desk are the first thing he sees.
+  if (waiting) {
+    head += '<div class="sec">Waiting to be picked up</div>' +
+      d.unassigned.map(function(u){
+        return '<div class="card" style="padding:11px 12px;"><div class="row">' +
+          '<div class="seq">–</div>' +
+          '<div class="grow"><div class="ttl" style="font-size:14px;">' + esc(u.code) +
+            (u.vehicle ? ' · ' + esc(u.vehicle) : '') + '</div>' +
+          '<div class="fnt">' + u.orders + ' stop' + (u.orders === 1 ? '' : 's') +
+            (u.createdAt ? ' · issued ' + esc(u.createdAt) : '') +
+            (u.type === 'special' ? ' · special run' : '') + '</div></div>' +
+          badge('Not taken', 'b-warn') + '</div></div>';
+      }).join('') +
+      '<div class="sec">' + d.routes.length + ' on the road</div>';
+  }
+
+  return head + d.routes.map(function(r, i){
+    var done = r.delivered + r.notDelivered;
+    return '<div class="card tap' + (r.stuckLevel ? ' alert lv-' + r.stuckLevel : '') +
+      '" data-a="route" data-code="' + esc(r.code) + '">' +
+      '<div class="row">' +
+        '<div class="seq">' + (i + 1) + '</div>' +
+        '<div class="grow"><div class="ttl">' + esc(cleanName(r.daName) || 'Unassigned') +
+          (r.runnerRole && r.runnerRole !== 'DA' ? ' ' + badge(r.runnerRole, 'b-blue') : '') + '</div>' +
+          '<div class="mut">' + esc(r.code) + (r.vehicleNo ? ' · ' + esc(r.vehicleNo) : '') + '</div></div>' +
+        badge(r.isOpen ? 'On route' : 'Trip ended') +
+      '</div>' +
+      '<div class="mut" style="margin-top:7px;">' + done + ' of ' + r.total + ' marked' +
+        (r.notDelivered ? ' · ' + r.notDelivered + ' failed' : '') +
+        (r.pending ? ' · ' + r.pending + ' pending' : '') + '</div>' +
+      progressBar(done, r.total) +
+      (r.stuckLevel
+        ? '<div class="fnt" style="margin-top:7px;"><b>No mark for ' + mins(r.idleMin) + '</b>' +
+          (r.nextStop ? ' — stop ' + r.nextStop.sequence + ', ' + esc(r.nextStop.shop || '') : '') + '</div>'
+        : (r.lastMark ? '<div class="fnt" style="margin-top:7px;">Last mark ' + esc(r.lastMark) + '</div>' : '')) +
+      '<div class="row" style="margin-top:10px;">' + callBtn(r.daPhone) +
+        '<span class="grow"></span><span class="link">Open ›</span></div>' +
+      '</div>';
+  }).join('');
+}
+
+function routeHTML(){
+  var d = state.routeData;
+  if (!d) return '<div class="spin">Loading route…</div>';
+  var t = d.trip || {};
+  var counts = { Delivered:0, 'Not Delivered':0, Pending:0, other:0 };
+  d.orders.forEach(function(o){
+    if (counts[o.status] != null) counts[o.status]++; else counts.other++;
+  });
+
+  var html = '<div class="card">' +
+    '<div class="row"><div class="grow"><div class="ttl">' + esc(cleanName(t.daName) || 'Unassigned') + '</div>' +
+      '<div class="mut">' + esc(d.code) + (t.vehicleNo ? ' · ' + esc(t.vehicleNo) : '') + '</div>' +
+      '<div class="fnt">Out ' + esc(t.tripStart || '—') +
+        (t.tripEnd ? ' · back ' + esc(t.tripEnd) : ' · still out') + '</div></div>' +
+      callBtn(t.daPhone) + '</div>' +
+    (t.note ? '<div class="mut" style="margin-top:8px;">Note: ' + esc(t.note) + '</div>' : '') +
+    '</div>' +
+    '<div class="stats">' +
+      st('Delivered', counts.Delivered, '', 'good') +
+      st('Failed', counts['Not Delivered'], '', counts['Not Delivered'] ? 'bad' : '') +
+    '</div>';
+
+  html += '<div class="sec">' + d.orders.length + ' stops</div>';
+  html += d.orders.map(function(o){
+    var failed = o.status === 'Not Delivered';
+    return '<div class="card" style="padding:11px 12px;' + (failed ? 'background:var(--red-bg);' : '') + '">' +
+      '<div class="row">' +
+        '<div class="seq">' + (o.sequence || '—') + '</div>' +
+        '<div class="grow"><div class="ttl trunc" style="font-size:14px;">' + esc(o.partyName || o.invoiceNo) + '</div>' +
+          '<div class="fnt">' + esc(o.invoiceNo) + (o.area ? ' · ' + esc(o.area) : '') + '</div></div>' +
+        badge(o.status || 'Pending') +
+      '</div>' +
+      (o.reason ? '<div class="mut" style="margin-top:6px;">' + esc(o.reason) + '</div>' : '') +
+      (o.issueType ? '<div class="mut" style="margin-top:6px;">' + badge(o.issueType, 'b-warn') + ' ' +
+                     esc(o.issueDetails || '') + '</div>' : '') +
+      (o.floorStatus ? '<div class="fnt" style="margin-top:6px;">' + esc(o.floorStatus) +
+                       (o.movedTo ? ' → ' + esc(o.movedTo) : '') + '</div>' : '') +
+      (o.markedAt ? '<div class="fnt" style="margin-top:4px;">' + esc(o.markedAt) + '</div>' : '') +
+      podRow(o) +
+      (o.phone || o.proof
+        ? '<div class="row" style="margin-top:8px;">' + callBtn(o.phone, 'Shop') + '<span class="grow"></span>' +
+          (o.proof ? '<a class="link" href="' + esc(o.proof) + '" target="_blank">Photo ›</a>' : '') + '</div>'
+        : '') +
+      '</div>';
+  }).join('');
+  return html;
+}
+
+/******************** ORDER LOOKUP ********************/
+function lookupHTML(){
+  var html = '<div class="card">' +
+    '<label class="f" style="margin-top:0;">Order number (last 3 digits are enough)</label>' +
+    '<input type="text" id="lk-q" inputmode="numeric" value="' + esc(state.query) + '" placeholder="e.g. 31428" />' +
+    '<div style="margin-top:12px;"><button class="btn block" data-a="lookup">Find order</button></div></div>';
+
+  var d = state.lookup;
+  if (!d) return html + '<div class="empty">Type an order number to see which route it is on and how it went.</div>';
+
+  var hit = null;
+  d.orders.forEach(function(o){ if (o.invoiceNo === d.matchInvoice) hit = o; });
+  if (hit) {
+    html += '<div class="card">' +
+      '<div class="ttl">' + esc(hit.partyName || hit.invoiceNo) + '</div>' +
+      '<div class="mut" style="margin-top:3px;">Order ' + esc(hit.invoiceNo) +
+        ' · stop ' + (hit.sequence || '—') + (hit.area ? ' · ' + esc(hit.area) : '') + '</div>' +
+      '<div style="margin-top:8px;">' + badge(hit.status || 'Pending') + '</div>' +
+      (hit.reason ? '<div class="mut" style="margin-top:7px;">' + esc(hit.reason) + '</div>' : '') +
+      (hit.issueType ? '<div class="mut" style="margin-top:7px;">' + badge(hit.issueType, 'b-warn') + ' ' +
+                       esc(hit.issueDetails || '') + '</div>' : '') +
+      (hit.markedAt ? '<div class="fnt" style="margin-top:5px;">Marked ' + esc(hit.markedAt) + '</div>' : '') +
+      podRow(hit) +
+      '<div class="row" style="margin-top:10px;">' + callBtn(hit.phone, 'Shop') +
+        '<span class="grow"></span>' +
+        '<button class="btn ghost sm" data-a="items" data-inv="' + esc(hit.invoiceNo) + '">' +
+          (state.itemsFor === hit.invoiceNo ? 'Hide items' : 'What was on the bill') + '</button>' +
+      '</div>' +
+      '</div>';
+    html += itemsHTML(hit.invoiceNo);
+  }
+
+  var t = d.trip || {};
+  html += '<div class="card tap" data-a="route" data-code="' + esc(d.code) + '">' +
+    '<div class="row"><div class="grow"><div class="ttl">' + esc(cleanName(t.daName) || 'Unassigned') + '</div>' +
+    '<div class="mut">Route ' + esc(d.code) + (t.vehicleNo ? ' · ' + esc(t.vehicleNo) : '') + '</div></div>' +
+    callBtn(t.daPhone) + '</div>' +
+    '<div class="row" style="margin-top:9px;"><span class="grow"></span><span class="link">Open route ›</span></div></div>';
+
+  if (d.history && d.history.length > 1) {
+    // Why it came back matters more than how many times it went out.
+    html += '<div class="sec">Sent out before</div>' +
+      d.history.map(function(h, i){
+        var cls = h.outcome === 'Delivered' ? 'b-ok'
+                : (h.outcome === 'Never marked' ? 'b-grey' : 'b-bad');
+        return '<div class="card" style="padding:11px 13px;">' +
+          '<div class="row"><div class="grow"><span class="ttl" style="font-size:14px;">' +
+            esc(h.code) + '</span>' + (i === 0 ? ' <span class="fnt">(current)</span>' : '') +
+            '</div>' + badge(h.outcome, cls) + '</div>' +
+          '<div class="mut" style="margin-top:4px;">' + esc(h.createdAt) +
+            (h.daName ? ' \u00b7 ' + esc(h.daName) : '') +
+            (h.markedAt ? ' \u00b7 ' + esc(h.markedAt) : '') + '</div>' +
+          (h.why ? '<div style="margin-top:6px;">' + esc(h.why) + '</div>' : '') +
+          (h.photo ? '<div style="margin-top:7px;"><a href="' + esc(h.photo) +
+            '" target="_blank" rel="noopener">' + photoThumb(h.photo) + '</a></div>' : '') +
+          '</div>';
+      }).join('');
+  }
+  return html;
+}
+
+// What was on the bill. Quantities only - no rates, no totals.
+function itemsHTML(invoiceNo){
+  if (state.itemsFor !== invoiceNo) return '';
+  if (state.itemsLoading) return '<div class="card"><div class="mut">Loading items…</div></div>';
+  if (state.itemsErr) return '<div class="err">' + esc(state.itemsErr) + '</div>';
+
+  var d = state.items[invoiceNo];
+  if (!d) return '';
+  if (!d.items.length) return '<div class="card"><div class="mut">No line items recorded.</div></div>';
+
+  return '<div class="card">' +
+    '<div class="row" style="margin-bottom:8px;">' +
+      '<div class="grow"><div class="ttl" style="font-size:14px;">' + d.lines + ' item' +
+        (d.lines === 1 ? '' : 's') + '</div>' +
+        (d.totalPieces ? '<div class="fnt">' + d.totalPieces + ' pieces in total</div>' : '') +
+      '</div></div>' +
+    d.items.map(function(it){
+      // The headline number is what is physically on the vehicle. How
+      // it was sold - "2 x Pack of 12" - sits underneath as the working.
+      var detail = [];
+      if (it.qty && it.variant) detail.push(it.qty + ' \u00D7 ' + it.variant);
+      else if (it.variant) detail.push(it.variant);
+      else if (it.qty && it.packQty) detail.push(it.qty + ' \u00D7 pack of ' + it.packQty);
+      else if (it.qty) detail.push(it.qty + ' \u00D7');
+      if (it.uom) detail.push(it.uom);
+      var total = it.pieces || it.qty || 0;
+      return '<div class="row" style="padding:7px 0; border-top:1px solid var(--border);">' +
+        '<div class="grow"><div style="font-weight:600; font-size:13.5px;">' + esc(it.product) + '</div>' +
+        (it.code ? '<div class="fnt">' + esc(it.code) + '</div>' : '') +
+        (detail.length ? '<div class="fnt">' + esc(detail.join(' \u00B7 ')) + '</div>' : '') + '</div>' +
+        (total ? '<div style="text-align:right; flex:0 0 auto;">' +
+                   '<div style="font-size:17px; font-weight:750; line-height:1.1;">' + total + '</div>' +
+                   '<div class="fnt">pcs</div></div>'
+               : '') +
+        '</div>';
+    }).join('') +
+    '</div>';
+}
+
+// Proof of delivery, where a dispute is actually settled: the photo of
+// the goods, the shopkeeper's signature, or why neither exists.
+function podRow(o){
+  if (String(o.status || '') !== 'Delivered') return '';
+  var shots = [];
+  (o.podPhotos || []).forEach(function(u, i){
+    shots.push({ url: u, label: (o.podPhotos.length > 1 ? 'Goods ' + (i + 1) : 'Goods') });
+  });
+  if (o.podSignature) shots.push({ url: o.podSignature, label: 'Signature' });
+
+  if (!shots.length) {
+    return '<div style="margin-top:8px;">' + badge('No proof', 'b-warn') +
+      (o.podSkip ? ' <span class="fnt">' + esc(o.podSkip) + '</span>' : '') + '</div>';
+  }
+
+  return '<div class="row" style="margin-top:8px; gap:8px;">' +
+    shots.map(function(x){
+      return '<a href="' + esc(x.url) + '" target="_blank" rel="noopener" ' +
+        'style="text-align:center; text-decoration:none;">' + photoThumb(x.url) +
+        '<div class="fnt">' + esc(x.label) + '</div></a>';
+    }).join('') + '<span class="grow"></span></div>';
+}
+
+/******************** FIND A PRODUCT ON A VAN ********************/
+// Asked standing at the loading bay: a line has run short, or a batch
+// has to come back off. The answer has to name the stops, because the
+// next thing that happens is someone opening those crates.
+function productHTML(){
+  var html = '<div class="card">' +
+    '<label class="f" style="margin-top:0;">Route code</label>' +
+    '<input type="text" id="pr-code" value="' + esc(state.prodCode) + '" placeholder="e.g. KY6MHV" />' +
+    '<label class="f">Product</label>' +
+    '<input type="text" id="pr-q" value="' + esc(state.prodQuery) + '" placeholder="coca cola 250" />' +
+    '<div style="margin-top:12px;"><button class="btn block" data-a="p-find">Search this van</button></div>' +
+    '</div>';
+
+  if (state.prodErr) html += '<div class="err">' + esc(state.prodErr) + '</div>';
+
+  var d = state.prodData;
+  if (!d) return html + '<div class="empty">Enter a van’s code and part of a product name. ' +
+    'Half the name is enough.</div>';
+
+  if (d.unsearchable && d.unsearchable.length) {
+    return html + '<div class="err">' + esc(d.unsearchable[0].code) +
+      ' has no item list saved, so this van could not be searched. ' +
+      'That is not the same as it having none.</div>';
+  }
+
+  if (!d.routes.length) {
+    var sug = (d.suggestions || []).length
+      ? '<div class="card"><label class="f" style="margin-top:0;">Loaded products with a similar name</label>' +
+        d.suggestions.map(function(x){
+          return '<div style="margin-top:6px;"><button class="btn ghost sm block" ' +
+            'data-a="p-try" data-v="' + esc(x) + '">' + esc(x) + '</button></div>';
+        }).join('') + '</div>'
+      : '';
+    return html + '<div class="empty">Nothing on ' + esc(state.prodCode.toUpperCase()) +
+      ' matches that.</div>' + sug;
+  }
+
+  var r = d.routes[0];
+  html += '<div class="card"><div class="ttl">' + esc(r.code) + '</div>' +
+    '<div class="mut" style="margin-top:3px;">' + r.orders.length + ' order' +
+    (r.orders.length === 1 ? '' : 's') + ' · ' + r.pieces + ' piece' +
+    (r.pieces === 1 ? '' : 's') + ' on board</div>' +
+    (r.partial ? '<div class="fnt" style="margin-top:6px;">Only ' + r.covered + ' of ' +
+                 r.total + ' orders on this van have an item list.</div>' : '') +
+    '</div>';
+
+  html += r.orders.map(function(o){
+    return '<div class="card">' +
+      '<div class="ttl">' + esc(o.shop || o.invoiceNo) + '</div>' +
+      '<div class="mut" style="margin-top:3px;">Stop ' + (o.sequence || '—') +
+        ' · ' + esc(o.invoiceNo) + (o.area ? ' · ' + esc(o.area) : '') + '</div>' +
+      o.lines.map(function(l){
+        return '<div style="margin-top:7px;">' + esc(l.product) +
+          (l.variant ? ' <span class="fnt">' + esc(l.variant) + '</span>' : '') +
+          ' <span class="mut">×' + l.qty + '</span>' +
+          ' <span class="fnt">(' + l.pieces + ' pcs)</span></div>';
+      }).join('') +
+      '</div>';
+  }).join('');
+
+  return html;
+}
+
+function doProductSearch(){
+  var c = document.getElementById('pr-code');
+  var q = document.getElementById('pr-q');
+  if (c) state.prodCode = c.value;
+  if (q) state.prodQuery = q.value;
+
+  state.prodErr = '';
+  if (!String(state.prodCode).trim()){ state.prodErr = 'Enter the route code first.'; render(); return; }
+  if (!String(state.prodQuery).trim()){ state.prodErr = 'Type part of a product name.'; render(); return; }
+
+  state.loading = true; render();
+  api('findProduct', { code: state.prodCode, query: state.prodQuery, date: state.date })
+    .then(function(res){
+      state.loading = false;
+      if (res && res.success) state.prodData = res;
+      else { state.prodData = null; state.prodErr = (res && res.error) || 'Could not search.'; }
+      render();
+    });
+}
+
+/******************** LEFT ON FLOOR ********************/
+function floorHTML(d){
+  var html = '';
+  if (state.flErr) html += '<div class="err">' + esc(state.flErr) + '</div>';
+  if (state.flMsg) html += '<div class="ok">' + esc(state.flMsg) + '</div>';
+
+  html += '<div class="card"><label class="f" style="margin-top:0;">Log orders left behind</label>' +
+    '<textarea id="fl-text" placeholder="One order number per line"></textarea>' +
+    '<label class="f">Why (optional)</label>' +
+    '<input type="text" id="fl-note" placeholder="e.g. vehicle full" />' +
+    '<div style="margin-top:12px;"><button class="btn block" data-a="fl-log">Log on floor</button></div></div>';
+
+  if (!d) return html;
+  var on = d.floor.filter(function(x){ return x.status === 'On floor'; });
+  var sent = d.floor.filter(function(x){ return x.status === 'Sent'; });
+
+  if (!d.floor.length) return html + '<div class="empty">Nothing on the floor today.</div>';
+
+  // Everything logged today and who logged it - the floor is where
+  // orders go missing, so the name against each one matters.
+  var byUser = {};
+  d.floor.forEach(function(x){
+    var k = cleanName(x.loggedBy) || 'Unknown';
+    if (!byUser[k]) byUser[k] = { name: k, total: 0, waiting: 0, sent: 0 };
+    byUser[k].total++;
+    if (x.status === 'On floor') byUser[k].waiting++; else byUser[k].sent++;
+  });
+  var users = Object.keys(byUser).map(function(k){ return byUser[k]; })
+    .sort(function(a, b){ return b.total - a.total || a.name.localeCompare(b.name); });
+
+  html += '<div class="card"><div class="row" style="margin-bottom:4px;">' +
+    '<div class="grow"><div class="ttl" style="font-size:15px;">' + d.floor.length +
+      ' order' + (d.floor.length === 1 ? '' : 's') + ' logged today</div>' +
+    '<div class="fnt">' + on.length + ' still waiting · ' + sent.length + ' sent back out</div>' +
+    '</div></div>' +
+    users.map(function(u){
+      return '<div class="row" style="padding:7px 0; border-top:1px solid var(--border);">' +
+        '<div class="grow" style="font-weight:600; font-size:13.5px;">' + esc(u.name) +
+          '<div class="fnt">' + u.waiting + ' waiting · ' + u.sent + ' sent</div></div>' +
+        '<div class="seq" style="width:auto; padding:0 9px;">' + u.total + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+
+  if (on.length) {
+    var picked = Object.keys(state.flSel).filter(function(k){ return state.flSel[k]; });
+    html += '<div class="sec">' + on.length + ' waiting</div>';
+    html += on.map(function(x){
+      return '<div class="card" style="padding:11px 12px;"><div class="row">' +
+        '<input class="pick" type="checkbox" data-a="fl-pick" data-id="' + esc(x.entryId) + '"' +
+          (state.flSel[x.entryId] ? ' checked' : '') + ' />' +
+        '<div class="grow"><div class="ttl trunc" style="font-size:14px;">' + esc(x.shop || x.invoiceNo) + '</div>' +
+        '<div class="fnt">' + esc(x.invoiceNo) + (x.area ? ' · ' + esc(x.area) : '') +
+          ' · off ' + esc(x.fromCode) + '</div>' +
+        (x.repeat > 1 ? '<div class="fnt">' + badge('Left ' + x.repeat + ' times', 'b-warn') + '</div>' : '') +
+        '</div>' + callBtn(x.phone, 'Shop') + '</div>' +
+        '<div class="row" style="margin-top:7px;"><span class="fnt grow">by ' + esc(cleanName(x.loggedBy)) +
+          ', ' + esc(x.loggedAt) + '</span>' +
+          '<button class="btn ghost sm" data-a="fl-undo" data-id="' + esc(x.entryId) + '">Undo</button></div>' +
+        '</div>';
+    }).join('');
+
+    if (picked.length) {
+      html += '<div class="card"><div class="ttl" style="font-size:14px;">' + picked.length +
+        ' selected</div>' +
+        '<label class="f">Send on</label>' +
+        '<select id="fl-target"><option value="">A new quick route</option>' +
+        (d.openRoutes || []).map(function(r){
+          return '<option value="' + esc(r.code) + '">' + esc(r.code) + ' — ' +
+            esc(cleanName(r.daName) || (r.started ? 'unassigned' : 'not started yet')) +
+            (r.vehicleNo ? ' (' + esc(r.vehicleNo) + ')' : '') + '</option>';
+        }).join('') + '</select>' +
+        '<div style="margin-top:12px;"><button class="btn block" data-a="fl-send">Send these out</button></div></div>';
+    }
+  }
+
+  if (sent.length) {
+    html += '<div class="sec">' + sent.length + ' sent back out</div>';
+    html += sent.map(function(x){
+      return '<div class="card" style="padding:10px 12px;"><div class="row">' +
+        '<div class="grow"><div class="trunc" style="font-weight:600;">' + esc(x.shop || x.invoiceNo) + '</div>' +
+        '<div class="fnt">' + esc(x.invoiceNo) + ' · ' + esc(x.fromCode) + ' → ' + esc(x.newCode) + '</div>' +
+        '<div class="fnt">logged by ' + esc(cleanName(x.loggedBy) || 'unknown') +
+          ', ' + esc(x.loggedAt) + '</div></div>' +
+        badge('Sent', 'b-ok') + '</div></div>';
+    }).join('');
+  }
+
+  html += '<button class="btn ghost block" data-a="tab-quick" style="margin-top:10px;">Build a quick route</button>';
+  return html;
+}
+
+/******************** QUICK ROUTE ********************/
+function quickHTML(){
+  var html = '';
+  if (state.qkErr) html += '<div class="err">' + esc(state.qkErr) + '</div>';
+  if (state.qkMsg) html += '<div class="ok">' + esc(state.qkMsg) + '</div>';
+
+  html += '<div class="card">' +
+    '<div class="mut" style="margin-bottom:10px;">Orders that have been on a manifest before. Anything still ' +
+    'sitting on another route is pulled off it.</div>' +
+    '<label class="f" style="margin-top:0;">Order numbers</label>' +
+    '<textarea id="qk-text" placeholder="One per line">' + esc(state.qkText) + '</textarea>' +
+    '<div style="margin-top:12px;"><button class="btn block" data-a="qk-find">Find these orders</button></div></div>';
+
+  if (!state.qkOrders) return html;
+  if (!state.qkOrders.length) return html + '<div class="empty">Nothing found.</div>';
+
+  var picked = state.qkOrders.filter(function(o){ return state.qkSel[o.invoiceNo]; });
+  html += '<div class="sec">' + state.qkOrders.length + ' found</div>';
+  html += state.qkOrders.map(function(o){
+    return '<div class="card" style="padding:11px 12px;' + (o.blocked ? 'opacity:0.55;' : '') + '"><div class="row">' +
+      (o.blocked ? '<span class="seq">✖</span>'
+                 : '<input class="pick" type="checkbox" data-a="qk-pick" data-id="' + esc(o.invoiceNo) + '"' +
+                   (state.qkSel[o.invoiceNo] ? ' checked' : '') + ' />') +
+      '<div class="grow"><div class="ttl trunc" style="font-size:14px;">' + esc(o.partyName || o.invoiceNo) + '</div>' +
+      '<div class="fnt">' + esc(o.invoiceNo) + (o.area ? ' · ' + esc(o.area) : '') + '</div>' +
+      (o.blocked ? '<div class="fnt">' + badge(o.why || 'Not available', 'b-bad') + '</div>'
+                 : (o.onOtherRoute ? '<div class="fnt">' + badge('On ' + o.onOtherRoute, 'b-warn') + '</div>' : '')) +
+      (o.hasLocation ? '' : '<div class="fnt">' + badge('No map pin', 'b-grey') + '</div>') +
+      '</div></div></div>';
+  }).join('');
+
+  if (picked.length) {
+    html += '<button class="btn block" data-a="qk-create">Create route with ' + picked.length +
+      ' order' + (picked.length === 1 ? '' : 's') + '</button>';
+  }
+  return html;
+}
+
+/******************** EVENTS ********************/
+function bind(){
+  var app = document.getElementById('app');
+  app.onclick = onClick;
+  app.onchange = onChange;
+  ['lg-name','lg-pin'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.onkeydown = function(ev){ if (ev.key === 'Enter') doLogin(); };
+  });
+  var dq = document.getElementById('dk-q');
+  if (dq) dq.onkeydown = function(ev){ if (ev.key === 'Enter'){ ev.preventDefault(); dkFind(); } };
+  var df = document.getElementById('dk-file');
+  if (df) df.onchange = function(){
+    var f = df.files && df.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){ dkShrink(r.result, dkAddPhoto); };
+    r.readAsDataURL(f);
+    try { df.value = ''; } catch(e){}
+  };
+  var q = document.getElementById('lk-q');
+  if (q) q.onkeydown = function(ev){ if (ev.key === 'Enter'){ ev.preventDefault(); doLookup(); } };
+
+  // Route code first, then the product - the order someone standing at
+  // a van actually has them in.
+  var pc = document.getElementById('pr-code');
+  var pq = document.getElementById('pr-q');
+  if (pc) pc.onkeydown = function(ev){
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    state.prodCode = pc.value;
+    if (pq && !String(pq.value).trim()) { pq.focus(); return; }
+    doProductSearch();
+  };
+  if (pq) pq.onkeydown = function(ev){
+    if (ev.key === 'Enter'){ ev.preventDefault(); doProductSearch(); }
+  };
+}
+
+function onChange(ev){
+  var el = ev.target.closest ? ev.target.closest('[data-a]') : null;
+  if (!el) return;
+  var a = el.getAttribute('data-a');
+  if (a === 'fl-pick'){ state.flSel[el.getAttribute('data-id')] = el.checked; render(); }
+  if (a === 'qk-pick'){ state.qkSel[el.getAttribute('data-id')] = el.checked; render(); }
+}
+
+function onClick(ev){
+  var el = ev.target.closest('[data-a]');
+  if (!el) return;
+  var a = el.getAttribute('data-a');
+  if (a === 'fl-pick' || a === 'qk-pick') return;   // handled on change
+
+  if (a === 'login')   { doLogin(); return; }
+  if (a === 'logout')  { doLogout(false); return; }
+  if (a === 'refresh') { state.error = ''; state.note = ''; reload(); return; }
+  if (a === 'back')    { goTab(state.view === 'quick' ? 'floor' : 'routes'); return; }
+
+  if (a === 'tab')       { goTab(el.getAttribute('data-v')); return; }
+  if (a === 'tab-fails') { goTab('fails'); return; }
+  if (a === 'tab-routes'){ goTab('routes'); return; }
+  if (a === 'tab-quick') { goTab('quick'); return; }
+
+  if (a === 'route')   { openRoute(el.getAttribute('data-code')); return; }
+  if (a === 'lookup')  { doLookup(); return; }
+  if (a === 'p-find')  { doProductSearch(); return; }
+  if (a === 'p-try')   {
+    state.prodQuery = el.getAttribute('data-v');
+    var pqEl = document.getElementById('pr-q');
+    if (pqEl) pqEl.value = state.prodQuery;
+    doProductSearch(); return;
+  }
+  if (a === 'items')   { toggleItems(el.getAttribute('data-inv')); return; }
+  if (a === 'fail-f')  { state.failFilter = el.getAttribute('data-v'); render(); return; }
+
+  if (a === 'fl-log')  { doFloorLog(); return; }
+  if (a === 'fl-send') { doFloorSend(); return; }
+  if (a === 'fl-undo') { doFloorUndo(el.getAttribute('data-id')); return; }
+  if (a === 'qk-find') { doQuickFind(); return; }
+  if (a === 'qk-create'){ doQuickCreate(); return; }
+  if (a === 'dk-find')  { dkFind(); return; }
+  if (a === 'dk-type')  { dkCapture(); state.dk.type = el.getAttribute('data-v'); state.error = ''; render(); return; }
+  if (a === 'dk-cam')   { dkCapture(); state.error = ''; scamOpen(); return; }
+  if (a === 'dk-photo-x'){ dkCapture(); state.dk.photos.splice(Number(el.getAttribute('data-i')), 1); render(); return; }
+  if (a === 'dk-save')  { dkSave(); return; }
+  if (a === 'dk-undo')  { dkUndo(el.getAttribute('data-id')); return; }
+  if (a === 'dk-pdf')   { dkPdf(); return; }
+}
+
+function val(id){ var e = document.getElementById(id); return e ? e.value : ''; }
+
+function goTab(v){
+  if (!v) return;
+  state.view = v; state.error = ''; state.note = '';
+  if (v !== 'route') state.routeCode = null;
+  load(false);
+}
+
+/******************** LOADING ********************/
+function load(force, done){
+  var v = state.view;
+  var finish = function(ok){ if (typeof done === 'function') done(ok); };
+  if (v === 'route' || v === 'lookup' || v === 'quick' || v === 'product'){
+    render(); finish(true); return;
+  }
+  if (v === 'desk'){ render(); dkLoadList(); finish(true); return; }
+  if (!force && state.data[v]){ render(); finish(true); return; }
+
+  var map = {
+    home:   { call:'getSupHome',     payload:{ date:state.date } },
+    fails:  { call:'getSupFailures', payload:{ date:state.date } },
+    routes: { call:'getSupRoutes',   payload:{ date:state.date } },
+    floor:  { call:'getFloor',       payload:{} }
+  };
+  var m = map[v];
+  if (!m){ render(); finish(true); return; }
+  if (v === 'floor') state.flSel = {};
+
+  state.loading = true; render();
+  api(m.call, m.payload).then(function(res){
+    state.loading = false;
+    if (res && res.success) state.data[v] = res;
+    else state.error = (res && res.error) || 'Could not load that.';
+    render();
+    finish(!!(res && res.success));
+  });
+}
+
+function reload(){
+  if (state.view === 'route'){ openRoute(state.routeCode); return; }
+  if (state.view === 'lookup'){ if (state.query) doLookup(); else render(); return; }
+  if (state.view === 'quick'){ render(); return; }
+  if (state.view === 'product'){ if (state.prodQuery) doProductSearch(); else render(); return; }
+  if (state.view === 'desk'){ dkCapture(); render(); dkLoadList(); return; }
+  // The alert counts in the tab bar come from home, so keep it fresh
+  // whichever screen the refresh was tapped on.
+  state.data = {};
+  load(true);
+  if (state.view !== 'home') {
+    api('getSupHome', { date:state.date }).then(function(res){
+      if (res && res.success){ state.data.home = res; render(); }
+    });
+  }
+}
+
+function doLogin(){
+  var name = val('lg-name').trim(), pin = val('lg-pin').trim();
+  if (!name || !pin){ state.error = 'Enter your login name and PIN.'; render(); return; }
+  state.loading = true; state.error = ''; render();
+
+  // Signing in and loading the alerts both read sheet, and a phone on
+  // a weak signal makes that slow. One card with the steps beats a
+  // blank screen the supervisor cannot interpret.
+  bootBegin(['dashLogin', 'firstScreen'], ['Signing in', 'Loading alerts']);
+
+  api('dashLogin', { loginName:name, pin:pin }).then(function(res){
+    state.loading = false;
+    if (!res || !res.success){
+      bootEnd(false, (res && res.error) || 'Could not sign in.');
+      state.error = (res && res.error) || 'Could not sign in.'; render(); return;
+    }
+    var roles = res.roles || (res.role ? [res.role] : []);
+    if (roles.indexOf('Supervisor') === -1 && roles.indexOf('Admin') === -1){
+      bootEnd(false, 'This app is for supervisors.');
+      state.error = 'This app is for supervisors. Use the Control Room dashboard instead.';
+      render(); return;
+    }
+    state.token = res.token; state.name = res.name; state.roles = roles;
+    save();
+    state.view = 'home';
+    if (res.initial && res.initial.view === 'suphome' && res.initial.data){
+      state.data.home = res.initial.data;
+      ldEnd(ldStart('firstScreen', 'Loading alerts'), true);
+      render();
+    } else {
+      var fh = ldStart('firstScreen', 'Loading alerts');
+      load(true, function(ok){ ldEnd(fh, ok); });
+    }
+  });
+}
+
+function doLogout(expired){
+  var t = state.token;
+  state.token = ''; state.name = ''; state.roles = []; state.data = {};
+  state.routeCode = null; state.routeData = null; state.lookup = null;
+  state.error = expired ? 'Signed out — please sign in again.' : '';
+  try { var ss = supStore(); if (ss) ss.removeItem('bm_sup'); } catch(e){}
+  render();
+  if (t && !expired) api('dashLogout', { token:t });
+}
+
+// Survives the phone's back button and a page reload, so a supervisor
+// walking the floor is not asked for his PIN every few minutes.
+function save(){
+  try {
+    supStore().setItem('bm_sup', JSON.stringify({
+      token:state.token, name:state.name, roles:state.roles
+    }));
+  } catch(e){}
+}
+
+function openRoute(code){
+  if (!code) return;
+  state.view = 'route'; state.routeCode = code; state.routeData = null;
+  state.error = ''; state.note = '';
+  render();
+  api('getRouteDetail', { code:code }).then(function(res){
+    if (state.routeCode !== code) return;
+    if (res && res.success) state.routeData = res;
+    else state.error = (res && res.error) || 'Could not load the route.';
+    render();
+  });
+}
+
+function doLookup(){
+  var q = val('lk-q').trim() || state.query;
+  if (!q){ state.error = 'Enter an order number.'; render(); return; }
+  state.query = q; state.loading = true; state.error = '';
+  state.itemsFor = ''; state.itemsErr = '';
+  render();
+  api('trackOrder', { query:q }).then(function(res){
+    state.loading = false;
+    if (res && res.success) state.lookup = res;
+    else { state.lookup = null; state.error = (res && res.error) || 'Nothing found.'; }
+    render();
+  });
+}
+
+function toggleItems(inv){
+  if (!inv) return;
+  if (state.itemsFor === inv){ state.itemsFor = ''; render(); return; }
+  state.itemsFor = inv; state.itemsErr = '';
+  if (state.items[inv]){ render(); return; }
+
+  state.itemsLoading = true; render();
+  api('getInvoiceItems', { invoiceNo: inv }).then(function(res){
+    state.itemsLoading = false;
+    if (res && res.success) state.items[inv] = res;
+    else state.itemsErr = (res && res.error) || 'Could not load the items.';
+    render();
+  });
+}
+
+function doFloorLog(){
+  var text = val('fl-text').trim();
+  if (!text){ state.flErr = 'Enter at least one order number.'; render(); return; }
+  state.loading = true; state.flErr = ''; state.flMsg = ''; render();
+  api('floorLog', { text:text, note:val('fl-note') }).then(function(res){
+    state.loading = false;
+    if (res && res.success){
+      state.flMsg = (res.resolved ? res.resolved.length : 0) + ' order(s) logged on the floor.' +
+        (res.unknown && res.unknown.length ? ' Not on a route today: ' + res.unknown.join(', ') + '.' : '');
+      state.data.floor = null; state.data.home = null;
+      load(true);
+    } else {
+      state.flErr = (res && res.error) || 'Could not log those.';
+      render();
+    }
+  });
+}
+
+function doFloorSend(){
+  var ids = Object.keys(state.flSel).filter(function(k){ return state.flSel[k]; });
+  if (!ids.length) return;
+  var target = val('fl-target');
+  state.loading = true; state.flErr = ''; state.flMsg = ''; render();
+  api('floorSend', {
+    entryIds:ids,
+    mode: target ? 'existing' : 'new',
+    targetCode: target
+  }).then(function(res){
+    state.loading = false;
+    if (res && res.success){
+      state.flMsg = ids.length + ' order(s) sent out on ' + (res.code || target) + '.';
+      state.flSel = {}; state.data.floor = null; state.data.home = null;
+      load(true);
+    } else {
+      state.flErr = (res && res.error) || 'Could not send those.';
+      render();
+    }
+  });
+}
+
+function doFloorUndo(id){
+  if (!id) return;
+  state.loading = true; state.flErr = ''; state.flMsg = ''; render();
+  api('floorUndo', { entryId:id }).then(function(res){
+    state.loading = false;
+    if (res && res.success){
+      state.flMsg = 'Put back on its original route.';
+      delete state.flSel[id];
+      state.data.floor = null; state.data.home = null;
+      load(true);
+    } else {
+      state.flErr = (res && res.error) || 'Could not undo that.';
+      render();
+    }
+  });
+}
+
+function doQuickFind(){
+  var text = val('qk-text').trim();
+  if (!text){ state.qkErr = 'Enter at least one order number.'; render(); return; }
+  state.qkText = text;
+  state.loading = true; state.qkErr = ''; state.qkMsg = ''; render();
+  api('quickPreview', { text:text }).then(function(res){
+    state.loading = false;
+    if (res && res.success){
+      state.qkOrders = res.orders || [];
+      state.qkSel = {};
+      state.qkOrders.forEach(function(o){ if (!o.blocked) state.qkSel[o.invoiceNo] = true; });
+      if (res.unknown && res.unknown.length) state.qkErr = 'Not found: ' + res.unknown.join(', ');
+    } else {
+      state.qkOrders = null;
+      state.qkErr = (res && res.error) || 'Nothing found.';
+    }
+    render();
+  });
+}
+
+function doQuickCreate(){
+  var picked = Object.keys(state.qkSel).filter(function(k){ return state.qkSel[k]; });
+  if (!picked.length) return;
+  state.loading = true; state.qkErr = ''; state.qkMsg = ''; render();
+  api('quickCreate', { invoiceNos:picked }).then(function(res){
+    state.loading = false;
+    if (res && res.success){
+      state.qkMsg = 'Route ' + res.code + ' created with ' + res.count + ' order(s).' +
+        (res.movedOff ? ' ' + res.movedOff + ' pulled off other routes.' : '');
+      state.qkOrders = null; state.qkSel = {}; state.qkText = '';
+      state.data.floor = null; state.data.home = null; state.data.routes = null;
+    } else {
+      state.qkErr = (res && res.error) || 'Could not create the route.';
+    }
+    render();
+  });
+}
+
+/******************** BOOT ********************/
+function boot(){
+  state.date = today();
+  try {
+    var store = supStore();
+    var saved = JSON.parse((store && store.getItem('bm_sup')) || 'null');
+    if (saved && saved.token){
+      state.token = saved.token; state.name = saved.name; state.roles = saved.roles || [];
+      state.view = 'home';
+      load(true);
+      return;
+    }
+  } catch(e){}
+  render();
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+<script>
+// Keeps the app on the phone. Registered after load so it never
+// slows the first screen down.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
