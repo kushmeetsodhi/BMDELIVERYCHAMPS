@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1, maximum-scale=1" />
 <meta name="theme-color" content="#000066" />
 <link rel="icon" type="image/png" href="icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=ce4c7ca1de"></script>
+<script src="config.js?v=7e21e3c0c2"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -3622,6 +3622,32 @@ if (document.readyState === 'loading') {
 } else {
   boot();
 }
+</script>
+<script>
+// A phone showing the app as a tiny column in the middle of a wide page
+// is Chrome's "Desktop site" switch: the page is laid out 980px wide and
+// shrunk to fit, whatever the page asks for. Only the phone can turn it
+// off, so say how.
+(function(){
+  function check(){
+    var phone = Math.min(screen.width, screen.height) <= 600;
+    var wide = (document.documentElement.clientWidth || window.innerWidth) >= 900;
+    var el = document.getElementById('bm-desktop-mode');
+    if (phone && wide) {
+      if (el) return;
+      el = document.createElement('div');
+      el.id = 'bm-desktop-mode';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#B42318;color:#fff;' +
+        'font:600 34px/1.35 Arial,sans-serif;padding:26px 30px;text-align:center;';
+      el.innerHTML = 'The app looks tiny because <b>Desktop site</b> is on.<br>' +
+        'Tap Chrome\u2019s \u22ee menu (top right) and <b>untick \u201cDesktop site\u201d</b>.<br>' +
+        '<span style="font-weight:400;">Chrome \u22ee menu \u2192 \u201cDesktop site\u201d hata dein.</span>';
+      document.body.appendChild(el);
+    } else if (el) { el.remove(); }
+  }
+  window.addEventListener('load', check);
+  window.addEventListener('resize', check);
+})();
 </script>
 <script>
 // Keeps the app on the phone. Registered after load so it never

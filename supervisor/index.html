@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=04a461ad3a"></script>
+<script src="config.js?v=6580c0c82c"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -653,7 +653,7 @@ function deskHTML(){
   var L = d.list;
   var html =
     '<button class="btn block" data-a="dk-pdf"' + (d.pdfBusy ? ' disabled' : '') + '>' +
-      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s RD + cancelled (PDF)') + '</button>' +
+      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s PDF (RD, cancelled, extra items)') + '</button>' +
     (d.pdfLink ? '<div class="fnt" style="margin:6px 2px 0;">Also saved in Drive: ' +
       '<a href="' + esc(d.pdfLink) + '" target="_blank" rel="noopener">open the PDF</a></div>' : '') +
     (L ? '<div class="stats" style="grid-template-columns:repeat(2,1fr); margin-top:12px;">' +
@@ -1030,6 +1030,9 @@ function dkUndo(id){
 function dkPdf(){
   dkCapture();
   var d = state.dk;
+  // Marks still on their way to the server would be missing from it.
+  if (state.dkQueue.length &&
+      !confirm(state.dkQueue.length + ' mark(s) are still saving and will not be in this PDF. Make it anyway?')) return;
   d.pdfBusy = true; d.pdfLink = ''; state.error = ''; render();
   api('deskPdf', {}).then(function(res){
     d.pdfBusy = false;
@@ -1040,10 +1043,11 @@ function dkPdf(){
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
       var a = document.createElement('a');
-      a.href = url; a.download = res.fileName || 'RD and cancelled.pdf';
+      a.href = url; a.download = res.fileName || 'Returns desk.pdf';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
-      state.note = 'PDF downloaded: ' + res.redispatch + ' RD, ' + res.cancelled + ' cancelled.';
+      state.note = 'PDF downloaded: ' + res.redispatch + ' RD, ' + res.cancelled + ' cancelled, ' +
+        (res.extra || 0) + ' extra items. You can keep marking; press again for an updated PDF.';
     } catch (e) {
       state.note = 'PDF ready — use the Drive link below to open it.';
     }
