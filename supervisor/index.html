@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=75a4a667c6"></script>
+<script src="config.js?v=dfd7eccebf"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1525,7 +1525,15 @@ function lookupHTML(){
     callBtn(t.daPhone) + '</div>' +
     '<div class="row" style="margin-top:9px;"><span class="grow"></span><span class="link">Open route ›</span></div></div>';
 
+  if (d.deskCancel) {
+    var dc = d.deskCancel;
+    html += '<div class="err"><b>Cancelled at the returns desk</b> on ' + esc(dc.at) +
+      (dc.by ? ' by ' + esc(dc.by) : '') + ' \u00b7 route ' + esc(dc.code) +
+      (dc.note ? '<br>' + esc(dc.note) : '') + '</div>';
+  }
   if (d.history && d.history.length > 1) {
+    var firstRoute = -1;
+    d.history.forEach(function(h, i){ if (firstRoute < 0 && !h.desk) firstRoute = i; });
     // Why it came back matters more than how many times it went out.
     html += '<div class="sec">Sent out before</div>' +
       d.history.map(function(h, i){
@@ -1533,7 +1541,7 @@ function lookupHTML(){
                 : (h.outcome === 'Never marked' ? 'b-grey' : 'b-bad');
         return '<div class="card" style="padding:11px 13px;">' +
           '<div class="row"><div class="grow"><span class="ttl" style="font-size:14px;">' +
-            esc(h.code) + '</span>' + (i === 0 ? ' <span class="fnt">(current)</span>' : '') +
+            esc(h.code) + '</span>' + (h.desk ? ' <span class="fnt">(returns desk)</span>' : i === firstRoute ? ' <span class="fnt">(current)</span>' : '') +
             '</div>' + badge(h.outcome, cls) + '</div>' +
           '<div class="mut" style="margin-top:4px;">' + esc(h.createdAt) +
             (h.daName ? ' \u00b7 ' + esc(h.daName) : '') +
