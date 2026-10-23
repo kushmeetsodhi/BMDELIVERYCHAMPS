@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=305dd8e109"></script>
+<script src="config.js?v=522647a16d"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -2106,6 +2106,17 @@ function doLogin(){
     }
   });
 }
+
+// Home, Failures and Routes keep themselves current: every 5 minutes,
+// quietly, while the app is open and in view. Never while someone is
+// typing, and never on the floor or desk screens, which hold half-done work.
+var AUTO_VIEWS = { home: 1, fails: 1, routes: 1 };
+setInterval(function(){
+  if (!state.token || state.loading || document.hidden || !AUTO_VIEWS[state.view]) return;
+  var a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  load(true);
+}, 5 * 60 * 1000);
 
 function doLogout(expired){
   var t = state.token;
