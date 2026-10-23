@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=dfd7eccebf"></script>
+<script src="config.js?v=fa4eb91ea0"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -260,6 +260,13 @@
   .dk-up.bad{ background:var(--red); }
   .dk-job{ border-left:4px solid #3C4FD0; }
   .dk-types.four{ grid-template-columns:1fr 1fr; }
+  .dk-place{ border-radius:12px; padding:14px 15px; margin-top:12px; border:2px solid; }
+  .dk-place.rd{ background:var(--blue-bg); color:var(--blue); border-color:var(--blue); }
+  .dk-place.cx{ background:var(--red-bg); color:var(--red); border-color:var(--red); }
+  .dk-place.pend{ background:var(--amber-bg); color:var(--amber); border-color:var(--amber); }
+  .dk-place-h{ font-size:20px; font-weight:800; letter-spacing:.2px; }
+  .dk-place-s{ font-size:13px; margin-top:4px; font-weight:600; }
+  .dk-place-w{ font-size:12px; margin-top:6px; opacity:.85; }
   .dk-link{ background:none; border:none; color:var(--brand); font-size:13px; font-weight:600;
     padding:10px 0 0; text-decoration:underline; font-family:inherit; cursor:pointer; }
   html[data-theme="dark"] .dk-link{ color:#9AA6FF; }
@@ -653,14 +660,17 @@ function deskHTML(){
   var L = d.list;
   var html =
     '<button class="btn block" data-a="dk-pdf"' + (d.pdfBusy ? ' disabled' : '') + '>' +
-      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s PDF (RD, cancelled, extra items)') + '</button>' +
+      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s PDF (RD, cancel, extra items)') + '</button>' +
     (d.pdfLink ? '<div class="fnt" style="margin:6px 2px 0;">Also saved in Drive: ' +
       '<a href="' + esc(d.pdfLink) + '" target="_blank" rel="noopener">open the PDF</a></div>' : '') +
     (L ? '<div class="stats" style="grid-template-columns:repeat(2,1fr); margin-top:12px;">' +
-        st('Returned', L.counts.returned, 'items back') +
-        st('RD', L.counts.redispatch, 'redispatch') +
-        st('Cancelled', L.counts.cancelled, 'orders') +
-        st('Extra items', L.counts.extra || 0, 'sent by mistake') + '</div>' : '') +
+        st('RD area', L.counts.rd || 0, 'go out again') +
+        st('CANCEL area', L.counts.cancel || 0, 'take inward') +
+        st('Pending', L.counts.pending || 0, 'support still calling') +
+        st('Items / extra', (L.counts.returned || 0) + (L.counts.extra || 0), 'returned \u00b7 sent by mistake') + '</div>' +
+        (L.counts.moveToCancel ? '<div class="err" style="margin-top:10px;"><b>' + L.counts.moveToCancel +
+          ' order' + (L.counts.moveToCancel > 1 ? 's' : '') + ' to move from the RD area to the CANCEL area</b> \u2014 support has cancelled ' +
+          (L.counts.moveToCancel > 1 ? 'them' : 'it') + '. They are marked below.</div>' : '') : '') +
 
     '<div class="card" style="margin-top:12px;">' +
       (d.mode === 'route'
@@ -690,8 +700,30 @@ function deskHTML(){
   return html;
 }
 
-var DK_LABEL = { 'Items returned': 'Items returned', 'Redispatch': 'Redispatch (RD)', 'Cancelled': 'Cancelled', 'Extra items': 'Extra items' };
-var DK_CLS = { 'Items returned': 'b-warn', 'Redispatch': 'b-blue', 'Cancelled': 'b-bad', 'Extra items': 'b-grey' };
+var DK_LABEL = { 'Inward': 'Inward (order back)', 'Items returned': 'Items returned', 'Redispatch': 'Redispatch (RD)', 'Cancelled': 'Cancelled', 'Extra items': 'Extra items' };
+var DK_CLS = { 'Inward': 'b-blue', 'Items returned': 'b-warn', 'Redispatch': 'b-blue', 'Cancelled': 'b-bad', 'Extra items': 'b-grey' };
+var DK_INWARD = 'Inward';
+
+// The area an order goes to, as the supervisor needs to read it.
+function dkPlaceHTML(p){
+  if (!p) return '';
+  var box = p.area === 'CANCEL'
+    ? { cls: 'dk-place cx', head: 'Put in CANCEL AREA', sub: 'Check for damage, then take the articles inward one by one.' }
+    : p.area === 'RD'
+    ? { cls: 'dk-place rd', head: 'Put in RD AREA', sub: 'Keep it packed as it is. It goes out again.' }
+    : { cls: 'dk-place pend', head: 'Calls pending \u2014 RD AREA for now', sub: 'Keep it packed. If support cancels it, it will show here as \u201cMove to CANCEL area\u201d.' };
+  return '<div class="' + box.cls + '"><div class="dk-place-h">' + box.head + '</div>' +
+    '<div class="dk-place-s">' + box.sub + '</div>' +
+    (p.why ? '<div class="dk-place-w">' + esc(p.why) + '</div>' : '') + '</div>';
+}
+
+// A saved mark's area, from its decision.
+function dkRowArea(x){
+  if (x.type !== DK_INWARD && x.type !== 'Redispatch' && x.type !== 'Cancelled') return badge(DK_LABEL[x.type] || x.type, DK_CLS[x.type]);
+  if (x.decision === 'Cancel') return x.placed && x.placed !== 'CANCEL' ? badge('Move to CANCEL area', 'b-bad') : badge('CANCEL area', 'b-bad');
+  if (x.decision === 'RD') return badge('RD area', 'b-blue');
+  return badge('RD area \u00b7 pending', 'b-warn');
+}
 var DK_EXTRA = 'Extra items';
 
 function dkOrderHTML(d){
@@ -716,7 +748,7 @@ function dkOrderHTML(d){
       ? '<div class="fnt" style="margin-top:4px;">Also ends in these digits: ' + esc(d.data.others.join(', ')) + '</div>' : '') +
     (ex ? '<div class="ok" style="margin-top:10px;">Already marked today: <b>' + esc(DK_LABEL[ex.type] || ex.type) +
       '</b> at ' + esc(ex.markedAt) + ' by ' + esc(ex.markedBy) + '. Marking again replaces it.</div>' : '') +
-    '</div>';
+    '</div>' + (o.routeOnly ? '' : dkPlaceHTML(d.data.place));
 
   html += '<div class="sec">What happened?</div><div class="dk-types' + (d.data.types.length > 3 ? ' four' : '') + '">' +
     d.data.types.map(function(t){
@@ -796,7 +828,8 @@ function dkRowHTML(x){
       (x.photos.length ? ' · ' + x.photos.map(function(u, i){
         return '<a href="' + esc(u) + '" target="_blank" rel="noopener">photo ' + (i + 1) + '</a>';
       }).join(', ') : '') + '</div>' +
-    '</div><div style="text-align:right;">' + badge(DK_LABEL[x.type] || x.type, DK_CLS[x.type]) +
+    (x.decisionWhy ? '<div class="fnt">' + esc(x.decisionWhy) + '</div>' : '') +
+    '</div><div style="text-align:right;">' + dkRowArea(x) +
       '<div style="margin-top:8px;"><button class="btn sm ghost" data-a="dk-undo" data-id="' + esc(x.id) + '">Undo</button></div>' +
     '</div></div></div>';
 }
@@ -826,6 +859,7 @@ function dkFind(){
       res.items = null;                 // on their way
       state.dk.data = res;
       if (res.order.routeOnly) { res.items = []; state.dk.type = DK_EXTRA; }
+      else if (!state.dk.type) state.dk.type = DK_INWARD;
       else dkLoadItems(res.order.invoiceNo);
     } else {
       state.error = (res && res.error) || 'Could not find that order.';
@@ -996,12 +1030,16 @@ function dkListAdd(row){
   // items entry; a route-only entry is keyed by its route.
   var slot = function(x){ return (x.type === DK_EXTRA ? 'x|' : 'm|') + (x.invoiceNo || ('route:' + x.code)); };
   L.rows = [row].concat(L.rows.filter(function(x){ return slot(x) !== slot(row); }));
-  L.counts = { returned: 0, redispatch: 0, cancelled: 0, extra: 0 };
+  L.counts = { returned: 0, extra: 0, inward: 0, rd: 0, cancel: 0, pending: 0, moveToCancel: 0, redispatch: 0, cancelled: 0 };
   L.rows.forEach(function(x){
     if (x.type === 'Items returned') L.counts.returned++;
-    if (x.type === 'Redispatch') L.counts.redispatch++;
-    if (x.type === 'Cancelled') L.counts.cancelled++;
     if (x.type === DK_EXTRA) L.counts.extra++;
+    if (x.type === DK_INWARD) L.counts.inward++;
+    var back = x.decision || x.type === DK_INWARD;
+    if (!back) return;
+    if (x.decision === 'RD') { L.counts.rd++; L.counts.redispatch++; }
+    else if (x.decision === 'Cancel') { L.counts.cancel++; L.counts.cancelled++; if (x.placed && x.placed !== 'CANCEL') L.counts.moveToCancel++; }
+    else L.counts.pending++;
   });
 }
 
