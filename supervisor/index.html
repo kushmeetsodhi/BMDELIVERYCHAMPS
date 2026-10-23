@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=fa4eb91ea0"></script>
+<script src="config.js?v=2926e6cf86"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -660,7 +660,7 @@ function deskHTML(){
   var L = d.list;
   var html =
     '<button class="btn block" data-a="dk-pdf"' + (d.pdfBusy ? ' disabled' : '') + '>' +
-      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download today’s PDF (RD, cancel, extra items)') + '</button>' +
+      (d.pdfBusy ? 'Making the PDF…' : '⬇ Download RD and cancelled list (PDF)') + '</button>' +
     (d.pdfLink ? '<div class="fnt" style="margin:6px 2px 0;">Also saved in Drive: ' +
       '<a href="' + esc(d.pdfLink) + '" target="_blank" rel="noopener">open the PDF</a></div>' : '') +
     (L ? '<div class="stats" style="grid-template-columns:repeat(2,1fr); margin-top:12px;">' +
