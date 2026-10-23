@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=2926e6cf86"></script>
+<script src="config.js?v=dcd08df590"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -293,6 +293,15 @@
     font-size:12px; font-weight:750; display:flex; align-items:center; justify-content:center;
     flex:0 0 auto;
   }
+  .fd{ border-radius:12px; padding:13px 15px; margin-bottom:14px; border:2px solid; }
+  .fd .fd-h{ font-weight:700; font-size:16px; }
+  .fd .fd-l{ margin-top:4px; }
+  .fd .fd-w{ margin-top:4px; font-size:12.5px; opacity:.85; }
+  .fd .fd-area{ margin-top:6px; font-weight:600; font-size:13px; }
+  .fd.rd{ background:var(--blue-bg); color:var(--blue); border-color:var(--blue); }
+  .fd.cx{ background:var(--red-bg); color:var(--red); border-color:var(--red); }
+  .fd.pend{ background:var(--amber-bg); color:var(--amber); border-color:var(--amber); }
+  .fd.done{ background:var(--green-bg); color:var(--green); border-color:var(--green); }
 </style>
 </head>
 <body>
@@ -705,6 +714,13 @@ var DK_CLS = { 'Inward': 'b-blue', 'Items returned': 'b-warn', 'Redispatch': 'b-
 var DK_INWARD = 'Inward';
 
 // The area an order goes to, as the supervisor needs to read it.
+// A shop that keeps sending orders back: support and the office want to know.
+function dkFrdHTML(f){
+  if (!f || !f.flagged) return '';
+  return '<div class="err" style="margin-top:10px;"><b>\u26A0 Frequent RD shop</b> \u2014 ' + f.rd +
+    ' RD order' + (f.rd === 1 ? '' : 's') + ' in the last 30 days' + (f.cancel ? ', ' + f.cancel + ' cancelled' : '') + '.</div>';
+}
+
 function dkPlaceHTML(p){
   if (!p) return '';
   var box = p.area === 'CANCEL'
@@ -748,7 +764,7 @@ function dkOrderHTML(d){
       ? '<div class="fnt" style="margin-top:4px;">Also ends in these digits: ' + esc(d.data.others.join(', ')) + '</div>' : '') +
     (ex ? '<div class="ok" style="margin-top:10px;">Already marked today: <b>' + esc(DK_LABEL[ex.type] || ex.type) +
       '</b> at ' + esc(ex.markedAt) + ' by ' + esc(ex.markedBy) + '. Marking again replaces it.</div>' : '') +
-    '</div>' + (o.routeOnly ? '' : dkPlaceHTML(d.data.place));
+    '</div>' + (o.routeOnly ? '' : dkPlaceHTML(d.data.place) + dkFrdHTML(d.data.frequentRd));
 
   html += '<div class="sec">What happened?</div><div class="dk-types' + (d.data.types.length > 3 ? ' four' : '') + '">' +
     d.data.types.map(function(t){
@@ -1525,6 +1541,28 @@ function routeHTML(){
 }
 
 /******************** ORDER LOOKUP ********************/
+// Where the order stands now: support's decision (or the supervisor's,
+// or pending), who made it and when. Delivered later beats all of it.
+function finalBoxHTML(f){
+  if (!f) return '';
+  var cls, head;
+  if (f.deliveredLater) { cls = 'done'; head = 'Delivered later'; }
+  else if (f.decision === 'RD') { cls = 'rd'; head = 'Final: Redispatch (RD)'; }
+  else if (f.decision === 'Cancel') { cls = 'cx'; head = 'Final: Cancelled'; }
+  else { cls = 'pend'; head = 'Decision pending'; }
+  var src = f.source === 'Support' ? 'support' : f.source === 'Supervisor' ? 'the supervisor' : 'the returns desk';
+  var line = f.deliveredLater
+    ? 'Sent again on ' + esc(f.deliveredLater.code) + ' and delivered ' + esc(f.deliveredLater.on) +
+      (f.deliveredLater.daName ? ' by ' + esc(f.deliveredLater.daName) : '') + '. Earlier decision: ' + esc(f.decision || 'pending') + '.'
+    : esc(f.why || '') + (f.incomplete ? ' (calls not finished)' : '');
+  var who = f.pending ? 'Failed on ' + esc(f.day) + ' · support still calling' + (f.attempts ? ' (' + f.attempts + ' call' + (f.attempts > 1 ? 's' : '') + ')' : '')
+    : 'Decided by ' + esc(f.by || src) + (f.by && f.by.indexOf('Automatic') !== 0 ? ' (' + src + ')' : '') +
+      (f.at ? ' · ' + esc(f.at) : '') + ' · failed on ' + esc(f.day);
+  var area = f.deliveredLater ? '' : '<div class="fd-area">Goods: ' + (f.area === 'CANCEL' ? 'CANCEL area' : f.area === 'RD' ? 'RD area' : 'RD area for now') + '</div>';
+  return '<div class="fd ' + cls + '"><div class="fd-h">' + head + '</div>' +
+    '<div class="fd-l">' + line + '</div><div class="fd-w">' + who + '</div>' + area + '</div>';
+}
+
 function lookupHTML(){
   var html = '<div class="card">' +
     '<label class="f" style="margin-top:0;">Order number (last 3 digits are enough)</label>' +
@@ -1534,6 +1572,7 @@ function lookupHTML(){
   var d = state.lookup;
   if (!d) return html + '<div class="empty">Type an order number to see which route it is on and how it went.</div>';
 
+  html += finalBoxHTML(d.finalDecision);
   var hit = null;
   d.orders.forEach(function(o){ if (o.invoiceNo === d.matchInvoice) hit = o; });
   if (hit) {
@@ -1563,7 +1602,7 @@ function lookupHTML(){
     callBtn(t.daPhone) + '</div>' +
     '<div class="row" style="margin-top:9px;"><span class="grow"></span><span class="link">Open route ›</span></div></div>';
 
-  if (d.deskCancel) {
+  if (d.deskCancel && !d.finalDecision) {
     var dc = d.deskCancel;
     html += '<div class="err"><b>Cancelled at the returns desk</b> on ' + esc(dc.at) +
       (dc.by ? ' by ' + esc(dc.by) : '') + ' \u00b7 route ' + esc(dc.code) +
