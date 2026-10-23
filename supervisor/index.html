@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=dcd08df590"></script>
+<script src="config.js?v=4d8c998d31"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -327,6 +327,7 @@
  * for this role, and nothing here asks for them.
  ********************************************************************/
 var state = {
+  loadedAt: {},
   token:'', name:'', roles:[],
   view:'home', date:'', loading:false, error:'', note:'',
   data:{},
@@ -2021,7 +2022,9 @@ function load(force, done){
     render(); finish(true); return;
   }
   if (v === 'desk'){ render(); dkLoadList(); finish(true); return; }
-  if (!force && state.data[v]){ render(); finish(true); return; }
+  // A screen already loaded shows at once; a fresh copy follows when
+  // asked for (Refresh), or quietly if it is more than a minute old.
+  if (!force && state.data[v] && Date.now() - (state.loadedAt[v] || 0) < 60000){ render(); finish(true); return; }
 
   var map = {
     home:   { call:'getSupHome',     payload:{ date:state.date } },
@@ -2033,12 +2036,19 @@ function load(force, done){
   if (!m){ render(); finish(true); return; }
   if (v === 'floor') state.flSel = {};
 
-  state.loading = true; render();
-  api(m.call, m.payload).then(function(res){
-    state.loading = false;
-    if (res && res.success) state.data[v] = res;
-    else state.error = (res && res.error) || 'Could not load that.';
-    render();
+  // Refresh reads fresh on the server too, past its short memory.
+  var payload = Object.assign({}, m.payload);
+  if (state.freshNext) payload.fresh = true;
+  state.freshNext = false;
+  // Already on screen: keep showing it while the new copy comes.
+  var had = !!state.data[v];
+  if (had) { state.updating = true; render(); }
+  else { state.loading = true; render(); }
+  api(m.call, payload).then(function(res){
+    state.loading = false; state.updating = false;
+    if (res && res.success) { state.data[v] = res; state.loadedAt[v] = Date.now(); }
+    else if (!had) state.error = (res && res.error) || 'Could not load that.';
+    if (state.view === v) render();
     finish(!!(res && res.success));
   });
 }
@@ -2051,10 +2061,11 @@ function reload(){
   if (state.view === 'desk'){ dkCapture(); render(); dkLoadList(); return; }
   // The alert counts in the tab bar come from home, so keep it fresh
   // whichever screen the refresh was tapped on.
-  state.data = {};
+  // What is on screen stays there until the new copy arrives.
+  state.freshNext = true;
   load(true);
   if (state.view !== 'home') {
-    api('getSupHome', { date:state.date }).then(function(res){
+    api('getSupHome', { date:state.date, fresh:true }).then(function(res){
       if (res && res.success){ state.data.home = res; render(); }
     });
   }
