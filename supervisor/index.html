@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=4d8c998d31"></script>
+<script src="config.js?v=305dd8e109"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -2176,7 +2176,9 @@ function doFloorLog(){
   api('floorLog', { text:text, note:val('fl-note') }).then(function(res){
     state.loading = false;
     if (res && res.success){
-      state.flMsg = (res.resolved ? res.resolved.length : 0) + ' order(s) logged on the floor.' +
+      state.flMsg = (res.resolved ? res.resolved.length : 0) + ' order(s) taken off the route and logged on the floor.' +
+        (res.overrode && res.overrode.length ? ' ' + res.overrode.map(function(x){ return x.invoiceNo + ': ' + x.why; }).join('; ') + '.' : '') +
+        (res.skipped && res.skipped.length ? ' ' + res.skipped.map(function(x){ return x.invoiceNo + ' ' + x.why; }).join('; ') + '.' : '') +
         (res.unknown && res.unknown.length ? ' Not on a route today: ' + res.unknown.join(', ') + '.' : '');
       state.data.floor = null; state.data.home = null;
       load(true);
