@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=522647a16d"></script>
+<script src="config.js?v=83c151d2a7"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1625,8 +1625,11 @@ function lookupHTML(){
             (h.daName ? ' \u00b7 ' + esc(h.daName) : '') +
             (h.markedAt ? ' \u00b7 ' + esc(h.markedAt) : '') + '</div>' +
           (h.why ? '<div style="margin-top:6px;">' + esc(h.why) + '</div>' : '') +
-          (h.photo ? '<div style="margin-top:7px;"><a href="' + esc(h.photo) +
-            '" target="_blank" rel="noopener">' + photoThumb(h.photo) + '</a></div>' : '') +
+          ((h.photos && h.photos.length ? h.photos : (h.photo ? [h.photo] : [])).length
+            ? '<div style="margin-top:7px; display:flex; gap:6px; flex-wrap:wrap;">' +
+              (h.photos && h.photos.length ? h.photos : [h.photo]).map(function(p){
+                return '<a href="' + esc(p) + '" target="_blank" rel="noopener">' + photoThumb(p) + '</a>';
+              }).join('') + '</div>' : '') +
           '</div>';
       }).join('');
   }
