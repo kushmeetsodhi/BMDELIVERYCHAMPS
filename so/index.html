@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM SO</title>
-<script src="config.js?v=fa7cf788ef"></script>
+<script src="config.js?v=9c2eae4015"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -180,6 +180,7 @@ function logout(msg){
   state.token = ''; state.name = ''; state.home = null; state.order = null;
   state.view = 'login'; state.error = msg || '';
   var s = store(); if (s) try { s.removeItem('bm_so'); } catch (e) {}
+  try { localStorage.removeItem('bm_so_copy'); } catch (e) {}
   render();
 }
 
@@ -222,7 +223,11 @@ function loadHome(quiet){
   if (!quiet) { state.loading = !state.home; state.error = ''; render(); }
   api('soHome', { date: dayStr() }).then(function(r){
     state.loading = false;
-    if (r && r.success) { state.home = r; state.loadedAt = Date.now(); notifyNew(r); }
+    if (r && r.success) {
+      state.home = r; state.loadedAt = Date.now(); notifyNew(r);
+      // Kept on the phone so the app opens on it next time, at once.
+      try { localStorage.setItem('bm_so_copy', JSON.stringify({ phone: state.phone, day: dayStr(), data: r })); } catch (e) {}
+    }
     else if (!quiet) state.error = (r && r.error) || 'Could not load your orders.';
     if (state.view === 'home') render();
   });
@@ -480,7 +485,12 @@ function doPin(){
   try { saved = s && JSON.parse(s.getItem('bm_so') || 'null'); } catch (e) {}
   if (saved && saved.token) {
     state.token = saved.token; state.name = saved.name; state.phone = saved.phone;
-    state.view = 'home'; loadHome(false);
+    state.view = 'home';
+    try {
+      var c = JSON.parse(localStorage.getItem('bm_so_copy') || 'null');
+      if (c && c.phone === state.phone && c.day === dayStr() && c.data && c.data.success) state.home = c.data;
+    } catch (e) {}
+    loadHome(false);
   } else render();
 })();
 </script>

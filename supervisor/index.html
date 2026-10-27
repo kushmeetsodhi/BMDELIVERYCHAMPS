@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=a4b7ad8e7a"></script>
+<script src="config.js?v=74a51f153b"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -433,7 +433,7 @@ function progressBar(done, total){
  */
 var LD = {};
 var LD_LABEL = {
-  getSupHome:'Alerts', getSupFailures:'Failed deliveries', getSupRoutes:'Routes',
+  getSupBundle:'Alerts, failed, routes', getSupHome:'Alerts', getSupFailures:'Failed deliveries', getSupRoutes:'Routes',
   getRouteDetail:'Route', trackOrder:'Order lookup', getFloor:'Left on floor',
   getDaTracker:'DA tracker', getInvoiceItems:'Bill items',
   findProduct:'Product search', quickPreview:'Finding orders',
@@ -588,7 +588,8 @@ function supStore(){
   try { return BM_HOSTED ? window.localStorage : window.sessionStorage; } catch(e){ return null; }
 }
 
-function api(action, payload){
+function api(action, payload, opts){
+  var quiet = !!(opts && opts.quiet);
   return new Promise(function(resolve){
     if (!BM_HOSTED && (typeof google === 'undefined' || !google.script || !google.script.run)) {
       resolve({ success:false, error:'Cannot reach the server.' }); return;
@@ -596,8 +597,8 @@ function api(action, payload){
     var data = { action:action, token:state.token };
     for (var k in (payload || {})) { if (payload.hasOwnProperty(k)) data[k] = payload[k]; }
 
-    var h = ldStart(action, ldLabel(action));
-    var settle = function(res){ ldEnd(h, !!(res && res.success)); return res; };
+    var h = quiet ? null : ldStart(action, ldLabel(action));
+    var settle = function(res){ if (h) ldEnd(h, !!(res && res.success)); return res; };
 
     if (BM_HOSTED) {
       // The Control Room's doPost hands this to the same router.
@@ -2341,6 +2342,7 @@ function load(force, done){
   var m = map[v];
   if (!m){ render(); finish(true); return; }
   if (v === 'floor') state.flSel = {};
+  if (COPY_VIEWS[v]) { loadBundle(v, finish); return; }
 
   // Refresh reads fresh on the server too, past its short memory.
   var payload = Object.assign({}, m.payload);
@@ -2362,6 +2364,52 @@ function load(force, done){
   });
 }
 
+// Alerts, Not delivered and Routes come back together in one request,
+// so whichever of the three is tapped next is already there. The
+// Left-on-floor list follows quietly after.
+function loadBundle(v, finish, quiet){
+  finish = finish || function(){};
+  var payload = { date: state.date };
+  if (state.freshNext) payload.fresh = true;
+  state.freshNext = false;
+  var had = !!state.data[v];
+  if (!quiet) {
+    if (had) state.updating = true; else state.loading = true;
+    render();
+  }
+  var date = state.date;
+  api('getSupBundle', payload, { quiet: quiet }).then(function(res){
+    if (!quiet) { state.loading = false; state.updating = false; }
+    var ok = !!(res && res.success && res[v] && res[v].success);
+    if (res && res.success && date === state.date) {
+      ['home', 'fails', 'routes'].forEach(function(k){
+        var part = res[k];
+        if (part && part.success) {
+          state.data[k] = part; state.loadedAt[k] = Date.now(); state.savedAt[k] = 0;
+          keepCopy(k, part);
+        }
+      });
+    }
+    if (!ok && !had && !quiet) state.error = (res && (res.error || (res[v] && res[v].error))) || 'Could not load that.';
+    if (COPY_VIEWS[state.view]) render();
+    finish(ok);
+    if (ok) prefetchFloor();
+  });
+}
+
+function prefetchFloor(){
+  if (state.view === 'floor' || state.prefetching) return;
+  if (state.data.floor && Date.now() - (state.loadedAt.floor || 0) < 60000) return;
+  state.prefetching = true;
+  api('getFloor', {}, { quiet: true }).then(function(res){
+    state.prefetching = false;
+    // Never swap a list someone is ticking on.
+    if (res && res.success && state.view !== 'floor') {
+      state.data.floor = res; state.loadedAt.floor = Date.now();
+    }
+  });
+}
+
 function reload(){
   if (state.view === 'route'){ openRoute(state.routeCode); return; }
   if (state.view === 'lookup'){ if (state.query) doLookup(); else render(); return; }
@@ -2373,11 +2421,7 @@ function reload(){
   // What is on screen stays there until the new copy arrives.
   state.freshNext = true;
   load(true);
-  if (state.view !== 'home') {
-    api('getSupHome', { date:state.date, fresh:true }).then(function(res){
-      if (res && res.success){ state.data.home = res; render(); }
-    });
-  }
+  if (!COPY_VIEWS[state.view]) loadBundle('home', null, true);
 }
 
 function doLogin(){
@@ -2409,6 +2453,7 @@ function doLogin(){
       state.data.home = res.initial.data;
       ldEnd(ldStart('firstScreen', 'Loading alerts'), true);
       render();
+      loadBundle('home', null, true);
     } else {
       var fh = ldStart('firstScreen', 'Loading alerts');
       load(true, function(ok){ ldEnd(fh, ok); });
