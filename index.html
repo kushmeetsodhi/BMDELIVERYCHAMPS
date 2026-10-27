@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=2eeb1d6f8a"></script>
+<script src="config.js?v=a90405b128"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1178,7 +1178,9 @@ function myRouteHTML(m){
     }).join('');
     return '<div class="card">' +
       '<h3 style="margin:0 0 6px; font-size:17px;">Choose your route</h3>' +
-      '<p class="hint" style="margin:0;">' + (m.onTime
+      '<p class="hint" style="margin:0;">' + (m.anyRoute
+        ? 'Every route still free today. Pick the one you are taking.'
+        : m.onTime
         ? 'You are on time, so these routes fit your last two weeks.'
         : 'After ' + esc(ampm(m.from)) + ' you get the longest routes still free. Come before ' +
           esc(ampm(m.from)) + ' to get routes that fit your last two weeks.') + '</p>' +

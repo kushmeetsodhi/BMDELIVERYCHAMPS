@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=3fdfc9ad85"></script>
+<script src="config.js?v=f0fa25649d"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1300,6 +1300,7 @@ function assignHTML(d){
       '<div class="fnt">' + r.stops + ' stops \u00b7 ' + mins(r.plannedMin) + (r.km ? ' \u00b7 ' + r.km + ' km' : '') +
         (r.how === 'Moved' || r.how === 'Swapped' ? ' \u00b7 ' + esc(r.how) + (r.by ? ' by ' + esc(r.by) : '') :
          r.how === 'Picked late' ? ' \u00b7 picked late' + (r.at ? ' (' + esc(r.at) + ')' : '') :
+         /^Picked \(/.test(r.how || '') ? ' \u00b7 ' + esc(r.how.replace('Picked', 'picked')) + (r.at ? ' ' + esc(r.at) : '') :
          r.how === 'Picked' && r.at ? ' \u00b7 picked ' + esc(r.at) : '') + '</div></div>' +
       badge(label, cls) + '</div>';
     if (r.status !== 'Trip ended') {
