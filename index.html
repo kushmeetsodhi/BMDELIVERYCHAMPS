@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=77043c0243"></script>
+<script src="config.js?v=2eeb1d6f8a"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1613,13 +1613,14 @@ function markHTML(){
   var img2 = state.screenshotPreview
     ? '<img class="thumb" src="' + state.screenshotPreview + '" alt="" />' : '';
   var btnTxt2 = state.screenshotPreview ? 'Change photo' : 'Take proof picture';
-  var needNote = state.reasonInput === 'Other';
+  var needNote = ndNeedsNote(state.reasonInput);
   var ndDis = (state.reasonInput && state.screenshotBase64 &&
                (!needNote || String(state.ndNote || '').trim().length >= 3)) ? '' : 'disabled';
   var noteBox = needNote
-    ? '<label>What happened? (required)</label>' +
+    ? '<label>' + (state.reasonInput === 'Redispatch tomorrow' ? 'Why tomorrow? Who asked? (required)' : 'What happened? (required)') + '</label>' +
       '<textarea id="nd-note" rows="2" style="width:100%; box-sizing:border-box; font:inherit; font-size:15px; ' +
-      'padding:10px 12px; border:1px solid var(--line, #d8dbe6); border-radius:10px; background:var(--card, #fff); color:inherit;" placeholder="e.g. Owner gone to market, staff will not take the goods">' +
+      'padding:10px 12px; border:1px solid var(--line, #d8dbe6); border-radius:10px; background:var(--card, #fff); color:inherit;" placeholder="' + (state.reasonInput === 'Redispatch tomorrow'
+        ? 'e.g. Owner asked, no cash today, deliver after 2 pm' : 'e.g. Owner gone to market, staff will not take the goods') + '">' +
       esc(state.ndNote || '') + '</textarea>'
     : '';
 
@@ -3746,8 +3747,9 @@ function doConfirmMark(){
   if (state.markStatus !== 'Delivered' && !state.soCheck) {
     var nd = document.getElementById('nd-note');
     if (nd) state.ndNote = nd.value;
-    if (state.reasonInput === 'Other' && String(state.ndNote || '').trim().length < 3) {
-      state.error = 'Write what happened.'; render(); return;
+    if (ndNeedsNote(state.reasonInput) && String(state.ndNote || '').trim().length < 3) {
+      state.error = state.reasonInput === 'Redispatch tomorrow' ? 'Write why it is going tomorrow.' : 'Write what happened.';
+      render(); return;
     }
     if (!validateMark()) return;
     state.error = '';
@@ -3757,6 +3759,11 @@ function doConfirmMark(){
   }
 
   submitMark();
+}
+
+// Reasons that say nothing on their own: the DA writes what happened.
+function ndNeedsNote(reason){
+  return reason === 'Other' || reason === 'Redispatch tomorrow';
 }
 
 function soCallHTML(){
@@ -3893,7 +3900,7 @@ function submitMark(){
     var rs = document.getElementById('reason-select');
     if (rs) state.reasonInput = rs.value;
     payload.reason = state.reasonInput +
-      (state.reasonInput === 'Other' && String(state.ndNote || '').trim()
+      (ndNeedsNote(state.reasonInput) && String(state.ndNote || '').trim()
         ? ' \u2014 ' + String(state.ndNote).trim() : '');
     if (state.soCheck) payload.soCheck = state.soCheck;
   }
