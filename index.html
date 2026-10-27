@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=470675a5f0"></script>
+<script src="config.js?v=6d02a78f43"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -366,6 +366,8 @@ var state = {
   menuOpen: false,
   modal: null,
   openTrip: null,
+  // What the app says about this DA's route when routes are given out.
+  myRoute: null, myRouteAt: 0, myRouteBusy: false,
   pendingCode: null,
   tripClosed: false,
   profileMsg: '',
@@ -879,6 +881,7 @@ function render(){
     ' style="display:' + (ut ? 'block' : 'none') + ';">' + esc(ut) + '</div>';
   app.innerHTML = topbarHTML() + demoBar + syncBar + '<div class="content">' + inner + '</div>' + modalHTML();
   attachEvents();
+  if (state.view === 'code' && !state.loading) maybeLoadMyRoute();
 }
 
 function topbarHTML(){
@@ -1127,6 +1130,121 @@ function resumeHTML(){
 
 /******************** CODE ENTRY ********************/
 function codeHTML(){
+  var m = state.myRoute;
+  if (!m && state.myRouteBusy) return '<div class="spinner">Getting your route\u2026</div>';
+  if (m && m.mode === 'assign') return myRouteHTML(m);
+  return codeFormHTML();
+}
+
+// Routes given out by the app: what this DA has, or why he is waiting.
+function myRouteHTML(m){
+  var practice = '<div style="margin-top:9px;"><button class="secondary" data-action="my-practice" ' +
+    'style="width:100%;">Practice route (saves nothing)</button></div>';
+  var again = '<div style="margin-top:16px;"><button class="secondary" data-action="my-refresh" style="width:100%;">' +
+    (state.myRouteBusy ? 'Checking\u2026' : 'Check again') + '</button></div>';
+  if (m.status === 'assigned') {
+    var hrs = m.plannedMin ? (Math.floor(m.plannedMin / 60) + ' h ' + String(m.plannedMin % 60).padStart(2, '0') + ' m') : '';
+    var veh = state.vehicleNo || m.vehicleNo || '';
+    return '<div class="card">' +
+      '<div class="hint" style="margin:0 0 4px;">Your route today</div>' +
+      '<div style="font-size:30px; font-weight:800; letter-spacing:3px; margin:2px 0 10px;">' + esc(m.code) + '</div>' +
+      '<div class="hint" style="margin:0;">' +
+        (m.vehicleNo ? 'Vehicle <strong>' + esc(m.vehicleNo) + '</strong>' + (m.vehicleType ? ' (' + esc(m.vehicleType) + ')' : '') + ' \u00b7 ' : '') +
+        m.stops + ' stops' + (hrs ? ' \u00b7 about ' + hrs : '') + (m.km ? ' \u00b7 ' + m.km + ' km' : '') + '</div>' +
+      (m.handoverFrom ? '<div class="hint" style="margin-top:8px; color:var(--amber, #a15c00);"><strong>' +
+        esc(m.handoverFrom) + '</strong> started this route. You are taking it over.</div>' : '') +
+      (m.how === 'Moved' || m.how === 'Swapped' ? '<div class="hint" style="margin-top:6px;">Given to you by ' + esc(m.by) + '.</div>' : '') +
+      '<label>Vehicle number</label>' +
+      '<input type="text" id="vehicle-input" value="' + esc(veh) + '" autocapitalize="characters" style="text-transform:uppercase;" />' +
+      errHTML() +
+      '<div style="margin-top:17px;"><button class="primary" data-action="my-start">Start this route</button></div>' +
+      '<div class="hint">Wrong vehicle or a problem with this route? Tell your supervisor \u2014 only he can move it.</div>' +
+      practice + '</div>';
+  }
+  if (m.status === 'waiting') {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 8px; font-size:17px;">You are checked in</h3>' +
+      '<p class="hint" style="margin:0 0 4px;">Routes are given out from <strong>' + esc(ampm(m.from)) + '</strong>. ' +
+        'Stay on this screen; your route appears here by itself.</p>' +
+      '<p class="hint">Longer routes go first, each to whoever had the lighter routes over the last two weeks.</p>' +
+      errHTML() + again + practice + '</div>';
+  }
+  if (m.status === 'none') {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 8px; font-size:17px;">No route for you yet</h3>' +
+      '<p class="hint">Every route ready today has been given out. If more are made, one will appear here. ' +
+        'Ask your supervisor if you were expecting one.</p>' +
+      errHTML() + again + practice + '</div>';
+  }
+  if (m.status === 'checkin') {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 8px; font-size:17px;">Check in first</h3>' +
+      '<p class="hint">Routes are given only to partners who checked in at the warehouse with a selfie today. ' +
+        'Sign out and sign in again at the warehouse.</p>' +
+      errHTML() + '<div style="margin-top:16px;"><button class="primary" data-action="logout">Sign in again</button></div>' +
+      '</div>';
+  }
+  return codeFormHTML();
+}
+
+function ampm(hhmm){
+  var p = String(hhmm || '').split(':');
+  var h = Number(p[0]), mi = p[1] || '00';
+  if (!isFinite(h)) return String(hhmm || '');
+  return ((h % 12) || 12) + ':' + mi + (h < 12 ? ' AM' : ' PM');
+}
+
+function maybeLoadMyRoute(){
+  if (state.myRouteBusy) return;
+  var m = state.myRoute;
+  var age = Date.now() - (state.myRouteAt || 0);
+  if (m && m.mode === 'manual' && age < 5 * 60000) return;
+  if (m && m.status === 'assigned' && age < 60000) return;
+  if (m && age < 30000) {
+    clearTimeout(state.myRouteTimer);
+    state.myRouteTimer = setTimeout(function(){ if (state.view === 'code' && !state.loading) maybeLoadMyRoute(); },
+                                    30000 - age + 200);
+    return;
+  }
+  loadMyRoute();
+}
+
+function loadMyRoute(){
+  if (!state.loginName) return;
+  state.myRouteBusy = true;
+  var first = !state.myRoute;
+  if (first) render();
+  api('myRoute', { loginName: state.loginName }).then(function(res){
+    state.myRouteBusy = false;
+    state.myRouteAt = Date.now();
+    if (res && res.success) {
+      if (res.status === 'open' && res.code) {
+        state.openTrip = { code: res.code, vehicleNo: '', isToday: true, startedAt: '' };
+        state.myRoute = res;
+        if (state.view === 'code') { state.view = 'resume'; render(); }
+        return;
+      }
+      state.myRoute = res;
+    } else if (!state.myRoute) {
+      // No answer (no signal, an old server): fall back to the code box.
+      state.myRoute = { mode: 'manual' };
+    }
+    if (state.view === 'code' && !state.loading) render();
+  });
+}
+
+function doStartAssigned(){
+  var m = state.myRoute || {};
+  var vehEl = document.getElementById('vehicle-input');
+  var veh = vehEl ? vehEl.value.trim().toUpperCase() : (m.vehicleNo || '');
+  if (!veh) { state.error = 'Enter the vehicle number.'; render(); return; }
+  state.pendingCode = m.code;
+  state.vehicleNo = veh;
+  state.error = '';
+  doEnterCode(!!m.handoverFrom);
+}
+
+function codeFormHTML(){
   return '<div class="card">' +
     '<label>Today\'s manifest code</label>' +
     '<input type="text" id="code-input" value="' + esc(state.code) + '" placeholder="e.g. XH4T2K" autocapitalize="characters" style="text-transform:uppercase; letter-spacing:2px; font-weight:600;" />' +
@@ -2562,6 +2680,7 @@ function onAction(ev){
     state.isDemo = false;
     state.loginName = ''; state.pin = ''; state.code = ''; state.vehicleNo = '';
     state.orders = []; state.orderIndex = 0; state.openTrip = null;
+    state.myRoute = null; state.myRouteAt = 0;
     state.tripClosed = false; state.menuOpen = false; state.modal = null;
     resetMarkState();
     resetPodState();
@@ -2628,6 +2747,9 @@ function onAction(ev){
   if (action === 'checkin-submit')  { submitCheckin(); return; }
   if (action === 'checkin-back')    { state.checkin = null; state.error = ''; state.view = 'login'; render(); return; }
   if (action === 'do-enter-code')   { doEnterCode(false); return; }
+  if (action === 'my-start')        { doStartAssigned(); return; }
+  if (action === 'my-refresh')      { state.error = ''; loadMyRoute(); return; }
+  if (action === 'my-practice')     { state.pendingCode = 'DEMO'; state.error = ''; doEnterCode(true); return; }
   if (action === 'confirm-handover'){ state.modal = null; doEnterCode(true); return; }
   if (action === 'resume-trip')     { doResume(); return; }
 
@@ -3461,6 +3583,8 @@ function doEnterCode(confirmHandover){
     }
     if (res && res.success) {
       state.code = code;
+      // The route is open now; once it ends, My route asks afresh.
+      if (!res.isDemo) { state.myRoute = null; state.myRouteAt = 0; }
       state.orders = sortOrders(res.orders);
       state.orderIndex = firstPendingIndex();
       state.tripClosed = false;
@@ -3470,6 +3594,7 @@ function doEnterCode(confirmHandover){
       if (!state.isDemo) { overlayPending(); pumpQueue(); saveSession(); }
     } else {
       state.error = (res && res.error) || 'Could not load that code.';
+      if (res && res.notYours) { state.myRouteAt = 0; loadMyRoute(); }
     }
     render();
   });

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=83c151d2a7"></script>
+<script src="config.js?v=a4d025b3bd"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1217,10 +1217,10 @@ function loginHTML(){
 function topHTML(){
   var titles = { home:'Route watch', fails:'Not delivered', routes:'Routes',
                  lookup:'Order lookup', floor:'Left on floor', quick:'Quick route', desk:'Returns desk',
-                 route:'Route' };
+                 route:'Route', assign:'Route assignment' };
   var sub = state.view === 'route' ? esc(state.routeCode || '')
           : (state.date === today() ? 'Today' : esc(state.date));
-  var back = (state.view === 'route' || state.view === 'quick')
+  var back = (state.view === 'route' || state.view === 'quick' || state.view === 'assign')
     ? '<button class="back" data-a="back">‹</button>' : '';
   return '<div class="top">' + back +
     '<h1>' + esc(titles[state.view] || 'BM Supervisor') +
@@ -1259,7 +1259,134 @@ function pageHTML(){
   if (state.view === 'floor')  return err + note + floorHTML(state.data.floor);
   if (state.view === 'quick')  return err + note + quickHTML();
   if (state.view === 'desk')   return err + note + deskHTML();
+  if (state.view === 'assign') return err + note + assignHTML(state.data.assign);
   return '';
+}
+
+/******************** ROUTE ASSIGNMENT ********************/
+// Today's routes in the order they leave, who has each, who is still
+// waiting, and every change made today. A move always needs a reason.
+function assignHTML(d){
+  if (!d) return '<div class="empty">Loading\u2026</div>';
+  var h = '';
+  if (!d.on) {
+    h += '<div class="card" style="padding:12px 14px;"><div class="ttl" style="font-size:14px;">Giving routes out in the app is off</div>' +
+      '<div class="fnt">DAs still type the code from the loading sheet. An admin turns it on in Control Room \u2192 Settings.</div></div>';
+  }
+  var waitingRoutes = d.routes.filter(function(r){ return r.status === 'Waiting'; }).length;
+  h += '<div class="card" style="padding:12px 14px;"><div class="row"><div class="grow">' +
+    '<div class="ttl" style="font-size:15px;">' + d.routes.length + ' routes \u00b7 ' + waitingRoutes + ' not given out</div>' +
+    '<div class="fnt">' + (d.open ? 'Routes are being given out.' : 'Routes are given out from ' + esc(ampm(d.from)) + '.') +
+      ' Team average over 14 days: ' + (d.teamAvgMin ? mins(d.teamAvgMin) : '\u2014') + ' a route.</div></div></div>' +
+    (d.on && waitingRoutes && d.waiting.length
+      ? '<div style="margin-top:10px;"><button class="btn block" data-a="as-release">Give out routes now (' +
+        Math.min(waitingRoutes, d.waiting.length) + ')</button></div>' : '') +
+    '</div>';
+
+  h += '<div class="sec">Waiting for a route (' + d.waiting.length + ')</div>';
+  h += d.waiting.length
+    ? '<div class="card" style="padding:10px 12px;">' + d.waiting.map(function(p){
+        return '<div class="row" style="padding:4px 0;"><div class="grow">' + esc(p.name) + '</div>' +
+          '<span class="fnt">' + (p.avgMin == null ? 'new' : mins(p.avgMin) + ' avg \u00b7 ' + p.routes14 + ' routes') + '</span></div>';
+      }).join('') + '</div>'
+    : '<div class="empty" style="padding:10px;">Nobody checked in is waiting.</div>';
+
+  h += '<div class="sec">Leaving order</div>';
+  h += d.routes.length ? d.routes.map(function(r){
+    var open = state.asMove === r.code;
+    var cls = r.status === 'Waiting' ? 'b-grey' : r.status === 'Given out' ? 'b-blue' : statusCls(r.status);
+    var line = '<div class="card" style="padding:11px 12px;">' +
+      '<div class="row"><div class="seq">' + r.n + '</div>' +
+      '<div class="grow"><div class="ttl" style="font-size:14px;">' + esc(r.da || 'Not given out') + '</div>' +
+      '<div class="mut">' + esc(r.code) + (r.vehicle ? ' \u00b7 ' + esc(r.vehicle) : '') + (r.vtype ? ' (' + esc(r.vtype) + ')' : '') + '</div>' +
+      '<div class="fnt">' + r.stops + ' stops \u00b7 ' + mins(r.plannedMin) + (r.km ? ' \u00b7 ' + r.km + ' km' : '') +
+        (r.how && r.how !== 'Auto' ? ' \u00b7 ' + esc(r.how) + (r.by ? ' by ' + esc(r.by) : '') : '') + '</div></div>' +
+      badge(r.status, cls) + '</div>';
+    if (r.status !== 'Trip ended') {
+      line += open ? assignMoveHTML(d, r)
+        : '<div class="row" style="margin-top:9px;"><span class="grow"></span>' +
+          '<button class="btn sm ghost" data-a="as-move" data-code="' + esc(r.code) + '">' +
+          (r.da ? 'Move to another DA' : 'Give to a DA') + '</button></div>';
+    }
+    return line + '</div>';
+  }).join('') : '<div class="empty">No routes planned for today yet.</div>';
+
+  if (d.moves && d.moves.length) {
+    h += '<div class="sec">Changes today</div><div class="card" style="padding:10px 12px;">' +
+      d.moves.map(function(m){
+        return '<div style="padding:5px 0; border-bottom:1px solid var(--border);">' +
+          '<div><b>' + esc(m.code) + '</b> \u2192 ' + esc(m.da) + ' <span class="fnt">' + esc(m.at) + ' \u00b7 ' + esc(m.by) +
+          (m.how === 'Swapped' ? ' \u00b7 swap' : '') + '</span></div>' +
+          (m.reason ? '<div class="fnt">' + esc(m.reason) + '</div>' : '') + '</div>';
+      }).join('') + '</div>';
+  }
+  return h;
+}
+
+function assignMoveHTML(d, r){
+  var opts = '<option value="">Choose a DA\u2026</option>' + d.people.filter(function(p){
+    return p.name !== r.da;
+  }).map(function(p){
+    var note = p.onTrip ? 'out on ' + p.onTrip : p.holds ? 'has ' + p.holds : p.checkedIn ? 'waiting' : 'not checked in';
+    if (p.role && p.role !== 'DA') note = p.role + ', ' + note;
+    return '<option value="' + esc(p.name) + '"' + (state.asTo === p.name ? ' selected' : '') +
+      (p.onTrip ? ' disabled' : '') + '>' + esc(p.name) + ' \u2014 ' + esc(note) + '</option>';
+  }).join('');
+  var swap = state.asSwap && state.asSwap.code === r.code
+    ? '<div class="err" style="margin-top:8px;">' + esc(state.asSwap.msg) + '</div>' +
+      '<button class="btn block" style="margin-top:8px;" data-a="as-swap">Swap ' + esc(r.code) + ' and ' + esc(state.asSwap.other) + '</button>'
+    : '';
+  return '<div style="margin-top:10px;">' +
+    '<select id="as-to" data-a="as-to">' + opts + '</select>' +
+    '<input type="text" id="as-why" style="margin-top:8px;" placeholder="Why? (required, kept on record)" value="' + esc(state.asWhy || '') + '" />' +
+    (r.status === 'On route' ? '<div class="fnt" style="margin-top:6px;">' + esc(r.runner) +
+      ' has started this route. The new DA takes it over from where it is.</div>' : '') +
+    swap +
+    '<div class="row" style="margin-top:9px; gap:8px;"><button class="btn sm ghost" data-a="as-cancel">Cancel</button>' +
+    '<span class="grow"></span><button class="btn sm" data-a="as-go" data-code="' + esc(r.code) + '">Move</button></div></div>';
+}
+
+function ampm(hhmm){
+  var p = String(hhmm || '').split(':');
+  var h = Number(p[0]), mi = p[1] || '00';
+  if (!isFinite(h)) return String(hhmm || '');
+  return ((h % 12) || 12) + ':' + mi + (h < 12 ? ' AM' : ' PM');
+}
+
+function asCapture(){
+  var t = document.getElementById('as-to'), w = document.getElementById('as-why');
+  if (t) state.asTo = t.value;
+  if (w) state.asWhy = w.value;
+}
+
+function asMove(code, swap){
+  asCapture();
+  if (!state.asTo) { state.error = 'Choose who gets the route.'; render(); return; }
+  if (String(state.asWhy || '').trim().length < 3) { state.error = 'Write why the route is being moved.'; render(); return; }
+  state.error = ''; state.updating = true; render();
+  api('moveRoute', { code: code, toDa: state.asTo, reason: state.asWhy, swap: !!swap }).then(function(res){
+    state.updating = false;
+    if (res && res.success) {
+      state.data.assign = res; state.loadedAt.assign = Date.now();
+      state.asMove = null; state.asTo = ''; state.asWhy = ''; state.asSwap = null;
+      state.note = res.note || 'Moved.';
+    } else if (res && res.needSwap) {
+      state.asSwap = { code: code, other: res.otherCode, msg: res.error };
+    } else {
+      state.error = (res && res.error) || 'Could not move that route.';
+    }
+    if (state.view === 'assign') render();
+  });
+}
+
+function asRelease(){
+  state.error = ''; state.updating = true; render();
+  api('releaseRoutes', {}).then(function(res){
+    state.updating = false;
+    if (res && res.success) { state.data.assign = res; state.loadedAt.assign = Date.now(); state.note = res.note || ''; }
+    else state.error = (res && res.error) || 'Could not give out routes.';
+    if (state.view === 'assign') render();
+  });
 }
 
 function st(label, value, sub, cls, act){
@@ -1433,12 +1560,19 @@ function failsHTML(d){
 /******************** ROUTES ********************/
 function routesHTML(d){
   if (!d) return '<div class="empty">No data yet.</div>';
-  if (!d.routes.length) return '<div class="empty">No routes started on this day.</div>';
+  if (!d.routes.length) return '<div class="card tap" data-a="tab" data-v="assign" style="padding:11px 14px;"><div class="row">' +
+      '<div class="grow"><div class="ttl" style="font-size:14px;">Route assignment</div>' +
+      '<div class="fnt">Who gets which route today</div></div><span class="link">Open \u203a</span></div></div>' +
+    '<div class="empty">No routes started on this day.</div>';
 
   // A running count, so he can see at a glance how many partners are out
   // without counting cards. Routes outnumber partners when one runs two.
   var waiting = (d.unassigned || []).length;
-  var head = (d.plannerError
+  var head = '<div class="card tap" data-a="tab" data-v="assign" style="padding:11px 14px;"><div class="row">' +
+      '<div class="grow"><div class="ttl" style="font-size:14px;">Route assignment</div>' +
+      '<div class="fnt">Who gets which route today, and moving a route to another DA</div></div>' +
+      '<span class="link">Open \u203a</span></div></div>' +
+    (d.plannerError
       ? '<div class="err">Could not read the route planner: ' + esc(d.plannerError) + '</div>'
       : '') +
     '<div class="card" style="padding:11px 14px;"><div class="row">' +
@@ -1955,6 +2089,7 @@ function onChange(ev){
   var a = el.getAttribute('data-a');
   if (a === 'fl-pick'){ state.flSel[el.getAttribute('data-id')] = el.checked; render(); }
   if (a === 'qk-pick'){ state.qkSel[el.getAttribute('data-id')] = el.checked; render(); }
+  if (a === 'as-to'){ asCapture(); state.asSwap = null; }
 }
 
 function onClick(ev){
@@ -1967,6 +2102,11 @@ function onClick(ev){
   if (a === 'logout')  { doLogout(false); return; }
   if (a === 'refresh') { state.error = ''; state.note = ''; reload(); return; }
   if (a === 'back')    { goTab(state.view === 'quick' ? 'floor' : 'routes'); return; }
+  if (a === 'as-move')   { asCapture(); state.asMove = el.getAttribute('data-code'); state.asTo = ''; state.asWhy = ''; state.asSwap = null; state.error = ''; render(); return; }
+  if (a === 'as-cancel') { state.asMove = null; state.asSwap = null; state.error = ''; render(); return; }
+  if (a === 'as-go')     { asMove(el.getAttribute('data-code'), false); return; }
+  if (a === 'as-swap')   { asMove(state.asSwap.code, true); return; }
+  if (a === 'as-release'){ asRelease(); return; }
 
   if (a === 'tab')       { goTab(el.getAttribute('data-v')); return; }
   if (a === 'tab-fails') { goTab('fails'); return; }
@@ -2033,6 +2173,7 @@ function load(force, done){
     home:   { call:'getSupHome',     payload:{ date:state.date } },
     fails:  { call:'getSupFailures', payload:{ date:state.date } },
     routes: { call:'getSupRoutes',   payload:{ date:state.date } },
+    assign: { call:'getAssignBoard', payload:{} },
     floor:  { call:'getFloor',       payload:{} }
   };
   var m = map[v];
@@ -2113,7 +2254,7 @@ function doLogin(){
 // Home, Failures and Routes keep themselves current: every 5 minutes,
 // quietly, while the app is open and in view. Never while someone is
 // typing, and never on the floor or desk screens, which hold half-done work.
-var AUTO_VIEWS = { home: 1, fails: 1, routes: 1 };
+var AUTO_VIEWS = { home: 1, fails: 1, routes: 1, assign: 1 };
 setInterval(function(){
   if (!state.token || state.loading || document.hidden || !AUTO_VIEWS[state.view]) return;
   var a = document.activeElement;
