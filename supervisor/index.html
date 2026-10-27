@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=44212cfc68"></script>
+<script src="config.js?v=2fcd95a716"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1827,6 +1827,7 @@ function lookupHTML(){
   var d = state.lookup;
   if (!d) return html + '<div class="empty">Type an order number to see which route it is on and how it went.</div>';
 
+  (d.warnings || []).forEach(function(w){ html += '<div class="err"><b>\u26A0 Check this order.</b> ' + esc(w) + '</div>'; });
   html += finalBoxHTML(d.finalDecision) + overrideHTML(d.finalDecision);
   var hit = null;
   d.orders.forEach(function(o){ if (o.invoiceNo === d.matchInvoice) hit = o; });
