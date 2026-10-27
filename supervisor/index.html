@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=1fd4e6d7c6"></script>
+<script src="config.js?v=06eca8b3d2"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1284,7 +1284,7 @@ function assignHTML(d){
   h += d.waiting.length
     ? '<div class="card" style="padding:10px 12px;">' + d.waiting.map(function(p){
         return '<div class="row" style="padding:4px 0;"><div class="grow">' + esc(p.name) + '</div>' +
-          '<span class="fnt">' + (p.avgMin == null ? 'new' : mins(p.avgMin) + ' avg \u00b7 ' + p.routes14 + ' routes') + '</span></div>';
+          '<span class="fnt">' + (p.avgMin == null ? 'no routes in 14 days' : 'last 14 days: ' + p.routes14 + ' routes, ' + mins(p.avgMin) + ' each') + '</span></div>';
       }).join('') + '</div>'
     : '<div class="empty" style="padding:10px;">Everyone checked in has a route.</div>';
 
