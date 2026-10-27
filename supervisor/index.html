@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=74a51f153b"></script>
+<script src="config.js?v=8c86ccf07e"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1468,7 +1468,16 @@ function homeHTML(d){
   if (!d) return '<div class="empty">No data yet.</div>';
   var s = d.stats;
 
-  var html = '<div class="stats">' +
+  // Route assignment sits at the top of Alerts: it is the first job of
+  // the morning, and a supervisor should not have to look for it.
+  var left = (s.planned || 0) - (s.assigned || 0);
+  var html = '<button class="btn block" data-a="tab" data-v="assign" style="margin-bottom:12px;' +
+      'display:flex; align-items:center; justify-content:space-between; text-align:left;">' +
+      '<span>Route assignment<small style="display:block; font-weight:400; opacity:.85; font-size:12px;">' +
+        (s.planned ? (s.assigned || 0) + ' of ' + s.planned + ' routes taken' +
+                     (left > 0 ? ' \u00b7 ' + left + ' waiting' : '') : 'Who gets which route today') +
+      '</small></span><span aria-hidden="true">\u203a</span></button>' +
+    '<div class="stats">' +
     st('Stuck', s.alerts + s.warns,
        s.alerts ? s.alerts + ' over ' + mins(d.thresholds.alertMin) : 'no mark for ' + mins(d.thresholds.warnMin) + '+',
        s.alerts ? 'bad' : (s.warns ? 'warn' : 'good')) +
@@ -1646,19 +1655,12 @@ function failsHTML(d){
 /******************** ROUTES ********************/
 function routesHTML(d){
   if (!d) return '<div class="empty">No data yet.</div>';
-  if (!d.routes.length) return '<div class="card tap" data-a="tab" data-v="assign" style="padding:11px 14px;"><div class="row">' +
-      '<div class="grow"><div class="ttl" style="font-size:14px;">Route assignment</div>' +
-      '<div class="fnt">Who gets which route today</div></div><span class="link">Open \u203a</span></div></div>' +
-    '<div class="empty">No routes started on this day.</div>';
+  if (!d.routes.length) return '<div class="empty">No routes started on this day.</div>';
 
   // A running count, so he can see at a glance how many partners are out
   // without counting cards. Routes outnumber partners when one runs two.
   var waiting = (d.unassigned || []).length;
-  var head = '<div class="card tap" data-a="tab" data-v="assign" style="padding:11px 14px;"><div class="row">' +
-      '<div class="grow"><div class="ttl" style="font-size:14px;">Route assignment</div>' +
-      '<div class="fnt">Who gets which route today, and moving a route to another DA</div></div>' +
-      '<span class="link">Open \u203a</span></div></div>' +
-    (d.plannerError
+  var head = (d.plannerError
       ? '<div class="err">Could not read the route planner: ' + esc(d.plannerError) + '</div>'
       : '') +
     '<div class="card" style="padding:11px 14px;"><div class="row">' +
@@ -2233,7 +2235,7 @@ function onClick(ev){
   if (a === 'login')   { doLogin(); return; }
   if (a === 'logout')  { doLogout(false); return; }
   if (a === 'refresh') { state.error = ''; state.note = ''; reload(); return; }
-  if (a === 'back')    { goTab(state.view === 'quick' ? 'floor' : 'routes'); return; }
+  if (a === 'back')    { goTab(state.view === 'quick' ? 'floor' : (state.view === 'assign' ? 'home' : 'routes')); return; }
   if (a === 'as-switch')    { state.asConfirm = true; render(); return; }
   if (a === 'as-switch-no') { state.asConfirm = false; render(); return; }
   if (a === 'as-switch-yes'){
