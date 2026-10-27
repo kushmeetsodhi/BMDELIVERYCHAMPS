@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=8c86ccf07e"></script>
+<script src="config.js?v=00dbe5ebb9"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -302,6 +302,9 @@
   .fd.cx{ background:var(--red-bg); color:var(--red); border-color:var(--red); }
   .fd.pend{ background:var(--amber-bg); color:var(--amber); border-color:var(--amber); }
   .fd.done{ background:var(--green-bg); color:var(--green); border-color:var(--green); }
+.st.assign-tile { background: #3f4aa8; border-color: #3f4aa8; }
+.st.assign-tile .l, .st.assign-tile .v, .st.assign-tile .s { color: #fff; }
+.st.assign-tile .v { font-size: 24px; }
 </style>
 </head>
 <body>
@@ -1468,16 +1471,8 @@ function homeHTML(d){
   if (!d) return '<div class="empty">No data yet.</div>';
   var s = d.stats;
 
-  // Route assignment sits at the top of Alerts: it is the first job of
-  // the morning, and a supervisor should not have to look for it.
   var left = (s.planned || 0) - (s.assigned || 0);
-  var html = '<button class="btn block" data-a="tab" data-v="assign" style="margin-bottom:12px;' +
-      'display:flex; align-items:center; justify-content:space-between; text-align:left;">' +
-      '<span>Route assignment<small style="display:block; font-weight:400; opacity:.85; font-size:12px;">' +
-        (s.planned ? (s.assigned || 0) + ' of ' + s.planned + ' routes taken' +
-                     (left > 0 ? ' \u00b7 ' + left + ' waiting' : '') : 'Who gets which route today') +
-      '</small></span><span aria-hidden="true">\u203a</span></button>' +
-    '<div class="stats">' +
+  var html = '<div class="stats">' +
     st('Stuck', s.alerts + s.warns,
        s.alerts ? s.alerts + ' over ' + mins(d.thresholds.alertMin) : 'no mark for ' + mins(d.thresholds.warnMin) + '+',
        s.alerts ? 'bad' : (s.warns ? 'warn' : 'good')) +
@@ -1491,6 +1486,10 @@ function homeHTML(d){
     st('Absent', (s.absentDas || 0) + ' / ' + (s.activeDas || 0), 'never opened the DA app',
        s.absentDas ? 'bad' : 'good') +
     st('On routes', s.onRouteDas || 0, 'partners out delivering', '', 'tab-routes') +
+    // Fills the empty spot beside On routes; opens who-gets-which-route.
+    st('Route assignment \u203a', left > 0 ? left + ' waiting' : (s.planned ? 'All taken' : '\u2014'),
+       s.planned ? (s.assigned || 0) + ' of ' + s.planned + ' routes taken' : 'who gets which route',
+       'assign-tile', 'tab-assign') +
     '</div>';
 
   if (s.absentDas) {
@@ -2262,6 +2261,7 @@ function onClick(ev){
   if (a === 'tab')       { goTab(el.getAttribute('data-v')); return; }
   if (a === 'tab-fails') { goTab('fails'); return; }
   if (a === 'tab-routes'){ goTab('routes'); return; }
+  if (a === 'tab-assign'){ goTab('assign'); return; }
   if (a === 'tab-quick') { goTab('quick'); return; }
 
   if (a === 'route')   { openRoute(el.getAttribute('data-code')); return; }
