@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=6d02a78f43"></script>
+<script src="config.js?v=04c25b515c"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -339,6 +339,9 @@ var state = {
   cashInput: '',
   upiInput: '',
   reasonInput: '',
+  ndNote: '',
+  // Call-the-SO step before a Not delivered: '' until he answers it.
+  soCheck: '', soCalledAt: 0,
   screenshotBase64: null,
   // Proof of delivery, captured on the screen after the payment is
   // settled and before the mark is queued.
@@ -949,6 +952,7 @@ function bodyHTML(){
   if(state.view === 'mark')    return markHTML();
   if(state.view === 'collect') return collectHTML();
   if(state.view === 'pod')     return podHTML();
+  if(state.view === 'socall')  return soCallHTML();
   if(state.view === 'closing') return closingHTML();
   if(state.view === 'flush') return flushHTML();
   if(state.view === 'stuck') return stuckHTML();
@@ -1583,13 +1587,21 @@ function markHTML(){
   var img2 = state.screenshotPreview
     ? '<img class="thumb" src="' + state.screenshotPreview + '" alt="" />' : '';
   var btnTxt2 = state.screenshotPreview ? 'Change photo' : 'Take proof picture';
-  var ndDis = (state.reasonInput && state.screenshotBase64) ? '' : 'disabled';
+  var needNote = state.reasonInput === 'Other';
+  var ndDis = (state.reasonInput && state.screenshotBase64 &&
+               (!needNote || String(state.ndNote || '').trim().length >= 3)) ? '' : 'disabled';
+  var noteBox = needNote
+    ? '<label>What happened? (required)</label>' +
+      '<textarea id="nd-note" rows="2" style="width:100%; box-sizing:border-box; font:inherit; font-size:15px; ' +
+      'padding:10px 12px; border:1px solid var(--line, #d8dbe6); border-radius:10px; background:var(--card, #fff); color:inherit;" placeholder="e.g. Owner gone to market, staff will not take the goods">' +
+      esc(state.ndNote || '') + '</textarea>'
+    : '';
 
   return '<div class="card">' +
     '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Mark not delivered</p>' +
     '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
     '<label>Reason</label>' +
-    '<select id="reason-select">' + opts + '</select>' +
+    '<select id="reason-select">' + opts + '</select>' + noteBox +
     '<label>Proof picture (required)</label>' + img2 +
     '<label class="file-btn">' + btnTxt2 +
     '<input type="file" accept="image/*" id="screenshot-input" style="display:none;" /></label>' +
@@ -2288,6 +2300,19 @@ function attachEvents(){
     stops[j].addEventListener('click', function(ev){ ev.stopPropagation(); });
   }
 
+  var ndNoteEl = document.getElementById('nd-note');
+  if (ndNoteEl) {
+    ndNoteEl.addEventListener('input', function(){
+      var had = String(state.ndNote || '').trim().length >= 3;
+      state.ndNote = ndNoteEl.value;
+      var has = String(state.ndNote || '').trim().length >= 3;
+      if (had !== has) {
+        var b = document.querySelector('[data-action="confirm-mark"]');
+        if (b) { if (has && state.reasonInput && state.screenshotBase64) b.removeAttribute('disabled'); else b.setAttribute('disabled', 'disabled'); }
+      }
+    });
+  }
+
   var reasonSel = document.getElementById('reason-select');
   if (reasonSel) {
     reasonSel.addEventListener('change', function(){
@@ -2627,6 +2652,8 @@ function resetMarkState(){
   state.cashInput = '';
   state.upiInput = '';
   state.reasonInput = '';
+  state.ndNote = '';
+  state.soCheck = ''; state.soCalledAt = 0;
   state.screenshotBase64 = null;
   state.screenshotMime = null;
   state.screenshotPreview = null;
@@ -2748,6 +2775,15 @@ function onAction(ev){
   if (action === 'checkin-back')    { state.checkin = null; state.error = ''; state.view = 'login'; render(); return; }
   if (action === 'do-enter-code')   { doEnterCode(false); return; }
   if (action === 'my-start')        { doStartAssigned(); return; }
+  if (action === 'so-call')         { state.soCalledAt = Date.now(); setTimeout(render, 600); return; }
+  if (action === 'so-cancel')       { state.soCheck = 'SO confirmed ' + soTime(); submitMark(); return; }
+  if (action === 'so-noanswer')     { state.soCheck = 'SO not reached ' + soTime(); submitMark(); return; }
+  if (action === 'so-none')         { state.soCheck = 'No SO number'; submitMark(); return; }
+  if (action === 'so-back')         { state.view = 'mark'; render(); return; }
+  if (action === 'so-wait')         {
+    // Nothing is marked: the order stays pending for another try.
+    resetMarkState(); state.error = ''; state.view = 'order'; render(); return;
+  }
   if (action === 'my-refresh')      { state.error = ''; loadMyRoute(); return; }
   if (action === 'my-practice')     { state.pendingCode = 'DEMO'; state.error = ''; doEnterCode(true); return; }
   if (action === 'confirm-handover'){ state.modal = null; doEnterCode(true); return; }
@@ -3678,7 +3714,59 @@ function doConfirmMark(){
     return;
   }
 
+  // Not delivered: the SO is called first. He may sort it out on the
+  // phone, and if not, the mark says he was asked.
+  if (state.markStatus !== 'Delivered' && !state.soCheck) {
+    var nd = document.getElementById('nd-note');
+    if (nd) state.ndNote = nd.value;
+    if (state.reasonInput === 'Other' && String(state.ndNote || '').trim().length < 3) {
+      state.error = 'Write what happened.'; render(); return;
+    }
+    if (!validateMark()) return;
+    state.error = '';
+    state.view = 'socall';
+    render();
+    return;
+  }
+
   submitMark();
+}
+
+function soCallHTML(){
+  var o = currentOrder();
+  if (!o) return '<div class="card">Order not found.</div>';
+  var so = cleanName(o.soName || '') || 'the SO';
+  var num = String(o.soNumber || '').replace(/[^\d+]/g, '');
+  var called = !!state.soCalledAt;
+  if (!num) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 8px; font-size:17px;">No SO number on this order</h3>' +
+      '<p class="hint">Normally you call the SO before marking an order not delivered. This order has no SO number, so carry on.</p>' +
+      '<div style="margin-top:16px;"><button class="primary" data-action="so-none">Carry on</button></div>' +
+      '<div style="margin-top:9px;"><button class="secondary" data-action="so-back" style="width:100%;">Back</button></div>' +
+      '</div>';
+  }
+  return '<div class="card">' +
+    '<h3 style="margin:0 0 6px; font-size:17px;">Call ' + esc(so) + ' first</h3>' +
+    '<p class="hint" style="margin:0 0 4px;">Before marking <strong>' + esc(cleanName(o.partyName)) +
+      '</strong> not delivered (' + esc(state.reasonInput) + '), call the SO. He may get the shop to take it.</p>' +
+    '<a href="tel:' + esc(num) + '" data-action="so-call" ' +
+      'style="display:block; text-align:center; text-decoration:none; margin-top:12px; padding:15px; border-radius:12px; ' +
+      'background:#16794a; color:#fff; font-weight:700; font-size:16px;">' +
+      '\u260E Call ' + esc(so) + ' \u00b7 ' + esc(num) + '</a>' +
+    '<p class="hint" style="margin:14px 0 6px;">What did the SO say?</p>' +
+    '<button class="primary" data-action="so-cancel" style="width:100%;">SO says cancel / bring it back</button>' +
+    '<div style="margin-top:9px;"><button class="secondary" data-action="so-wait" style="width:100%;">SO says wait / try again</button></div>' +
+    '<div style="margin-top:9px;"><button class="secondary" data-action="so-noanswer" style="width:100%;' +
+      (called ? '' : ' opacity:0.45;') + '"' + (called ? '' : ' disabled') + '>SO not answering \u2014 carry on</button></div>' +
+    (called ? '' : '<div class="hint">Tap Call first. If he does not pick up, you can carry on.</div>') +
+    '</div>';
+}
+
+function soTime(){
+  var d = new Date();
+  var h = d.getHours(), m = d.getMinutes();
+  return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + (h < 12 ? ' AM' : ' PM');
 }
 
 function podDone(){
@@ -3777,7 +3865,10 @@ function submitMark(){
   } else {
     var rs = document.getElementById('reason-select');
     if (rs) state.reasonInput = rs.value;
-    payload.reason = state.reasonInput;
+    payload.reason = state.reasonInput +
+      (state.reasonInput === 'Other' && String(state.ndNote || '').trim()
+        ? ' \u2014 ' + String(state.ndNote).trim() : '');
+    if (state.soCheck) payload.soCheck = state.soCheck;
   }
 
   // Prefer the link from the background upload; fall back to raw data

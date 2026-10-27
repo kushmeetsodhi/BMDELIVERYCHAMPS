@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=a4d025b3bd"></script>
+<script src="config.js?v=f01f3d0603"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1516,6 +1516,7 @@ function failCard(x, compact){
     '<div class="grow">' +
       '<div class="ttl trunc">' + esc(x.shop || x.invoiceNo) + '</div>' +
       '<div class="mut">' + badge('Not Delivered') + ' ' + esc(x.reason || 'no reason given') + '</div>' +
+      soCheckLine(x.soCheck) +
       '<div class="fnt">' + esc(cleanName(x.daName)) + (x.vehicleNo ? ' · ' + esc(x.vehicleNo) : '') +
         ' · ' + esc(x.markedAt) + '</div>' +
       (compact ? '' : '<div class="fnt">Order ' + esc(x.invoiceNo) + ' · stop ' + (x.sequence || '—') +
@@ -1527,6 +1528,14 @@ function failCard(x, compact){
       (x.photo ? '<a class="link" href="' + esc(x.photo) + '" target="_blank">Photo ›</a>' : '') +
       '<span class="link" data-a="route" data-code="' + esc(x.code) + '" style="margin-left:12px;">Route ›</span>' +
     '</div></div>';
+}
+
+// Whether the DA called the SO before marking it (from 28 Oct).
+function soCheckLine(v){
+  if (!v) return '';
+  var bad = /not reached/i.test(v);
+  return '<div class="fnt" style="color:var(' + (bad ? '--amber' : '--green') + ');">' +
+    (bad ? '\u26A0 ' : '\u2713 ') + esc(v) + '</div>';
 }
 
 function failsHTML(d){
@@ -1550,7 +1559,7 @@ function failsHTML(d){
   }
 
   var rows = state.failFilter
-    ? d.rows.filter(function(x){ return (x.reason || 'No reason given') === state.failFilter; })
+    ? d.rows.filter(function(x){ return String(x.reason || 'No reason given').split(' \u2014 ')[0].trim() === state.failFilter; })
     : d.rows;
   html += '<div class="sec">' + rows.length + ' order' + (rows.length === 1 ? '' : 's') + '</div>';
   rows.forEach(function(x){ html += failCard(x, false); });
