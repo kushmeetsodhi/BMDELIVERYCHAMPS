@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=f01f3d0603"></script>
+<script src="config.js?v=3fdfc9ad85"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1274,34 +1274,34 @@ function assignHTML(d){
       '<div class="fnt">DAs still type the code from the loading sheet. An admin turns it on in Control Room \u2192 Settings.</div></div>';
   }
   var waitingRoutes = d.routes.filter(function(r){ return r.status === 'Waiting'; }).length;
-  h += '<div class="card" style="padding:12px 14px;"><div class="row"><div class="grow">' +
-    '<div class="ttl" style="font-size:15px;">' + d.routes.length + ' routes \u00b7 ' + waitingRoutes + ' not given out</div>' +
-    '<div class="fnt">' + (d.open ? 'Routes are being given out.' : 'Routes are given out from ' + esc(ampm(d.from)) + '.') +
-      ' Team average over 14 days: ' + (d.teamAvgMin ? mins(d.teamAvgMin) : '\u2014') + ' a route.</div></div></div>' +
-    (d.on && waitingRoutes && d.waiting.length
-      ? '<div style="margin-top:10px;"><button class="btn block" data-a="as-release">Give out routes now (' +
-        Math.min(waitingRoutes, d.waiting.length) + ')</button></div>' : '') +
-    '</div>';
+  h += '<div class="card" style="padding:12px 14px;">' +
+    '<div class="ttl" style="font-size:15px;">' + d.routes.length + ' routes \u00b7 ' + waitingRoutes + ' not taken yet</div>' +
+    '<div class="fnt">Each DA picks one of 3 when he logs in. Before ' + esc(ampm(d.from)) +
+      ' he is offered routes that fit his last 14 days; after it, the 3 longest left. ' +
+      'Team average: ' + (d.teamAvgMin ? mins(d.teamAvgMin) : '\u2014') + ' a route.</div></div>';
 
-  h += '<div class="sec">Waiting for a route (' + d.waiting.length + ')</div>';
+  h += '<div class="sec">Checked in, no route yet (' + d.waiting.length + ')</div>';
   h += d.waiting.length
     ? '<div class="card" style="padding:10px 12px;">' + d.waiting.map(function(p){
         return '<div class="row" style="padding:4px 0;"><div class="grow">' + esc(p.name) + '</div>' +
           '<span class="fnt">' + (p.avgMin == null ? 'new' : mins(p.avgMin) + ' avg \u00b7 ' + p.routes14 + ' routes') + '</span></div>';
       }).join('') + '</div>'
-    : '<div class="empty" style="padding:10px;">Nobody checked in is waiting.</div>';
+    : '<div class="empty" style="padding:10px;">Everyone checked in has a route.</div>';
 
   h += '<div class="sec">Leaving order</div>';
   h += d.routes.length ? d.routes.map(function(r){
     var open = state.asMove === r.code;
     var cls = r.status === 'Waiting' ? 'b-grey' : r.status === 'Given out' ? 'b-blue' : statusCls(r.status);
+    var label = r.status === 'Waiting' ? 'Not taken' : r.status === 'Given out' ? 'Picked' : r.status;
     var line = '<div class="card" style="padding:11px 12px;">' +
       '<div class="row"><div class="seq">' + r.n + '</div>' +
-      '<div class="grow"><div class="ttl" style="font-size:14px;">' + esc(r.da || 'Not given out') + '</div>' +
+      '<div class="grow"><div class="ttl" style="font-size:14px;">' + esc(r.da || 'Nobody yet') + '</div>' +
       '<div class="mut">' + esc(r.code) + (r.vehicle ? ' \u00b7 ' + esc(r.vehicle) : '') + (r.vtype ? ' (' + esc(r.vtype) + ')' : '') + '</div>' +
       '<div class="fnt">' + r.stops + ' stops \u00b7 ' + mins(r.plannedMin) + (r.km ? ' \u00b7 ' + r.km + ' km' : '') +
-        (r.how && r.how !== 'Auto' ? ' \u00b7 ' + esc(r.how) + (r.by ? ' by ' + esc(r.by) : '') : '') + '</div></div>' +
-      badge(r.status, cls) + '</div>';
+        (r.how === 'Moved' || r.how === 'Swapped' ? ' \u00b7 ' + esc(r.how) + (r.by ? ' by ' + esc(r.by) : '') :
+         r.how === 'Picked late' ? ' \u00b7 picked late' + (r.at ? ' (' + esc(r.at) + ')' : '') :
+         r.how === 'Picked' && r.at ? ' \u00b7 picked ' + esc(r.at) : '') + '</div></div>' +
+      badge(label, cls) + '</div>';
     if (r.status !== 'Trip ended') {
       line += open ? assignMoveHTML(d, r)
         : '<div class="row" style="margin-top:9px;"><span class="grow"></span>' +

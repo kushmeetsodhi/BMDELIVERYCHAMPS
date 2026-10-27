@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=04c25b515c"></script>
+<script src="config.js?v=77043c0243"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1165,13 +1165,24 @@ function myRouteHTML(m){
       '<div class="hint">Wrong vehicle or a problem with this route? Tell your supervisor \u2014 only he can move it.</div>' +
       practice + '</div>';
   }
-  if (m.status === 'waiting') {
+  if (m.status === 'choose') {
+    var cards = (m.options || []).map(function(r){
+      var h2 = r.plannedMin ? (Math.floor(r.plannedMin / 60) + ' h ' + String(r.plannedMin % 60).padStart(2, '0') + ' m') : '';
+      return '<div style="border:1px solid var(--line, #d8dbe6); border-radius:12px; padding:12px; margin-top:10px;">' +
+        '<div style="font-size:20px; font-weight:800; letter-spacing:2px;">' + esc(r.code) + '</div>' +
+        '<div class="hint" style="margin:2px 0 10px;">' +
+          (r.vehicleNo ? 'Vehicle <strong>' + esc(r.vehicleNo) + '</strong>' + (r.vehicleType ? ' (' + esc(r.vehicleType) + ')' : '') + ' \u00b7 ' : '') +
+          r.stops + ' stops' + (h2 ? ' \u00b7 about ' + h2 : '') + (r.km ? ' \u00b7 ' + r.km + ' km' : '') + '</div>' +
+        '<button class="primary" data-action="my-pick" data-code="' + esc(r.code) + '"' +
+          (state.myRouteBusy ? ' disabled' : '') + '>Take ' + esc(r.code) + '</button></div>';
+    }).join('');
     return '<div class="card">' +
-      '<h3 style="margin:0 0 8px; font-size:17px;">You are checked in</h3>' +
-      '<p class="hint" style="margin:0 0 4px;">Routes are given out from <strong>' + esc(ampm(m.from)) + '</strong>. ' +
-        'Stay on this screen; your route appears here by itself.</p>' +
-      '<p class="hint">Longer routes go first, each to whoever had the lighter routes over the last two weeks.</p>' +
-      errHTML() + again + practice + '</div>';
+      '<h3 style="margin:0 0 6px; font-size:17px;">Choose your route</h3>' +
+      '<p class="hint" style="margin:0;">' + (m.onTime
+        ? 'You are on time, so these routes fit your last two weeks.'
+        : 'After ' + esc(ampm(m.from)) + ' you get the longest routes still free. Come before ' +
+          esc(ampm(m.from)) + ' to get routes that fit your last two weeks.') + '</p>' +
+      cards + errHTML() + again + practice + '</div>';
   }
   if (m.status === 'none') {
     return '<div class="card">' +
@@ -1234,6 +1245,21 @@ function loadMyRoute(){
       state.myRoute = { mode: 'manual' };
     }
     if (state.view === 'code' && !state.loading) render();
+  });
+}
+
+function doPickRoute(code){
+  if (!code || state.myRouteBusy) return;
+  state.myRouteBusy = true; state.error = ''; render();
+  api('pickRoute', { loginName: state.loginName, code: code }).then(function(res){
+    state.myRouteBusy = false;
+    state.myRouteAt = Date.now();
+    if (res && res.success && res.mode) { state.myRoute = res; }
+    else {
+      state.error = (res && res.error) || 'Could not take that route. Try again.';
+      if (res && res.taken) { state.myRouteAt = 0; loadMyRoute(); }
+    }
+    if (state.view === 'code') render();
   });
 }
 
@@ -2785,6 +2811,7 @@ function onAction(ev){
     resetMarkState(); state.error = ''; state.view = 'order'; render(); return;
   }
   if (action === 'my-refresh')      { state.error = ''; loadMyRoute(); return; }
+  if (action === 'my-pick')         { doPickRoute(el.getAttribute('data-code')); return; }
   if (action === 'my-practice')     { state.pendingCode = 'DEMO'; state.error = ''; doEnterCode(true); return; }
   if (action === 'confirm-handover'){ state.modal = null; doEnterCode(true); return; }
   if (action === 'resume-trip')     { doResume(); return; }
