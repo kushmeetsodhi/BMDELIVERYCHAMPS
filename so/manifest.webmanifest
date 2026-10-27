@@ -1,7 +1,8 @@
 {
-  "name": "BM Delivery Champs",
-  "short_name": "BM Champs",
-  "description": "Bulkmart delivery app for DAs",
+  "id": "./",
+  "name": "BM SO",
+  "short_name": "BM SO",
+  "description": "Bulkmart sales officers: your customers' orders, live",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

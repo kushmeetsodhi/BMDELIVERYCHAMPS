@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BM SO</title>
+<script src="config.js?v=fa7cf788ef"></script>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<style>
+  :root{
+    --brand:#0E1466; --brand-ink:#FFFFFF; --brand-soft:#C9CDF2;
+    --bg:#F3F4F8; --card:#FFFFFF; --ink:#151826; --sub:#5A6075; --faint:#8B91A3; --line:#E2E5EC;
+    --field:#FFFFFF;
+    --green:#16794A; --green-bg:#E3F4EA;
+    --red:#B42323; --red-bg:#FDE2E2;
+    --amber:#8A5300; --amber-bg:#FFF1D6;
+    --blue:#1B2A8F; --blue-bg:#E3E7FB;
+    --shadow:0 1px 2px rgba(20,20,43,0.06), 0 1px 3px rgba(20,20,43,0.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --brand:#151A4D; --brand-soft:#A9AECB;
+      --bg:#0F1222; --card:#1A1E33; --ink:#ECEEF7; --sub:#A9AECB; --faint:#7D83A3; --line:#2E3350; --field:#12152A;
+      --green:#4ADE80; --green-bg:#16301F; --red:#F87171; --red-bg:#3A1C1C;
+      --amber:#FBBF24; --amber-bg:#33290F; --blue:#9DB2FF; --blue-bg:#1E2650;
+      --shadow:0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --brand:#151A4D; --brand-soft:#A9AECB;
+    --bg:#0F1222; --card:#1A1E33; --ink:#ECEEF7; --sub:#A9AECB; --faint:#7D83A3; --line:#2E3350; --field:#12152A;
+    --green:#4ADE80; --green-bg:#16301F; --red:#F87171; --red-bg:#3A1C1C;
+    --amber:#FBBF24; --amber-bg:#33290F; --blue:#9DB2FF; --blue-bg:#1E2650;
+    --shadow:0 1px 3px rgba(0,0,0,0.4);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{ font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;
+        background:var(--bg); color:var(--ink); font-size:15px; }
+  button{ font:inherit; }
+  a{ color:inherit; }
+
+  .top{ position:sticky; top:0; z-index:20; background:var(--brand); color:var(--brand-ink);
+        padding:calc(14px + env(safe-area-inset-top)) 16px 16px; }
+  .top-row{ display:flex; align-items:center; gap:10px; }
+  .top h1{ margin:0; font-size:20px; font-weight:700; flex:1; }
+  .top .sub{ font-size:13px; color:var(--brand-soft); margin-top:3px; }
+  .icon-btn{ width:42px; height:42px; border-radius:21px; border:0; background:rgba(255,255,255,0.13);
+             color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; flex:none; }
+  .days{ display:flex; gap:8px; margin-top:12px; }
+  .day{ flex:1; padding:9px 0; text-align:center; border-radius:10px; background:rgba(255,255,255,0.10);
+        color:var(--brand-soft); font-weight:600; font-size:13.5px; border:0; cursor:pointer; }
+  .day.on{ background:#fff; color:#0E1466; }
+
+  .page{ padding:14px 14px 40px; max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  .card{ background:var(--card); border-radius:14px; padding:14px; box-shadow:var(--shadow); }
+  .tiles{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+  .tile{ background:var(--card); border-radius:12px; padding:10px 8px; text-align:center; box-shadow:var(--shadow);
+         border:2px solid transparent; cursor:pointer; }
+  .tile.on{ border-color:var(--blue); }
+  .tile b{ display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+  .tile span{ font-size:11.5px; color:var(--sub); }
+  .tile.bad b{ color:var(--red); } .tile.ok b{ color:var(--green); } .tile.mid b{ color:var(--amber); }
+
+  .order{ display:flex; flex-direction:column; gap:6px; cursor:pointer; }
+  .order.failed{ border-left:5px solid var(--red); }
+  .row{ display:flex; align-items:center; gap:10px; }
+  .grow{ flex:1; min-width:0; }
+  .shop{ font-weight:700; font-size:15.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .meta{ font-size:13px; color:var(--sub); }
+  .pill{ font-size:12px; font-weight:700; padding:4px 10px; border-radius:12px; white-space:nowrap; }
+  .p-bad{ background:var(--red-bg); color:var(--red); } .p-ok{ background:var(--green-bg); color:var(--green); }
+  .p-mid{ background:var(--amber-bg); color:var(--amber); } .p-blue{ background:var(--blue-bg); color:var(--blue); }
+  .why{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:8px 10px; font-size:13.5px; }
+  .note{ font-size:12.5px; color:var(--sub); }
+  .ok-line{ color:var(--green); font-size:12.5px; font-weight:600; }
+  .warn-line{ color:var(--amber); font-size:12.5px; font-weight:600; }
+  .call{ display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 14px; border-radius:19px;
+         background:var(--blue-bg); color:var(--blue); font-weight:700; font-size:13.5px; text-decoration:none; white-space:nowrap; }
+  .call.strong{ background:#fff; color:#0E1466; }
+  .sec{ font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); margin:6px 2px 0; }
+  .empty{ text-align:center; color:var(--sub); padding:30px 10px; }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:10px 12px; font-size:13.5px; }
+  .okmsg{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:10px 12px; font-size:13.5px; }
+  .banner{ background:var(--red); color:#fff; border-radius:12px; padding:11px 13px; font-weight:600; font-size:14px; }
+
+  .hero{ background:var(--brand); color:#fff; padding:4px 16px 18px; display:flex; flex-direction:column; gap:12px; }
+  .hero .big{ font-size:23px; font-weight:700; }
+  .hero .sub{ color:var(--brand-soft); font-size:13.5px; }
+  .da-box{ background:rgba(255,255,255,0.10); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:12px; }
+  .photo{ width:100%; max-height:260px; object-fit:cover; border-radius:12px; background:var(--line); display:block; }
+  .tl{ display:grid; grid-template-columns:86px minmax(0,1fr); gap:10px 12px; font-size:14px; }
+  .tl .t{ color:var(--sub); font-size:12.5px; }
+  .items{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px 12px; font-size:14px; }
+  .items .q{ color:var(--sub); font-variant-numeric:tabular-nums; }
+  .dec{ border-radius:12px; padding:12px; }
+  .dec.rd{ background:var(--blue-bg); color:var(--blue); } .dec.cx{ background:var(--red-bg); color:var(--red); }
+  .dec.pend{ background:var(--amber-bg); color:var(--amber); } .dec.done{ background:var(--green-bg); color:var(--green); }
+  .dec b{ display:block; font-size:15px; margin-bottom:3px; }
+
+  label.f{ display:block; font-size:13px; font-weight:600; color:var(--sub); margin:12px 0 6px; }
+  input{ width:100%; height:48px; border-radius:10px; border:1px solid var(--line); background:var(--field);
+         color:var(--ink); padding:0 12px; font-size:16px; }
+  .btn{ width:100%; height:50px; border-radius:12px; border:0; background:var(--brand); color:#fff; font-weight:700;
+        font-size:15.5px; cursor:pointer; }
+  :root[data-theme="dark"] .btn{ background:#3B4BC8; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn{ background:#3B4BC8; } }
+  .btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:.55; }
+  .seg{ display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--bg); border-radius:12px; padding:4px; }
+  .seg button{ height:44px; border-radius:9px; border:0; background:transparent; color:var(--sub); font-weight:600; cursor:pointer; }
+  .seg button.on{ background:var(--brand); color:#fff; }
+  .login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:22px; }
+  .login .card{ width:100%; max-width:380px; padding:26px 20px; }
+  .spin{ text-align:center; color:var(--sub); padding:40px 0; }
+  .fab{ font-size:12px; color:var(--faint); text-align:center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var BM_HOSTED = !!window.BM_EXEC_URL;
+var state = { token:'', name:'', phone:'', view:'login', day:'today', home:null, order:null, filter:'',
+              error:'', note:'', loading:false, mustChangePin:false, busy:false };
+var REFRESH_MS = 2 * 60 * 1000;
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+  return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+function money(n){ n = Number(n) || 0; return '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dayStr(){ var d = new Date(); if (state.day === 'yesterday') d.setDate(d.getDate() - 1); return ymd(d); }
+function tel(p){ return String(p || '').replace(/[^\d+]/g, ''); }
+function store(){ try { return window.localStorage; } catch (e) { return null; } }
+function thumb(url, size){
+  var m = String(url || '').match(/[-\w]{25,}/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 600) : '';
+}
+
+/******************** THEME ********************/
+function theme(){ try { return localStorage.getItem('bm_so_theme') || ''; } catch (e) { return ''; } }
+function applyTheme(t){
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+function setTheme(t){ try { localStorage.setItem('bm_so_theme', t); } catch (e) {} applyTheme(t); render(); }
+applyTheme(theme());
+function isDark(){
+  var t = theme();
+  if (t) return t === 'dark';
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/******************** SERVER ********************/
+function api(action, payload){
+  return new Promise(function(resolve){
+    if (!BM_HOSTED) { resolve({ success:false, error:'This page has no server address set.' }); return; }
+    var data = { action: action, token: state.token };
+    for (var k in (payload || {})) if (payload.hasOwnProperty(k)) data[k] = payload[k];
+    fetch(window.BM_EXEC_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify(data), redirect:'follow', credentials:'omit', cache:'no-store' })
+      .then(function(r){ return r.text(); })
+      .then(function(t){
+        var r;
+        try { r = JSON.parse(t); } catch (e) { r = { success:false, error:'The server sent a page instead of an answer.' }; }
+        if (r && r.expired) { logout('Please sign in again.'); }
+        resolve(r);
+      })
+      .catch(function(){ resolve({ success:false, error:'No connection. Check your internet and try again.' }); });
+  });
+}
+
+function saveSession(){
+  var s = store(); if (!s) return;
+  try { s.setItem('bm_so', JSON.stringify({ token: state.token, name: state.name, phone: state.phone })); } catch (e) {}
+}
+function logout(msg){
+  if (state.token) api('soLogout', {});
+  state.token = ''; state.name = ''; state.home = null; state.order = null;
+  state.view = 'login'; state.error = msg || '';
+  var s = store(); if (s) try { s.removeItem('bm_so'); } catch (e) {}
+  render();
+}
+
+/******************** NOTIFICATIONS ********************/
+// While the app is open (or in the background on Android), it checks
+// every two minutes and raises a phone notification for any of his
+// orders newly marked Not delivered. True push, with the app closed,
+// comes with the next version.
+function seenFailed(){ try { return JSON.parse(localStorage.getItem('bm_so_seen') || '{}'); } catch (e) { return {}; } }
+function saveSeen(m){ try { localStorage.setItem('bm_so_seen', JSON.stringify(m)); } catch (e) {} }
+function notifyNew(home){
+  if (!home || state.day !== 'today') return;
+  var seen = seenFailed(), fresh = [];
+  home.orders.forEach(function(o){
+    if (o.status === 'Not delivered' && !seen[o.invoiceNo]) { fresh.push(o); seen[o.invoiceNo] = Date.now(); }
+  });
+  var cut = Date.now() - 3 * 86400000;
+  Object.keys(seen).forEach(function(k){ if (seen[k] < cut) delete seen[k]; });
+  saveSeen(seen);
+  if (!fresh.length || !state.seenOnce) { state.seenOnce = true; return; }
+  state.fresh = fresh.length;
+  if (window.Notification && Notification.permission === 'granted') {
+    fresh.forEach(function(o){
+      try {
+        var body = o.shop + ' (SO ' + o.soNo + '): ' + (o.reason || 'not delivered') + (o.daName ? ' · DA ' + o.daName : '');
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(function(reg){ reg.showNotification('Not delivered', { body: body, tag: o.invoiceNo, icon: 'icon-192.png' }); });
+        } else new Notification('Not delivered', { body: body, tag: o.invoiceNo });
+      } catch (e) {}
+    });
+  }
+}
+function askNotify(){
+  if (!window.Notification) { state.error = 'This phone’s browser cannot show notifications.'; render(); return; }
+  Notification.requestPermission().then(function(){ render(); });
+}
+
+/******************** LOADING ********************/
+function loadHome(quiet){
+  if (!quiet) { state.loading = !state.home; state.error = ''; render(); }
+  api('soHome', { date: dayStr() }).then(function(r){
+    state.loading = false;
+    if (r && r.success) { state.home = r; state.loadedAt = Date.now(); notifyNew(r); }
+    else if (!quiet) state.error = (r && r.error) || 'Could not load your orders.';
+    if (state.view === 'home') render();
+  });
+}
+function openOrder(inv){
+  state.view = 'order'; state.order = null; state.error = ''; state.orderFor = inv; render();
+  window.scrollTo(0, 0);
+  api('soOrder', { invoiceNo: inv }).then(function(r){
+    if (state.orderFor !== inv) return;
+    if (r && r.success) state.order = r; else state.error = (r && r.error) || 'Could not load the order.';
+    render();
+  });
+}
+setInterval(function(){
+  if (state.token && state.view === 'home' && !document.hidden) loadHome(true);
+}, REFRESH_MS);
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden && state.token && state.view === 'home' && Date.now() - (state.loadedAt || 0) > 60000) loadHome(true);
+});
+
+/******************** RENDER ********************/
+function render(){
+  var app = document.getElementById('app');
+  var h = state.view === 'login' ? loginHTML()
+        : state.view === 'order' ? orderHTML()
+        : state.view === 'settings' ? settingsHTML()
+        : homeHTML();
+  app.innerHTML = h;
+}
+
+function loginHTML(){
+  return '<div class="login"><div class="card">' +
+    '<div style="font-size:22px; font-weight:800;">BM SO</div>' +
+    '<div class="note" style="margin:4px 0 14px;">Your customers’ orders, live from the routes.</div>' +
+    '<label class="f">Your phone number</label>' +
+    '<input id="lg-phone" type="tel" inputmode="numeric" maxlength="10" autocomplete="username" placeholder="10 digits" value="' + esc(state.phone) + '" />' +
+    '<label class="f">PIN</label>' +
+    '<input id="lg-pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="First time: last 4 digits of your phone" />' +
+    (state.error ? '<div class="err" style="margin-top:12px;">' + esc(state.error) + '</div>' : '') +
+    '<div style="margin-top:16px;"><button class="btn" data-a="login"' + (state.busy ? ' disabled' : '') + '>' +
+      (state.busy ? 'Signing in…' : 'Sign in') + '</button></div>' +
+    '</div></div>';
+}
+
+function statusPill(s){
+  var cls = s === 'Delivered' ? 'p-ok' : s === 'Not delivered' || s === 'Not Delivered' ? 'p-bad' : s === 'On the way' ? 'p-mid' : 'p-blue';
+  return '<span class="pill ' + cls + '">' + esc(s === 'Not Delivered' ? 'Not delivered' : s) + '</span>';
+}
+
+function decisionLine(d){
+  if (!d) return '';
+  if (d.pending) return '<div class="warn-line">Support is calling the shop' + (d.attempts ? ' (' + d.attempts + ' call' + (d.attempts > 1 ? 's' : '') + ' so far)' : '') + '</div>';
+  if (d.decision === 'RD') return '<div class="note"><b style="color:var(--blue);">Going again (RD)</b> · ' + esc(d.why) + '</div>';
+  if (d.decision === 'Cancel') return '<div class="note"><b style="color:var(--red);">Cancelled</b> · ' + esc(d.why) + '</div>';
+  return '';
+}
+
+function soCheckLine(v){
+  if (!v) return '';
+  return /not reached/i.test(v)
+    ? '<div class="warn-line">⚠ DA could not reach you (' + esc(v.replace(/^SO not reached\s*/i, '')) + ')</div>'
+    : /confirmed/i.test(v) ? '<div class="ok-line">✓ DA called you first (' + esc(v.replace(/^SO confirmed\s*/i, '')) + ')</div>' : '';
+}
+
+function homeHTML(){
+  var d = state.home;
+  var head = '<div class="top"><div class="top-row"><div style="flex:1;"><h1>' + (state.name ? 'Hi, ' + esc(state.name) : 'BM SO') + '</h1>' +
+    '<div class="sub">' + (d ? d.counts.total + ' orders on ' + (state.day === 'today' ? 'today’s' : 'yesterday’s') + ' routes' : 'Loading…') + '</div></div>' +
+    '<button class="icon-btn" data-a="refresh" aria-label="Refresh">↻</button>' +
+    '<button class="icon-btn" data-a="settings" aria-label="Settings">⚙</button></div>' +
+    '<div class="days"><button class="day' + (state.day === 'today' ? ' on' : '') + '" data-a="day" data-v="today">Today</button>' +
+    '<button class="day' + (state.day === 'yesterday' ? ' on' : '') + '" data-a="day" data-v="yesterday">Yesterday</button></div></div>';
+  var body = '';
+  if (state.error) body += '<div class="err">' + esc(state.error) + '</div>';
+  if (state.mustChangePin) body += '<div class="card" data-a="settings" style="cursor:pointer;"><b>Set your own PIN</b><div class="note">You are using the last 4 digits of your phone. Tap to change it.</div></div>';
+  if (state.loading || !d) return head + '<div class="page">' + body + '<div class="spin">Loading your orders…</div></div>';
+  if (state.fresh) body += '<div class="banner" data-a="fresh-ok">' + state.fresh + ' order' + (state.fresh > 1 ? 's' : '') + ' just marked not delivered</div>';
+  var c = d.counts;
+  var tile = function(key, n, label, cls){
+    return '<div class="tile ' + cls + (state.filter === key ? ' on' : '') + '" data-a="filter" data-v="' + key + '"><b>' + n + '</b><span>' + label + '</span></div>';
+  };
+  body += '<div class="tiles">' + tile('Not delivered', c.failed, 'Not delivered', c.failed ? 'bad' : '') +
+    tile('On the way', c.onTheWay, 'On the way', 'mid') + tile('Waiting to leave', c.waiting, 'Not left', '') +
+    tile('Delivered', c.delivered, 'Delivered', 'ok') + '</div>';
+  var list = d.orders.filter(function(o){ return !state.filter || o.status === state.filter; });
+  if (!d.orders.length) return head + '<div class="page">' + body + '<div class="empty">None of your customers’ orders are on ' +
+    (state.day === 'today' ? 'today’s' : 'yesterday’s') + ' routes.</div></div>';
+  if (!list.length) body += '<div class="empty">Nothing here.</div>';
+  var last = '';
+  list.forEach(function(o){
+    if (o.status !== last) { body += '<div class="sec">' + esc(o.status) + '</div>'; last = o.status; }
+    var failed = o.status === 'Not delivered';
+    body += '<div class="card order' + (failed ? ' failed' : '') + '" data-a="open" data-v="' + esc(o.invoiceNo) + '">' +
+      '<div class="row"><div class="grow"><div class="shop">' + esc(o.shop) + '</div>' +
+        '<div class="meta">SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + ' · ' +
+          (/prepaid/i.test(o.orderType) ? 'Prepaid' : 'COD ' + money(o.amount)) + '</div></div>' + statusPill(o.status) + '</div>' +
+      (failed ? '<div class="why">' + esc(o.reason || 'No reason given') + (o.markedAt ? ' · ' + esc(o.markedAt) : '') + '</div>' +
+                soCheckLine(o.soCheck) + decisionLine(o.decision) : '') +
+      (o.status === 'Delivered' && o.markedAt ? '<div class="note">Delivered at ' + esc(o.markedAt) + '</div>' : '') +
+      '<div class="row"><div class="grow note">' + (o.daName ? 'DA ' + esc(o.daName) + (o.vehicleNo ? ' · ' + esc(o.vehicleNo) : '') : 'Route ' + esc(o.code) + ' · not started yet') +
+        ' · stop ' + (o.stop || '—') + '</div>' +
+        (o.daPhone ? '<a class="call" href="tel:' + esc(tel(o.daPhone)) + '" data-stop="1">☎ Call DA</a>' : '') + '</div>' +
+      '</div>';
+  });
+  return head + '<div class="page">' + body + '<div class="fab">Updates by itself every 2 minutes</div></div>';
+}
+
+function orderHTML(){
+  var o = state.order;
+  var back = '<div class="top" style="padding-bottom:6px;"><div class="top-row">' +
+    '<button class="icon-btn" data-a="back" aria-label="Back">‹</button><div style="flex:1;"></div></div></div>';
+  if (!o) return back + '<div class="page">' + (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '<div class="spin">Loading…</div>') + '</div>';
+  var t = o.trip;
+  var hero = '<div class="hero"><div><div class="big">' + esc(o.shop) + '</div>' +
+    '<div class="sub">SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + ' · ' +
+      (/prepaid/i.test(o.orderType) ? 'Prepaid' : 'COD ' + money(o.amount)) + '</div></div>' +
+    (t ? '<div class="da-box"><div class="grow"><div class="sub" style="font-size:12px;">' + (t.isOpen ? 'Delivering today' : 'Delivered by') + '</div>' +
+          '<div style="font-weight:700;">DA ' + esc(t.daName) + (t.daPhone ? ' · ' + esc(t.daPhone) : '') + '</div>' +
+          '<div class="sub" style="font-size:12px;">Route ' + esc(o.code) + ' · stop ' + (o.stop || '—') + (t.vehicleNo ? ' · vehicle ' + esc(t.vehicleNo) : '') + '</div></div>' +
+          (t.daPhone ? '<a class="call strong" href="tel:' + esc(tel(t.daPhone)) + '">☎ Call DA</a>' : '') + '</div>'
+       : '<div class="da-box"><div class="sub">Route ' + esc(o.code) + ' has not left the warehouse yet.</div></div>') +
+    '<div>' + statusPill(o.status === 'Pending' ? (t ? 'On the way' : 'Waiting to leave') : o.status) + '</div></div>';
+
+  var body = '';
+  if (o.status === 'Not Delivered') {
+    body += '<div class="card"><div style="font-weight:700; margin-bottom:8px;">What the DA saw</div>' +
+      (o.proof && thumb(o.proof) ? '<a href="' + esc(o.proof) + '" target="_blank" rel="noopener"><img class="photo" src="' + esc(thumb(o.proof)) + '" alt="DA’s photo"></a>' : '') +
+      '<div class="why" style="margin-top:8px;">' + esc(o.reason || 'No reason given') + '</div>' +
+      (o.markedAt ? '<div class="note" style="margin-top:6px;">Marked ' + esc(o.markedAt) + (t ? ' by DA ' + esc(t.daName) : '') + '</div>' : '') +
+      '</div>';
+  }
+  var f = o.finalDecision;
+  if (f) {
+    var cls = f.deliveredLater ? 'done' : f.decision === 'RD' ? 'rd' : f.decision === 'Cancel' ? 'cx' : 'pend';
+    var head = f.deliveredLater ? 'Delivered later' : f.decision === 'RD' ? 'Going again (RD)' : f.decision === 'Cancel' ? 'Cancelled' : 'Support is calling the shop';
+    body += '<div class="dec ' + cls + '"><b>' + head + '</b>' +
+      (f.deliveredLater ? 'Sent again on ' + esc(f.deliveredLater.code) + ', delivered ' + esc(f.deliveredLater.on) + '.'
+        : esc(f.why || '') + (f.pending && f.attempts ? (f.why ? ' · ' : '') + f.attempts + ' call' + (f.attempts > 1 ? 's' : '') + ' so far' : '') +
+          (!f.pending && f.at ? '<div style="font-size:12.5px; margin-top:4px; opacity:.85;">' + esc(f.at) + '</div>' : '')) + '</div>';
+  }
+  if (o.status === 'Delivered' && o.podPhotos && o.podPhotos.length) {
+    body += '<div class="card"><div style="font-weight:700; margin-bottom:8px;">Delivered' + (o.markedAt ? ' · ' + esc(o.markedAt) : '') + '</div>' +
+      '<div style="display:flex; gap:8px; flex-wrap:wrap;">' + o.podPhotos.slice(0, 4).map(function(p){
+        return '<a href="' + esc(p) + '" target="_blank" rel="noopener"><img src="' + esc(thumb(p, 240)) + '" style="width:96px; height:96px; object-fit:cover; border-radius:10px;" alt=""></a>';
+      }).join('') + '</div></div>';
+  }
+  if (o.history && o.history.length) {
+    body += '<div class="card"><div style="font-weight:700; margin-bottom:10px;">History</div><div class="tl">' +
+      o.history.map(function(h){
+        var col = h.outcome === 'Delivered' ? 'var(--green)' : h.outcome === 'Never marked' ? 'var(--sub)' : h.desk ? 'var(--blue)' : 'var(--red)';
+        return '<span class="t">' + esc(h.createdAt || '') + '</span><span>' +
+          '<b style="color:' + col + ';">' + esc(h.outcome) + '</b>' + (h.desk ? '' : ' · route ' + esc(h.code)) +
+          (h.daName ? ' · ' + esc(h.daName) : '') + (h.markedAt ? ' · ' + esc(h.markedAt) : '') +
+          (h.why ? '<div class="note">' + esc(h.why) + '</div>' : '') +
+          (h.photos && h.photos.length ? '<div style="display:flex; gap:6px; margin-top:5px;">' + h.photos.slice(0, 3).map(function(p){
+            return '<a href="' + esc(p) + '" target="_blank" rel="noopener"><img src="' + esc(thumb(p, 160)) + '" style="width:56px; height:56px; object-fit:cover; border-radius:8px;" alt=""></a>';
+          }).join('') + '</div>' : '') + '</span>';
+      }).join('') + '</div></div>';
+  }
+  if (o.items && o.items.list && o.items.list.length) {
+    body += '<div class="card"><div style="font-weight:700; margin-bottom:10px;">Order · ' + o.items.lines + ' item' + (o.items.lines === 1 ? '' : 's') + '</div>' +
+      '<div class="items">' + o.items.list.map(function(x){
+        return '<span>' + esc(x.product) + (x.variant ? ' <span class="note">' + esc(x.variant) + '</span>' : '') + '</span><span class="q">×' + esc(x.qty) + '</span>';
+      }).join('') + '</div>' +
+      (o.instructions ? '<div class="note" style="margin-top:10px;">Delivery note: ' + esc(o.instructions) + '</div>' : '') + '</div>';
+  }
+  body += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
+    (o.shopPhone ? '<a class="btn" style="display:flex; align-items:center; justify-content:center; text-decoration:none;" href="tel:' + esc(tel(o.shopPhone)) + '">☎ Call shop</a>' : '<span></span>') +
+    (t && t.daPhone ? '<a class="btn ghost" style="display:flex; align-items:center; justify-content:center; text-decoration:none;" href="tel:' + esc(tel(t.daPhone)) + '">Call DA</a>' : '<span></span>') +
+    '</div>';
+  return back + hero + '<div class="page">' + body + '</div>';
+}
+
+function settingsHTML(){
+  var dark = isDark();
+  var perm = window.Notification ? Notification.permission : 'unsupported';
+  return '<div class="top"><div class="top-row"><button class="icon-btn" data-a="back" aria-label="Back">‹</button><h1>Settings</h1></div></div>' +
+    '<div class="page">' +
+    (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '') +
+    (state.note ? '<div class="okmsg">' + esc(state.note) + '</div>' : '') +
+    '<div class="card row"><div style="width:46px; height:46px; border-radius:23px; background:var(--blue-bg); color:var(--blue); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px;">' +
+      esc((state.name || '?').charAt(0)) + '</div><div><div style="font-weight:700;">' + esc(state.name) + '</div><div class="note">Sales officer · ' + esc(state.phone) + '</div></div></div>' +
+    '<div class="card"><div style="font-weight:700; margin-bottom:10px;">Appearance</div>' +
+      '<div class="seg"><button class="' + (dark ? '' : 'on') + '" data-a="theme" data-v="light">☀ Light</button>' +
+      '<button class="' + (dark ? 'on' : '') + '" data-a="theme" data-v="dark">☾ Dark</button></div>' +
+      '<div class="note" style="margin-top:8px;">Remembered on this phone.</div></div>' +
+    '<div class="card"><div style="font-weight:700;">Change PIN</div>' +
+      (state.mustChangePin ? '<div class="note" style="margin-top:4px;">You are using the last 4 digits of your phone. Set your own.</div>' : '') +
+      '<label class="f">Current PIN</label><input id="pin-cur" type="password" inputmode="numeric" autocomplete="current-password">' +
+      '<label class="f">New PIN (4–6 digits)</label><input id="pin-new" type="password" inputmode="numeric" autocomplete="new-password">' +
+      '<label class="f">New PIN again</label><input id="pin-new2" type="password" inputmode="numeric" autocomplete="new-password">' +
+      '<div style="margin-top:14px;"><button class="btn" data-a="pin">Save new PIN</button></div></div>' +
+    '<div class="card"><div class="row"><div class="grow"><div style="font-weight:700;">Not-delivered alerts</div>' +
+      '<div class="note">' + (perm === 'granted' ? 'On. You get a phone alert when one of your orders is marked not delivered.'
+        : perm === 'denied' ? 'Blocked in this browser’s settings for this site.'
+        : perm === 'unsupported' ? 'This browser cannot show alerts.' : 'Off') + '</div></div>' +
+      (perm === 'default' ? '<button class="btn" style="width:auto; padding:0 16px; height:42px;" data-a="notify">Turn on</button>' : '') + '</div></div>' +
+    '<button class="btn ghost" style="color:var(--red);" data-a="logout">Log out</button>' +
+    '</div>';
+}
+
+/******************** ACTIONS ********************/
+document.addEventListener('click', function(ev){
+  if (ev.target.closest('[data-stop]')) return;
+  var el = ev.target.closest('[data-a]');
+  if (!el) return;
+  var a = el.getAttribute('data-a');
+  if (a === 'login') return doLogin();
+  if (a === 'refresh') { state.fresh = 0; return loadHome(false); }
+  if (a === 'settings') { state.view = 'settings'; state.error = ''; state.note = ''; render(); return; }
+  if (a === 'back') { state.view = 'home'; state.error = ''; render(); if (!state.home) loadHome(false); return; }
+  if (a === 'day') { state.day = el.getAttribute('data-v'); state.home = null; state.filter = ''; loadHome(false); return; }
+  if (a === 'filter') { var v = el.getAttribute('data-v'); state.filter = state.filter === v ? '' : v; render(); return; }
+  if (a === 'open') { state.fresh = 0; openOrder(el.getAttribute('data-v')); return; }
+  if (a === 'fresh-ok') { state.fresh = 0; state.filter = 'Not delivered'; render(); return; }
+  if (a === 'theme') { setTheme(el.getAttribute('data-v')); return; }
+  if (a === 'notify') { askNotify(); return; }
+  if (a === 'pin') return doPin();
+  if (a === 'logout') { logout(''); return; }
+});
+document.addEventListener('keydown', function(ev){
+  if (ev.key === 'Enter' && state.view === 'login') doLogin();
+});
+
+function doLogin(){
+  var p = (document.getElementById('lg-phone') || {}).value || '';
+  var n = (document.getElementById('lg-pin') || {}).value || '';
+  p = p.replace(/\D/g, '').slice(-10);
+  state.phone = p;
+  if (p.length !== 10 || !n) { state.error = 'Enter your 10-digit phone number and PIN.'; render(); return; }
+  state.busy = true; state.error = ''; render();
+  api('soLogin', { phone: p, pin: n }).then(function(r){
+    state.busy = false;
+    if (r && r.success) {
+      state.token = r.token; state.name = r.name; state.phone = r.phone; state.mustChangePin = !!r.mustChangePin;
+      saveSession(); state.view = 'home'; loadHome(false);
+    } else { state.error = (r && r.error) || 'Could not sign in.'; render(); }
+  });
+}
+
+function doPin(){
+  var c = document.getElementById('pin-cur').value, n1 = document.getElementById('pin-new').value, n2 = document.getElementById('pin-new2').value;
+  state.note = ''; state.error = '';
+  if (n1 !== n2) { state.error = 'The two new PINs do not match.'; render(); return; }
+  api('soChangePin', { currentPin: c, newPin: n1 }).then(function(r){
+    if (r && r.success) { state.note = 'PIN changed.'; state.mustChangePin = false; }
+    else state.error = (r && r.error) || 'Could not change the PIN.';
+    render();
+  });
+}
+
+/******************** START ********************/
+(function(){
+  var s = store(), saved = null;
+  try { saved = s && JSON.parse(s.getItem('bm_so') || 'null'); } catch (e) {}
+  if (saved && saved.token) {
+    state.token = saved.token; state.name = saved.name; state.phone = saved.phone;
+    state.view = 'home'; loadHome(false);
+  } else render();
+})();
+</script>
+<script>
+// Keeps the app on the phone. Registered after load so it never
+// slows the first screen down.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
