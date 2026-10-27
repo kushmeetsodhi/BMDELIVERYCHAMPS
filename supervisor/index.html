@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=e58e80faf0"></script>
+<script src="config.js?v=44212cfc68"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -707,6 +707,18 @@ function deskHTML(){
   if (!L) html += '<div class="empty">Loading\u2026</div>';
   else if (!L.rows.length && !state.dkQueue.length) html += '<div class="empty">Nothing marked yet today.</div>';
   else html += L.rows.map(dkRowHTML).join('');
+  if (L && L.removed && L.removed.length) {
+    html += '<div class="sec">Removed today (' + L.removed.length + ') \u2014 kept on record</div>' +
+      L.removed.map(function(x){
+        return '<div class="card" style="opacity:.75;"><div class="ttl trunc" style="text-decoration:line-through;">' +
+          esc(cleanName(x.partyName) || x.invoiceNo) + '</div>' +
+          '<div class="mut">SO ' + esc(x.soNo) + ' \u00b7 ' + esc(x.code) + ' \u00b7 was ' + esc(x.type) + ' at ' + esc(x.markedAt) + '</div>' +
+          '<div class="fnt">Removed by ' + esc(x.removedBy) + ' at ' + esc(x.removedAt) + ': ' + esc(x.removedWhy) + '</div>' +
+          ((state.roles || []).indexOf('Admin') > -1 && x.soNo
+            ? '<div style="margin-top:8px;"><button class="btn sm" data-a="dk-forcerd" data-so="' + esc(x.soNo) + '">Move to RD</button></div>' : '') +
+          '</div>';
+      }).join('');
+  }
   return html;
 }
 
@@ -846,8 +858,13 @@ function dkRowHTML(x){
         return '<a href="' + esc(u) + '" target="_blank" rel="noopener">photo ' + (i + 1) + '</a>';
       }).join(', ') : '') + '</div>' +
     (x.decisionWhy ? '<div class="fnt">' + esc(x.decisionWhy) + '</div>' : '') +
+    dkRemoveHTML(x) +
     '</div><div style="text-align:right;">' + dkRowArea(x) +
-      '<div style="margin-top:8px;"><button class="btn sm ghost" data-a="dk-undo" data-id="' + esc(x.id) + '">Undo</button></div>' +
+      ((state.roles || []).indexOf('Admin') > -1
+        ? (x.soNo && x.decision !== 'RD' && x.type !== 'Extra items'
+            ? '<div style="margin-top:8px;"><button class="btn sm" data-a="dk-forcerd" data-so="' + esc(x.soNo) + '">Move to RD</button></div>' : '')
+        : '') +
+      '<div style="margin-top:8px;"><button class="btn sm ghost" data-a="dk-undo" data-id="' + esc(x.id) + '">Remove\u2026</button></div>' +
     '</div></div></div>';
 }
 
@@ -1094,11 +1111,36 @@ function dkJobHTML(j){
     '</div></div></div>';
 }
 
+// Nothing is deleted: a mark made by mistake is removed with a reason,
+// kept on record, and the order stays flagged until it is decided.
+var DK_REMOVE = ['Wrong SO number entered', 'Goods were not returned (delivered)', 'Entered twice', 'Other'];
 function dkUndo(id){
-  if (!confirm('Undo this mark?')) return;
-  api('deskUndo', { id: id }).then(function(res){
-    if (res && res.success) { state.note = 'Mark removed.'; dkLoadList(); }
-    else { state.error = (res && res.error) || 'Could not undo.'; }
+  dkCapture();
+  state.dkRemove = { id: id, reason: '', note: '' };
+  render();
+  var el = document.getElementById('dk-rm-box');
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function dkRemoveHTML(x){
+  var r = state.dkRemove;
+  if (!r || r.id !== x.id) return '';
+  return '<div id="dk-rm-box" style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">' +
+    '<div class="fnt" style="margin-bottom:6px;">Why is this mark being removed? It stays on record.</div>' +
+    '<select id="dk-rm-why">' + '<option value="">Choose\u2026</option>' + DK_REMOVE.map(function(w){
+      return '<option' + (r.reason === w ? ' selected' : '') + '>' + esc(w) + '</option>'; }).join('') + '</select>' +
+    '<input type="text" id="dk-rm-note" style="margin-top:8px;" placeholder="Note (needed for Other)" value="' + esc(r.note) + '" />' +
+    '<div class="row" style="margin-top:9px; gap:8px;"><button class="btn sm ghost" data-a="dk-rm-cancel">Cancel</button>' +
+    '<span class="grow"></span><button class="btn sm red" data-a="dk-rm-go">Remove</button></div></div>';
+}
+function dkRemoveGo(){
+  var r = state.dkRemove; if (!r) return;
+  r.reason = (document.getElementById('dk-rm-why') || {}).value || '';
+  r.note = (document.getElementById('dk-rm-note') || {}).value || '';
+  if (!r.reason) { state.error = 'Pick why the mark is being removed.'; render(); return; }
+  if (r.reason === 'Other' && r.note.trim().length < 3) { state.error = 'Write why.'; render(); return; }
+  api('deskUndo', { id: r.id, reason: r.reason, note: r.note }).then(function(res){
+    if (res && res.success) { state.note = res.note || 'Removed.'; state.dkRemove = null; dkLoadList(); }
+    else { state.error = (res && res.error) || 'Could not remove it.'; }
     dkCapture(); render();
   });
 }
@@ -2239,6 +2281,20 @@ function onClick(ev){
   if (a === 'dk-xdel')  { dkCapture(); state.dk.extra.splice(Number(el.getAttribute('data-i')), 1);
                           if (!state.dk.extra.length) state.dk.extra.push({ name: '', qty: '' }); render(); return; }
   if (a === 'dk-drop')  { dkDrop(el.getAttribute('data-k')); return; }
+  if (a === 'dk-forcerd') {
+    var so = el.getAttribute('data-so');
+    var why = window.prompt ? window.prompt('Why does SO ' + so + ' go as RD?') : '';
+    if (!why || why.trim().length < 3) { state.error = 'Write why it goes as RD.'; render(); return; }
+    state.updating = true; render();
+    api('deskForceRd', { soNo: so, note: why }).then(function(r){
+      state.updating = false;
+      if (r && r.success) state.note = r.note || 'Moved to RD.'; else state.error = (r && r.error) || 'Could not move it.';
+      dkLoadList(); render();
+    });
+    return;
+  }
+  if (a === 'dk-rm-cancel') { state.dkRemove = null; render(); return; }
+  if (a === 'dk-rm-go')     { dkRemoveGo(); return; }
   if (a === 'dk-undo')  { dkUndo(el.getAttribute('data-id')); return; }
   if (a === 'dk-pdf')   { dkPdf(); return; }
 }
