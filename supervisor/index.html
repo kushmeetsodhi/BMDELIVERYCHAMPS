@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=2fcd95a716"></script>
+<script src="config.js?v=a4b7ad8e7a"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -328,6 +328,7 @@
  ********************************************************************/
 var state = {
   loadedAt: {},
+  savedAt: {},
   token:'', name:'', roles:[],
   view:'home', date:'', loading:false, error:'', note:'',
   data:{},
@@ -1256,12 +1257,21 @@ function loginHTML(){
     '</div></div>';
 }
 
+function clockOf(ms){
+  var d = new Date(ms), h = d.getHours(), m = d.getMinutes();
+  return (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' am' : ' pm');
+}
+
 function topHTML(){
   var titles = { home:'Route watch', fails:'Not delivered', routes:'Routes',
                  lookup:'Order lookup', floor:'Left on floor', quick:'Quick route', desk:'Returns desk',
                  route:'Route', assign:'Route assignment' };
   var sub = state.view === 'route' ? esc(state.routeCode || '')
           : (state.date === today() ? 'Today' : esc(state.date));
+  if (state.savedAt[state.view] && state.data[state.view]) {
+    sub += ' \u00b7 saved ' + esc(clockOf(state.savedAt[state.view])) +
+           (state.updating ? ', updating\u2026' : '');
+  }
   var back = (state.view === 'route' || state.view === 'quick' || state.view === 'assign')
     ? '<button class="back" data-a="back">‹</button>' : '';
   return '<div class="top">' + back +
@@ -2342,7 +2352,10 @@ function load(force, done){
   else { state.loading = true; render(); }
   api(m.call, payload).then(function(res){
     state.loading = false; state.updating = false;
-    if (res && res.success) { state.data[v] = res; state.loadedAt[v] = Date.now(); }
+    if (res && res.success) {
+      state.data[v] = res; state.loadedAt[v] = Date.now(); state.savedAt[v] = 0;
+      keepCopy(v, res);
+    }
     else if (!had) state.error = (res && res.error) || 'Could not load that.';
     if (state.view === v) render();
     finish(!!(res && res.success));
@@ -2420,12 +2433,42 @@ function doLogout(expired){
   state.routeCode = null; state.routeData = null; state.lookup = null;
   state.error = expired ? 'Signed out — please sign in again.' : '';
   try { var ss = supStore(); if (ss) ss.removeItem('bm_sup'); } catch(e){}
+  dropCopies();
   render();
   if (t && !expired) api('dashLogout', { token:t });
 }
 
 // Survives the phone's back button and a page reload, so a supervisor
 // walking the floor is not asked for his PIN every few minutes.
+// The last copy of each main screen stays on the phone, so opening the
+// app shows it at once while the server works out the new one. Only
+// today's copy is used; a copy from yesterday would mislead.
+var COPY_VIEWS = { home:1, fails:1, routes:1 };
+function keepCopy(v, res){
+  if (!COPY_VIEWS[v] || !BM_HOSTED) return;
+  try {
+    var txt = JSON.stringify({ date: state.date, at: Date.now(), data: res });
+    if (txt.length > 400000) return;
+    localStorage.setItem('bm_sup_copy_' + v, txt);
+  } catch(e){}
+}
+function restoreCopies(){
+  if (!BM_HOSTED) return;
+  Object.keys(COPY_VIEWS).forEach(function(v){
+    try {
+      var c = JSON.parse(localStorage.getItem('bm_sup_copy_' + v) || 'null');
+      if (c && c.date === state.date && c.data && c.data.success) {
+        state.data[v] = c.data; state.loadedAt[v] = 0; state.savedAt[v] = c.at;
+      }
+    } catch(e){}
+  });
+}
+function dropCopies(){
+  Object.keys(COPY_VIEWS).forEach(function(v){
+    try { localStorage.removeItem('bm_sup_copy_' + v); } catch(e){}
+  });
+}
+
 function save(){
   try {
     supStore().setItem('bm_sup', JSON.stringify({
@@ -2582,6 +2625,7 @@ function boot(){
     if (saved && saved.token){
       state.token = saved.token; state.name = saved.name; state.roles = saved.roles || [];
       state.view = 'home';
+      restoreCopies();
       load(true);
       return;
     }
