@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=a90405b128"></script>
+<script src="config.js?v=f7da7e2f19"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -361,6 +361,11 @@ var state = {
   // a trip that started before proof was switched on finishes the old
   // way, so turning it on never disturbs a DA already out.
   podRequired: false,
+  // The day the open route belongs to, and how many deliveries on it may
+  // go without proof (2, plus any the supervisor allows).
+  routeDay: '', podSkipsAllowed: 2,
+  // Adding proof later to a delivery marked without it.
+  addProofFor: '',
   screenshotMime: null,
   screenshotPreview: null,
   loading: false,
@@ -1250,6 +1255,82 @@ function loadMyRoute(){
   });
 }
 
+function doAddProof(){
+  var o = currentOrder();
+  if (!o || o.invoiceNo !== state.addProofFor) { state.addProofFor = ''; state.view = 'order'; render(); return; }
+  var links = [], raw = [];
+  state.podPhotos.forEach(function(sh){
+    if (sh.link) links.push(sh.link);
+    else if (sh.base64) raw.push({ base64: sh.base64, mime: sh.mime });
+  });
+  if (!links.length && !raw.length) { state.error = 'Take at least one photo.'; render(); return; }
+  state.loading = true; state.loadingMsg = 'Saving proof\u2026'; render();
+  api('addProof', { loginName: state.loginName, code: state.code, invoiceNo: o.invoiceNo,
+                    podPhotoLinks: links, podPhotoShots: raw, podSignatureBase64: state.podSigBase64 || '' }, 90000)
+    .then(function(res){
+      state.loading = false;
+      if (res && res.success) {
+        o.currentStatus = Object.assign({}, o.currentStatus || {}, { 'POD Photo': links.join('\n') || 'added',
+          'POD Skip Reason': String((o.currentStatus || {})['POD Skip Reason'] || '') + ' \u2014 proof added' });
+        state.addProofFor = '';
+        resetPodState();
+        state.view = 'order';
+      } else {
+        state.error = (res && res.error) || 'Could not save the proof. Move to better signal and try again.';
+      }
+      render();
+    });
+}
+
+function routeMeta(res){
+  state.routeDay = (res && res.routeDay) || '';
+  state.podSkipsAllowed = Number(res && res.podSkipsAllowed) || 2;
+}
+
+function localDay(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+var WH_LAT = 28.689635, WH_LNG = 76.976786;
+function kmBetween(a1, o1, a2, o2){
+  var r = Math.PI / 180, dA = (a2 - a1) * r, dO = (o2 - o1) * r;
+  var h = Math.sin(dA / 2) * Math.sin(dA / 2) + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(dO / 2) * Math.sin(dO / 2);
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+// Why this order cannot be marked Delivered right now, or ''. Checked when
+// the DA taps Delivered, so a wrong mark never gets as far as the queue.
+function deliveredBlock(o){
+  if (!o || state.isDemo) return '';
+  if (o.atDesk) {
+    return 'This order is already back at the warehouse (Returns desk, ' + (o.atDesk.at || '') +
+      '). It cannot be marked delivered. Ask your supervisor.';
+  }
+  if (state.routeDay && state.routeDay < localDay()) {
+    return 'This route was for ' + state.routeDay + '. An order not delivered that day cannot be marked ' +
+      'delivered now \u2014 mark it Not delivered, or ask your supervisor.';
+  }
+  var f = locForMark();
+  var la = Number(o.lat), lo = Number(o.lng);
+  if (f && isFinite(la) && isFinite(lo) && la && lo &&
+      kmBetween(f.lat, f.lng, WH_LAT, WH_LNG) < 0.4 && kmBetween(la, lo, WH_LAT, WH_LNG) > 2) {
+    return 'You are at the warehouse. Mark Delivered at the shop, when you hand the goods over.';
+  }
+  return '';
+}
+
+// Deliveries on this route already marked without proof.
+function podSkipsUsed(){
+  var n = 0;
+  state.orders.forEach(function(o){
+    var cs = o.currentStatus;
+    if (cs && cs['Status'] === 'Delivered' && !String(cs['POD Photo'] || '').trim() &&
+        String(cs['POD Skip Reason'] || '').trim() && !/proof added/.test(String(cs['POD Skip Reason'] || ''))) n++;
+  });
+  return n;
+}
+
 function doPickRoute(code){
   if (!code || state.myRouteBusy) return;
   state.myRouteBusy = true; state.error = ''; render();
@@ -1354,9 +1435,14 @@ function orderHTML(){
           ? '<span class="unsaved-tag" data-unsaved="' + esc(o.invoiceNo) + '">Not saved yet</span>' : '') +
         '<div class="hint">' + detail + '</div>' +
       '</div>' +
-      '<button class="secondary small" data-action="remark">Change this status</button>';
+      '<button class="secondary small" data-action="remark">Change this status</button>' +
+      (st === 'Delivered' && !String(o.currentStatus['POD Photo'] || '').trim() && !state.isDemo &&
+       !pendingFor(state.code, o.invoiceNo) && (!state.routeDay || state.routeDay === localDay())
+        ? ' <button class="secondary small" data-action="add-proof">Add proof now</button>' : '');
   } else {
     statusBlock = restored +
+      (o.atDesk ? '<div class="hint" style="color:var(--red, #b42323); font-weight:600; margin:10px 0 0;">' +
+        'Back at the warehouse (Returns desk, ' + esc(o.atDesk.at || '') + ')</div>' : '') +
       '<div class="action-grid">' +
         '<button class="action-btn delivered" data-action="start-mark" data-status="Delivered">Delivered</button>' +
         '<button class="action-btn notdelivered" data-action="start-mark" data-status="Not Delivered">Not delivered</button>' +
@@ -1654,6 +1740,17 @@ function podHTML(){
   var o = currentOrder();
   if(!o) return '<div class="card">Order not found.</div>';
 
+  if (state.podSkipOpen && !state.addProofFor && podSkipsUsed() >= state.podSkipsAllowed) {
+    return '<div class="card">' +
+      '<p style="font-weight:600; margin:0 0 6px; font-size:15px;">Proof is needed for this one</p>' +
+      '<p class="hint">You have already marked ' + podSkipsUsed() + ' deliveries on this route without proof. ' +
+        'Take the photo and signature, or call your supervisor: he can allow one more from his app.</p>' +
+      errHTML() +
+      '<div style="margin-top:14px;"><button class="primary" data-action="pod-allow-check" style="width:100%;">' +
+        'Supervisor allowed it \u2014 check</button></div>' +
+      '<div style="margin-top:10px;"><button class="secondary" data-action="pod-skip-close" style="width:100%;">Back to proof</button></div>' +
+      '</div>';
+  }
   if (state.podSkipOpen) {
     var sopts = '<option value="">Why is there no proof?</option>';
     for (var k = 0; k < POD_SKIP_REASONS.length; k++) {
@@ -1668,8 +1765,10 @@ function podHTML(){
       errHTML() +
       '<label>Reason</label>' +
       '<select id="pod-skip-reason">' + sopts + '</select>' +
-      '<label>Note (optional)</label>' +
-      '<input type="text" id="pod-skip-note" value="' + esc(state.podSkipNote) + '" placeholder="Anything worth saying" />' +
+      '<label>What happened? (required)</label>' +
+      '<input type="text" id="pod-skip-note" value="' + esc(state.podSkipNote) + '" placeholder="e.g. Phone camera shows black screen" />' +
+      '<p class="hint">' + Math.max(0, state.podSkipsAllowed - podSkipsUsed()) + ' of ' + state.podSkipsAllowed +
+        ' no-proof deliveries left on this route.</p>' +
       '<div style="margin-top:14px;">' +
         '<button class="primary" data-action="pod-skip-confirm" ' +
           (state.podSkipReason ? '' : 'disabled') + ' style="width:100%;">Mark delivered without proof</button>' +
@@ -1693,10 +1792,10 @@ function podHTML(){
       }).join('') + '</div>'
     : '';
   var pbtn = shots.length ? 'Add another photo' : 'Take photo of the goods';
-  var ready = shots.length && state.podSigBase64;
+  var ready = shots.length && (state.podSigBase64 || state.addProofFor);
 
   return '<div class="card">' +
-    '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">Proof of delivery</p>' +
+    '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">' + (state.addProofFor ? 'Add proof to this delivery' : 'Proof of delivery') + '</p>' +
     '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>' +
     '<p class="hint">A photo and a signature, so a later dispute can be answered.</p>' +
     errHTML() +
@@ -1746,11 +1845,12 @@ function podHTML(){
 
     '<div style="margin-top:16px;">' +
       '<button class="primary" id="pod-confirm" data-action="pod-confirm" ' +
-        (ready ? '' : 'disabled') + ' style="width:100%;">Confirm delivery</button>' +
+        (ready ? '' : 'disabled') + ' style="width:100%;">' + (state.addProofFor ? 'Save proof' : 'Confirm delivery') + '</button>' +
     '</div>' +
+    (state.addProofFor ? '' :
     '<div style="margin-top:10px;">' +
       '<button class="secondary" data-action="pod-skip-open" style="width:100%;">Can\u2019t take proof</button>' +
-    '</div>' +
+    '</div>') +
     '<div style="margin-top:8px;">' +
       '<button class="secondary" data-action="cancel-mark" style="width:100%;">Back</button>' +
     '</div>' +
@@ -2562,7 +2662,7 @@ function setupSignaturePad(){
 function refreshPodConfirm(){
   var btn = document.getElementById('pod-confirm');
   if (!btn) return;
-  if (state.podPhotos.length && state.podSigBase64) btn.removeAttribute('disabled');
+  if (state.podPhotos.length && (state.podSigBase64 || state.addProofFor)) btn.removeAttribute('disabled');
   else btn.setAttribute('disabled', 'disabled');
 }
 
@@ -2847,6 +2947,14 @@ function onAction(ev){
   if (action === 'go-summary')      { state.view = 'summary'; render(); return; }
   if (action === 'back-to-orders')  { state.view = 'order'; render(); return; }
 
+  if (action === 'start-mark' && el.getAttribute('data-status') === 'Delivered') {
+    var why = deliveredBlock(currentOrder());
+    if (why) {
+      state.modal = { title: 'Cannot mark delivered', body: why, confirmText: 'OK', confirmAction: 'close-modal' };
+      render();
+      return;
+    }
+  }
   if (action === 'start-mark') {
     var wasRestored = currentOrder() ? loadPodProgress(currentOrder().invoiceNo) : null;
     resetMarkState();
@@ -2878,6 +2986,7 @@ function onAction(ev){
   }
 
   if (action === 'cancel-mark') {
+    state.addProofFor = '';
     var co = currentOrder();
     if (co && co._saved) { co.currentStatus = co._saved; delete co._saved; }
     resetMarkState();
@@ -3019,12 +3128,35 @@ function onAction(ev){
   }
   if (action === 'pod-skip-open')   { state.podSkipOpen = true; state.error = ''; render(); return; }
   if (action === 'pod-skip-close')  { state.podSkipOpen = false; state.error = ''; render(); return; }
-  if (action === 'pod-confirm')     { submitMark(); return; }
+  if (action === 'pod-confirm')     { if (state.addProofFor) { doAddProof(); return; } submitMark(); return; }
   if (action === 'pod-skip-confirm'){
     if (!state.podSkipReason) { state.error = 'Pick a reason.'; render(); return; }
     var nEl = document.getElementById('pod-skip-note');
     if (nEl) state.podSkipNote = nEl.value;
+    if (String(state.podSkipNote || '').trim().length < 3) { state.error = 'Write what happened.'; render(); return; }
+    if (podSkipsUsed() >= state.podSkipsAllowed) { render(); return; }
     submitMark();
+    return;
+  }
+  if (action === 'pod-allow-check') {
+    state.loading = true; state.loadingMsg = 'Checking with the office\u2026'; render();
+    api('podAllowance', { code: state.code }).then(function(res){
+      state.loading = false;
+      if (res && res.success) {
+        state.podSkipsAllowed = Number(res.allowed) || state.podSkipsAllowed;
+        if (podSkipsUsed() >= state.podSkipsAllowed) state.error = 'Not allowed yet. Ask your supervisor to tap "Allow one more" on route ' + state.code + '.';
+      } else state.error = (res && res.error) || 'No connection. Try again.';
+      render();
+    });
+    return;
+  }
+  if (action === 'add-proof') {
+    var ao = currentOrder();
+    if (!ao) return;
+    resetPodState();
+    state.addProofFor = ao.invoiceNo;
+    state.view = 'pod';
+    render();
     return;
   }
   if (action === 'save-pin')        { doSavePin(); return; }
@@ -3217,6 +3349,7 @@ function resumeSession(s){
       state.vehicleNo = res.vehicleNo || state.vehicleNo;
       state.isDemo = !!res.isDemo;
       state.podRequired = !!res.podRequired; locStart();
+      routeMeta(res);
       state.tripClosed = false;
       overlayPending();
       pumpQueue();
@@ -3592,6 +3725,10 @@ function doResume(){
     if (res && res.success) {
       state.code = t.code;
       state.vehicleNo = t.vehicleNo || '';
+      // Resuming used to leave proof switched off for the rest of the
+      // route - the "Not captured" deliveries. It follows the route now.
+      state.podRequired = !!res.podRequired; locStart();
+      routeMeta(res);
       state.orders = sortOrders(res.orders);
       state.orderIndex = firstPendingIndex();
       state.tripClosed = false;
@@ -3656,6 +3793,7 @@ function doEnterCode(confirmHandover){
       state.tripClosed = false;
       state.isDemo = !!res.isDemo;
       state.podRequired = !!res.podRequired; locStart();
+      routeMeta(res);
       state.view = 'order';
       if (!state.isDemo) { overlayPending(); pumpQueue(); saveSession(); }
     } else {
