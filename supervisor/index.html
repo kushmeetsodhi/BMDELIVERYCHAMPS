@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=06eca8b3d2"></script>
+<script src="config.js?v=0085cfa0b3"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1269,10 +1269,22 @@ function pageHTML(){
 function assignHTML(d){
   if (!d) return '<div class="empty">Loading\u2026</div>';
   var h = '';
-  if (!d.on) {
-    h += '<div class="card" style="padding:12px 14px;"><div class="ttl" style="font-size:14px;">Giving routes out in the app is off</div>' +
-      '<div class="fnt">DAs still type the code from the loading sheet. An admin turns it on in Control Room \u2192 Settings.</div></div>';
-  }
+  // The emergency switch. Off: everyone back to typing codes.
+  h += '<div class="card" style="padding:12px 14px;"><div class="row"><div class="grow">' +
+    '<div class="ttl" style="font-size:14px;">' + (d.on ? 'Route choice is ON' : 'Route choice is OFF') + '</div>' +
+    '<div class="fnt">' + (d.on ? 'DAs pick from 3 routes when they log in.' : 'DAs type the code from the loading sheet, as before.') + '</div></div>' +
+    (state.asConfirm
+      ? ''
+      : '<button class="btn sm ' + (d.on ? 'red' : '') + '" data-a="as-switch">' + (d.on ? 'Switch off' : 'Switch on') + '</button>') +
+    '</div>' +
+    (state.asConfirm
+      ? '<div class="fnt" style="margin-top:8px;">' + (d.on
+          ? 'Everyone goes back to typing the code from the loading sheet within a minute. Routes already picked stay on record.'
+          : 'DAs will pick from 3 routes when they next open the app.') + '</div>' +
+        '<div class="row" style="margin-top:9px; gap:8px;"><button class="btn sm ghost" data-a="as-switch-no">Cancel</button><span class="grow"></span>' +
+        '<button class="btn sm ' + (d.on ? 'red' : '') + '" data-a="as-switch-yes">' + (d.on ? 'Yes, switch off' : 'Yes, switch on') + '</button></div>'
+      : '') +
+    '</div>';
   var waitingRoutes = d.routes.filter(function(r){ return r.status === 'Waiting'; }).length;
   h += '<div class="card" style="padding:12px 14px;">' +
     '<div class="ttl" style="font-size:15px;">' + d.routes.length + ' routes \u00b7 ' + waitingRoutes + ' not taken yet</div>' +
@@ -2168,6 +2180,19 @@ function onClick(ev){
   if (a === 'logout')  { doLogout(false); return; }
   if (a === 'refresh') { state.error = ''; state.note = ''; reload(); return; }
   if (a === 'back')    { goTab(state.view === 'quick' ? 'floor' : 'routes'); return; }
+  if (a === 'as-switch')    { state.asConfirm = true; render(); return; }
+  if (a === 'as-switch-no') { state.asConfirm = false; render(); return; }
+  if (a === 'as-switch-yes'){
+    var turnOn = !(state.data.assign && state.data.assign.on);
+    state.asConfirm = false; state.updating = true; state.error = ''; render();
+    api('setRouteAssign', { on: turnOn }).then(function(r){
+      state.updating = false;
+      if (r && r.success) { state.data.assign = r; state.loadedAt.assign = Date.now(); state.note = r.note || ''; }
+      else state.error = (r && r.error) || 'Could not change it.';
+      render();
+    });
+    return;
+  }
   if (a === 'ov-open')   { state.ovOpen = true; state.ovNote = ''; render(); return; }
   if (a === 'ov-cancel') { state.ovOpen = false; render(); return; }
   if (a === 'ov-go')     { doOverride(el.getAttribute('data-v')); return; }
