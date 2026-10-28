@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=ea890d6840"></script>
+<script src="config.js?v=7727287736"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1162,7 +1162,7 @@ function myRouteHTML(m){
       '<div style="font-size:30px; font-weight:800; letter-spacing:3px; margin:2px 0 10px;">' + esc(m.code) + '</div>' +
       '<div class="hint" style="margin:0;">' +
         (m.vehicleNo ? 'Vehicle <strong>' + esc(m.vehicleNo) + '</strong>' + (m.vehicleType ? ' (' + esc(m.vehicleType) + ')' : '') + ' \u00b7 ' : '') +
-        (m.km ? m.km + ' km' : '') + '</div>' +
+        m.stops + ' stops' + (m.km ? ' \u00b7 ' + m.km + ' km' : '') + '</div>' +
       (m.handoverFrom ? '<div class="hint" style="margin-top:8px; color:var(--amber, #a15c00);"><strong>' +
         esc(m.handoverFrom) + '</strong> started this route. You are taking it over.</div>' : '') +
       (m.how === 'Moved' || m.how === 'Swapped' ? '<div class="hint" style="margin-top:6px;">Given to you by ' + esc(m.by) + '.</div>' : '') +
@@ -1190,7 +1190,7 @@ function myRouteHTML(m){
         '<div style="font-size:20px; font-weight:800; letter-spacing:2px;">' + esc(r.code) + '</div>' +
         '<div class="hint" style="margin:2px 0 10px;">' +
           (r.vehicleNo ? 'Vehicle <strong>' + esc(r.vehicleNo) + '</strong>' + (r.vehicleType ? ' (' + esc(r.vehicleType) + ')' : '') + ' \u00b7 ' : '') +
-          (r.km ? r.km + ' km' : '') + '</div>' +
+          r.stops + ' stops' + (r.km ? ' \u00b7 ' + r.km + ' km' : '') + '</div>' +
         '<button class="primary" data-action="my-pick" data-code="' + esc(r.code) + '"' +
           (state.myRouteBusy ? ' disabled' : '') + '>Take ' + esc(r.code) + '</button></div>';
     }).join('');
