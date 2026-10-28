@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=c9b0492c8c"></script>
+<script src="config.js?v=9eb4026213"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1172,6 +1172,16 @@ function myRouteHTML(m){
       '<div style="margin-top:17px;"><button class="primary" data-action="my-start">Start this route</button></div>' +
       '<div class="hint">Wrong vehicle or a problem with this route? Tell your supervisor \u2014 only he can move it.</div>' +
       practice + '</div>';
+  }
+  if (m.status === 'reopen') {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 6px; font-size:17px;">Your route ' + esc(m.code) + ' was ended</h3>' +
+      '<p class="hint" style="margin:0;">It was ended before any order was marked. Reopen it to carry on \u2014 ' +
+        'all its orders come back. To change route, ask your supervisor; only he can move it.</p>' +
+      errHTML() +
+      '<div style="margin-top:16px;"><button class="primary" data-action="my-reopen" data-code="' + esc(m.code) + '"' +
+        (state.myRouteBusy ? ' disabled' : '') + '>Reopen ' + esc(m.code) + '</button></div>' +
+      again + practice + '</div>';
   }
   if (m.status === 'choose') {
     var cards = (m.options || []).map(function(r){
