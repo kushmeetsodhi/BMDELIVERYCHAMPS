@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=00dbe5ebb9"></script>
+<script src="config.js?v=88cf2876b7"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1342,17 +1342,20 @@ function assignHTML(d){
       : '') +
     '</div>';
   var waitingRoutes = d.routes.filter(function(r){ return r.status === 'Waiting'; }).length;
+  // Planned hours are the planner's own estimate (30 min a stop) and only
+  // start arguments on the floor: admins see them, supervisors do not.
+  var showHrs = (state.roles || []).indexOf('Admin') !== -1;
   h += '<div class="card" style="padding:12px 14px;">' +
     '<div class="ttl" style="font-size:15px;">' + d.routes.length + ' routes \u00b7 ' + waitingRoutes + ' not taken yet</div>' +
     '<div class="fnt">Each DA picks one of 3 when he logs in. Before ' + esc(ampm(d.from)) +
-      ' he is offered routes that fit his last 14 days; after it, the 3 longest left. ' +
-      'Team average: ' + (d.teamAvgMin ? mins(d.teamAvgMin) : '\u2014') + ' a route.</div></div>';
+      ' he is offered routes that fit his last 14 days; after it, the 3 longest left.' +
+      (showHrs ? ' Team average: ' + (d.teamAvgMin ? mins(d.teamAvgMin) : '\u2014') + ' a route.' : '') + '</div></div>';
 
   h += '<div class="sec">Checked in, no route yet (' + d.waiting.length + ')</div>';
   h += d.waiting.length
     ? '<div class="card" style="padding:10px 12px;">' + d.waiting.map(function(p){
         return '<div class="row" style="padding:4px 0;"><div class="grow">' + esc(p.name) + '</div>' +
-          '<span class="fnt">' + (p.avgMin == null ? 'no routes in 14 days' : 'last 14 days: ' + p.routes14 + ' routes, ' + mins(p.avgMin) + ' each') + '</span></div>';
+          '<span class="fnt">' + (p.avgMin == null ? 'no routes in 14 days' : 'last 14 days: ' + p.routes14 + ' routes' + (showHrs ? ', ' + mins(p.avgMin) + ' each' : '')) + '</span></div>';
       }).join('') + '</div>'
     : '<div class="empty" style="padding:10px;">Everyone checked in has a route.</div>';
 
@@ -1365,7 +1368,7 @@ function assignHTML(d){
       '<div class="row"><div class="seq">' + r.n + '</div>' +
       '<div class="grow"><div class="ttl" style="font-size:14px;">' + esc(r.da || 'Nobody yet') + '</div>' +
       '<div class="mut">' + esc(r.code) + (r.vehicle ? ' \u00b7 ' + esc(r.vehicle) : '') + (r.vtype ? ' (' + esc(r.vtype) + ')' : '') + '</div>' +
-      '<div class="fnt">' + r.stops + ' stops \u00b7 ' + mins(r.plannedMin) + (r.km ? ' \u00b7 ' + r.km + ' km' : '') +
+      '<div class="fnt">' + r.stops + ' stops' + (showHrs ? ' \u00b7 ' + mins(r.plannedMin) : '') + (r.km ? ' \u00b7 ' + r.km + ' km' : '') +
         (r.how === 'Moved' || r.how === 'Swapped' ? ' \u00b7 ' + esc(r.how) + (r.by ? ' by ' + esc(r.by) : '') :
          r.how === 'Picked late' ? ' \u00b7 picked late' + (r.at ? ' (' + esc(r.at) + ')' : '') :
          /^Picked \(/.test(r.how || '') ? ' \u00b7 ' + esc(r.how.replace('Picked', 'picked')) + (r.at ? ' ' + esc(r.at) : '') :
