@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=f7da7e2f19"></script>
+<script src="config.js?v=25a5994a11"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1354,7 +1354,7 @@ function doStartAssigned(){
   state.pendingCode = m.code;
   state.vehicleNo = veh;
   state.error = '';
-  doEnterCode(!!m.handoverFrom);
+  doEnterCode(!!m.handoverFrom, true);
 }
 
 function codeFormHTML(){
@@ -3743,13 +3743,15 @@ function doResume(){
   });
 }
 
-function doEnterCode(confirmHandover){
+// fromState: the code is already chosen (an assigned or picked route),
+// so there is no code box on screen to read.
+function doEnterCode(confirmHandover, fromState){
   var codeEl = document.getElementById('code-input');
   var vehEl = document.getElementById('vehicle-input');
   var code = state.pendingCode;
   var veh = state.vehicleNo;
 
-  if (!confirmHandover) {
+  if (!confirmHandover && !fromState) {
     code = codeEl ? codeEl.value.trim().toUpperCase() : '';
     veh = vehEl ? vehEl.value.trim().toUpperCase() : '';
     if (!code) { state.error = 'Enter your manifest code.'; render(); return; }
@@ -3845,7 +3847,7 @@ function doCloseBlockingTrip(){
     state.blockingTrip = null;
     if (res && res.success) {
       state.error = '';
-      doEnterCode(false);
+      doEnterCode(false, true);   // code and vehicle were kept before the old trip closed
     } else {
       state.error = (res && res.error) || 'Could not close that trip.';
       render();
