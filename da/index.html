@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=25a5994a11"></script>
+<script src="config.js?v=c9b0492c8c"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1130,10 +1130,13 @@ function resumeHTML(){
     '<h3 style="margin:0 0 8px; font-size:17px;">You have an open trip</h3>' +
     '<p class="hint" style="margin:0 0 4px;">Code <strong>' + esc(t.code) + '</strong>' +
     (t.vehicleNo ? ' \u00b7 ' + esc(t.vehicleNo) : '') + ', ' + dayNote + '.</p>' +
-    '<p class="hint">Resume it to carry on, or end it to close the day and start a new route.</p>' +
+    (t.isToday
+      ? '<p class="hint">Tap below to carry on with it. To end it, open it first \u2014 End trip is in the menu.</p>'
+      : '<p class="hint">Resume it to carry on, or end it to close the day and start a new route.</p>') +
     errHTML() +
     '<div style="margin-top:16px;"><button class="primary" data-action="resume-trip">Resume this trip</button></div>' +
-    '<div style="margin-top:9px;"><button class="secondary" data-action="ask-end-trip-resume" style="width:100%;">End this trip</button></div>' +
+    (t.isToday ? '' :
+      '<div style="margin-top:9px;"><button class="secondary" data-action="ask-end-trip-resume" style="width:100%;">End this trip</button></div>') +
     '</div>';
 }
 
@@ -1189,14 +1192,14 @@ function myRouteHTML(m){
         ? 'You are on time, so these routes fit your last two weeks.'
         : 'After ' + esc(ampm(m.from)) + ' you get the longest routes still free. Come before ' +
           esc(ampm(m.from)) + ' to get routes that fit your last two weeks.') + '</p>' +
-      cards + errHTML() + again + practice + '</div>';
+      cards + errHTML() + reopenEndedHTML(m) + again + practice + '</div>';
   }
   if (m.status === 'none') {
     return '<div class="card">' +
       '<h3 style="margin:0 0 8px; font-size:17px;">No route for you yet</h3>' +
       '<p class="hint">Every route ready today has been given out. If more are made, one will appear here. ' +
         'Ask your supervisor if you were expecting one.</p>' +
-      errHTML() + again + practice + '</div>';
+      errHTML() + reopenEndedHTML(m) + again + practice + '</div>';
   }
   if (m.status === 'checkin') {
     return '<div class="card">' +
@@ -1207,6 +1210,30 @@ function myRouteHTML(m){
       '</div>';
   }
   return codeFormHTML();
+}
+
+// A route he ended today: reopen it rather than take a new one.
+function reopenEndedHTML(m){
+  if (!m || !m.ended || !m.ended.code) return '';
+  return '<div style="border:1px dashed var(--line, #d8dbe6); border-radius:12px; padding:12px; margin-top:14px;">' +
+    '<div class="hint" style="margin:0 0 8px;">You ended route <strong>' + esc(m.ended.code) + '</strong>' +
+      (m.ended.at ? ' at ' + esc(m.ended.at) : '') + '. Ended it by mistake? Reopen it — orders not marked come back.</div>' +
+    '<button class="secondary" data-action="my-reopen" data-code="' + esc(m.ended.code) + '" style="width:100%;"' +
+      (state.myRouteBusy ? ' disabled' : '') + '>Reopen ' + esc(m.ended.code) + '</button></div>';
+}
+
+function doReopenEnded(code){
+  if (!code) return;
+  state.loading = true; state.loadingMsg = 'Reopening ' + code + '\u2026'; state.error = ''; render();
+  api('reopenTrip', { loginName: state.loginName, code: code }).then(function(res){
+    state.loading = false;
+    if (!res || !res.success) {
+      state.error = (res && res.error) || 'Could not reopen that route. Try again.';
+      render(); return;
+    }
+    state.pendingCode = code;
+    doEnterCode(false, true);
+  });
 }
 
 function ampm(hhmm){
@@ -1243,7 +1270,7 @@ function loadMyRoute(){
       if (res.status === 'open' && res.code) {
         state.openTrip = { code: res.code, vehicleNo: '', isToday: true, startedAt: '' };
         state.myRoute = res;
-        if (state.view === 'code') { state.view = 'resume'; render(); }
+        if (state.view === 'code') { doResume(); }
         return;
       }
       state.myRoute = res;
@@ -2915,6 +2942,7 @@ function onAction(ev){
   }
   if (action === 'my-refresh')      { state.error = ''; loadMyRoute(); return; }
   if (action === 'my-pick')         { doPickRoute(el.getAttribute('data-code')); return; }
+  if (action === 'my-reopen')       { doReopenEnded(el.getAttribute('data-code')); return; }
   if (action === 'my-practice')     { state.pendingCode = 'DEMO'; state.error = ''; doEnterCode(true); return; }
   if (action === 'confirm-handover'){ state.modal = null; doEnterCode(true); return; }
   if (action === 'resume-trip')     { doResume(); return; }
@@ -3185,15 +3213,19 @@ function onAction(ev){
     for (var i = 0; i < state.orders.length; i++) {
       if (!state.orders[i].currentStatus) pending++;
     }
+    var none = action !== 'ask-end-trip-resume' && state.orders.length > 0 && pending === state.orders.length;
     var msg = (action === 'ask-end-trip-resume')
       ? 'Any orders not yet marked will be recorded as not delivered.'
+      : none
+        ? 'You have not marked any of your ' + pending + ' orders. Ending now records ALL of them as not ' +
+          'delivered. Only end if your supervisor told you this route is cancelled.'
       : (pending > 0
           ? pending + ' order(s) are still unmarked. They will be recorded as not delivered.'
           : 'All orders are marked. This will close your day.');
     state.modal = {
-      title: 'End trip?',
+      title: none ? 'End without delivering anything?' : 'End trip?',
       body: msg,
-      confirmText: 'End trip',
+      confirmText: none ? 'Yes, end without delivering' : 'End trip',
       confirmAction: (action === 'ask-end-trip-resume') ? 'do-end-trip-resume' : 'do-end-trip'
     };
     render();
@@ -3695,6 +3727,10 @@ function loginDone(res, name, pin){
 }
 
 function afterLogin(){
+  // A trip started today simply carries on. The Resume / End choice is
+  // for a trip left open from an earlier day: offered for today's, End
+  // got tapped by DAs who only wanted to get back in.
+  if (state.openTrip && state.openTrip.isToday) { state.view = 'resume'; doResume(); return; }
   state.view = state.openTrip ? 'resume' : 'code';
   render();
 }
