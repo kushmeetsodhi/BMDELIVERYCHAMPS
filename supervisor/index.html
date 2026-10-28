@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=998cf8b371"></script>
+<script src="config.js?v=07e287d483"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1472,6 +1472,21 @@ function st(label, value, sub, cls, act){
     '<div class="s">' + esc(sub || '') + '</div></div>';
 }
 
+// Same split as the Route assignment board: not taken by anyone, and
+// picked but not started yet.
+function assignValue(s){
+  if (!s.planned) return '\u2014';
+  var nt = s.notTaken != null ? s.notTaken : (s.planned - (s.assigned || 0));
+  return nt > 0 ? nt + ' not taken' : 'All taken';
+}
+function assignSub(s){
+  if (!s.planned) return 'who gets which route';
+  var parts = [];
+  if (s.pickedNotStarted) parts.push(s.pickedNotStarted + ' picked, not started');
+  parts.push((s.assigned || 0) + ' of ' + s.planned + ' started');
+  return parts.join(' \u00b7 ');
+}
+
 /******************** HOME - what needs attention now ********************/
 function homeHTML(d){
   if (!d) return '<div class="empty">No data yet.</div>';
@@ -1493,9 +1508,7 @@ function homeHTML(d){
        s.absentDas ? 'bad' : 'good') +
     st('On routes', s.onRouteDas || 0, 'partners out delivering', '', 'tab-routes') +
     // Fills the empty spot beside On routes; opens who-gets-which-route.
-    st('Route assignment \u203a', left > 0 ? left + ' waiting' : (s.planned ? 'All taken' : '\u2014'),
-       s.planned ? (s.assigned || 0) + ' of ' + s.planned + ' routes taken' : 'who gets which route',
-       'assign-tile', 'tab-assign') +
+    st('Route assignment \u203a', assignValue(s), assignSub(s), 'assign-tile', 'tab-assign') +
     '</div>';
 
   if (s.absentDas) {
