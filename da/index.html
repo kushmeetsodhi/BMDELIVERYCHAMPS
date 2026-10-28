@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=7727287736"></script>
+<script src="config.js?v=65ef5272bc"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -595,11 +595,27 @@ function locTick(){
     loc.sentAt = Date.now();
     api('ping', { loginName: state.loginName, code: state.code,
                   lat: loc.last.lat, lng: loc.last.lng, acc: loc.last.acc,
-                  locAt: loc.last.at }, 15000);
+                  locAt: loc.last.at }, 15000).then(function(res){
+      if (res && res.released) routeReleased();
+    });
   }, function(err){
     // 1 = the DA said no. Anything else is a moment without a fix.
     if (err && err.code === 1) locSetState('off');
   }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+}
+
+// The supervisor freed this route (nothing was marked on it) and gave
+// him another. Leave it and show My route, where the new one waits.
+function routeReleased(){
+  var old = state.code;
+  if (!old || state.isDemo) return;
+  clearSession();
+  state.code = ''; state.orders = []; state.orderIndex = 0; state.openTrip = null;
+  state.myRoute = null; state.myRouteAt = 0; state.modal = null;
+  state.view = 'code';
+  state.error = 'Your supervisor took you off ' + old + '. Your new route is below.';
+  render();
+  loadMyRoute();
 }
 
 function locSetState(s){
@@ -3378,6 +3394,17 @@ function resumeSession(s){
       // The server answered and refused outright. That is a real
       // answer: the route was cancelled or replaced. Only now is the
       // saved session worth throwing away.
+      if (!res.success && res.notYours) {
+        // Not his route any more (moved or freed by the supervisor):
+        // straight to My route, still signed in.
+        clearSession();
+        state.code = ''; state.orders = [];
+        state.error = res.error || '';
+        state.view = 'code'; state.myRoute = null; state.myRouteAt = 0;
+        render();
+        loadMyRoute();
+        return;
+      }
       if (!res.success || !res.orders) {
         clearSession();
         state.loginName = ''; state.code = '';

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=88cf2876b7"></script>
+<script src="config.js?v=998cf8b371"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1402,11 +1402,14 @@ function assignMoveHTML(d, r){
     var note = p.onTrip ? 'out on ' + p.onTrip : p.holds ? 'has ' + p.holds : p.checkedIn ? 'waiting' : 'not checked in';
     if (p.role && p.role !== 'DA') note = p.role + ', ' + note;
     return '<option value="' + esc(p.name) + '"' + (state.asTo === p.name ? ' selected' : '') +
-      (p.onTrip ? ' disabled' : '') + '>' + esc(p.name) + ' \u2014 ' + esc(note) + '</option>';
+      '>' + esc(p.name) + ' \u2014 ' + esc(note) + '</option>';
   }).join('');
   var swap = state.asSwap && state.asSwap.code === r.code
     ? '<div class="err" style="margin-top:8px;">' + esc(state.asSwap.msg) + '</div>' +
-      '<button class="btn block" style="margin-top:8px;" data-a="as-swap">Swap ' + esc(r.code) + ' and ' + esc(state.asSwap.other) + '</button>'
+      '<button class="btn block" style="margin-top:8px;" data-a="as-swap">' +
+        (/has not marked anything/.test(state.asSwap.msg)
+          ? 'Give ' + esc(r.code) + ', free ' + esc(state.asSwap.other)
+          : 'Swap ' + esc(r.code) + ' and ' + esc(state.asSwap.other)) + '</button>'
     : '';
   return '<div style="margin-top:10px;">' +
     '<select id="as-to" data-a="as-to">' + opts + '</select>' +
