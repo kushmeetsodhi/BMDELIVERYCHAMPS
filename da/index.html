@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=65ef5272bc"></script>
+<script src="config.js?v=c4f003749f"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -4501,6 +4501,58 @@ if (document.readyState === 'loading') {
   }
   window.addEventListener('load', check);
   window.addEventListener('resize', check);
+})();
+</script>
+<script>
+/* PHOTO-POPUP: photo links open in a big popup inside the app, not another app. */
+(function(){
+  var box = null, hist = false;
+  function fileId(u){ var m = String(u || '').match(/[-\w]{25,}/); return m ? m[0] : ''; }
+  function isPhotoLink(a){
+    var h = a.getAttribute('href') || '';
+    if (!/drive\.google\.com|googleusercontent\.com/i.test(h)) return false;
+    if (/\/maps|wa\.me|whatsapp/i.test(h)) return false;
+    var txt = (a.textContent || '').toLowerCase();
+    if (/pdf|manifest|sheet|doc\b/.test(txt)) return false;
+    return !!a.querySelector('img') || /photo|view|screenshot|image|proof|signature|pod/.test(txt);
+  }
+  function close(fromPop){
+    if (!box) return;
+    box.remove(); box = null;
+    if (hist && !fromPop) { hist = false; try { history.back(); } catch (e) {} }
+    hist = false;
+  }
+  function open(href){
+    var id = fileId(href); if (!id) return false;
+    close(true);
+    box = document.createElement('div');
+    box.setAttribute('style', 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;');
+    box.innerHTML =
+      '<div style="position:absolute;top:10px;right:10px;left:10px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" data-lb-skip="1" style="color:#fff;font:600 13px system-ui;text-decoration:underline;opacity:.85;">Open original</a>' +
+        '<button type="button" id="lb-x" style="background:#fff;color:#000;border:0;border-radius:20px;width:38px;height:38px;font:700 20px system-ui;cursor:pointer;">×</button>' +
+      '</div>' +
+      '<img alt="" style="max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;touch-action:pinch-zoom;" ' +
+        'src="https://drive.google.com/thumbnail?id=' + id + '&sz=w1600">' +
+      '<div id="lb-msg" style="color:#fff;font:13px system-ui;margin-top:10px;opacity:.8;">Tap outside the photo to close</div>';
+    var img = box.querySelector('img');
+    img.onerror = function(){ img.style.display = 'none'; box.querySelector('#lb-msg').textContent = 'Could not load the photo here. Use Open original.'; };
+    box.addEventListener('click', function(e){
+      if (e.target.closest && e.target.closest('[data-lb-skip]')) return;
+      if (e.target === img) return;
+      close();
+    });
+    document.body.appendChild(box);
+    try { history.pushState({ lb: 1 }, ''); hist = true; } catch (e) {}
+    return true;
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.hasAttribute('data-lb-skip') || !isPhotoLink(a)) return;
+    if (open(a.getAttribute('href'))) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  window.addEventListener('popstate', function(){ if (box) close(true); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
 })();
 </script>
 <script>
