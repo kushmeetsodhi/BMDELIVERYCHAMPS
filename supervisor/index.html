@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=f8d6debb95"></script>
+<script src="config.js?v=ec9ac756cf"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1776,7 +1776,7 @@ function routeHTML(){
       podRow(o) +
       (o.phone || o.proof
         ? '<div class="row" style="margin-top:8px;">' + callBtn(o.phone, 'Shop') + '<span class="grow"></span>' +
-          (o.proof ? '<a class="link" href="' + esc(o.proof) + '" target="_blank">Photo ›</a>' : '') + '</div>'
+          (o.proof && o.status !== 'Not Delivered' ? '<a class="link" href="' + esc(o.proof) + '" target="_blank">Photo ›</a>' : '') + '</div>'
         : '') +
       '</div>';
   }).join('');
@@ -1964,6 +1964,19 @@ function itemsHTML(invoiceNo){
 // Proof of delivery, where a dispute is actually settled: the photo of
 // the goods, the shopkeeper's signature, or why neither exists.
 function podRow(o){
+  if (String(o.status || '') === 'Not Delivered') {
+    // A failed stop shows the photo the DA took (closed shop, refusal)
+    // as a thumbnail too, not just a text link.
+    var fp = [];
+    String(o.proof || '').split(/[\s,]+/).forEach(function(u){ if (/^https?:/i.test(u) && fp.indexOf(u) < 0) fp.push(u); });
+    (o.podPhotos || []).forEach(function(u){ if (fp.indexOf(u) < 0) fp.push(u); });
+    if (!fp.length) return '';
+    return '<div class="row" style="margin-top:8px; gap:8px;">' +
+      fp.map(function(u, i){
+        return '<a href="' + esc(u) + '" target="_blank" rel="noopener" style="text-align:center; text-decoration:none;">' +
+          photoThumb(u) + '<div class="fnt">' + (fp.length > 1 ? 'Photo ' + (i + 1) : 'Photo') + '</div></a>';
+      }).join('') + '<span class="grow"></span></div>';
+  }
   if (String(o.status || '') !== 'Delivered') return '';
   var shots = [];
   (o.podPhotos || []).forEach(function(u, i){
