@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=9d65397554"></script>
+<script src="config.js?v=79c18f5412"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -142,9 +142,14 @@
   .seg3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; background:var(--bg); border-radius:12px; padding:4px; }
   .seg3 button{ height:44px; border-radius:9px; border:0; background:transparent; color:var(--sub); font-weight:600; cursor:pointer; }
   .seg3 button.on{ background:var(--brand); color:#fff; }
+  .vbtn{ background:rgba(255,255,255,0.16); color:#fff; border:0; border-radius:12px; padding:3px 10px; font:inherit; font-weight:700; cursor:pointer; }
+  .vbtn.chg{ background:var(--amber-bg); color:var(--amber); }
+  .modal{ position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:18px; }
+  .modal .box{ width:100%; max-width:380px; background:var(--card); border-radius:16px; padding:18px; }
   .plan{ margin:8px 2px 0; }
   .plan-t{ display:flex; align-items:center; gap:10px; font-size:17px; }
   .p-late{ background:var(--red-bg); color:var(--red); }
+  .toast.good{ background:var(--green); }
   .toast{ position:fixed; left:14px; right:14px; bottom:calc(86px + env(safe-area-inset-bottom)); z-index:40; background:var(--red); color:#fff;
           border-radius:12px; padding:11px 13px; font-weight:600; font-size:14px; max-width:532px; margin:0 auto; }
 </style>
@@ -246,14 +251,14 @@ function logout(msg){
   try { var del = []; for (var q = 0; q < localStorage.length; q++) { var kk = localStorage.key(q); if (kk && kk.indexOf('bm_ld_r') === 0) del.push(kk); } del.forEach(function(x){ localStorage.removeItem(x); }); } catch (e) {}
   render();
 }
-function toast(msg){
-  state.toast = msg; renderToast();
+function toast(msg, good){
+  state.toast = msg; state.toastGood = !!good; renderToast();
   clearTimeout(toast.t); toast.t = setTimeout(function(){ state.toast = ''; renderToast(); }, 4500);
 }
 function renderToast(){
   var el = document.getElementById('toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
-  el.className = state.toast ? 'toast' : ''; el.textContent = state.toast || '';
+  el.className = state.toast ? 'toast' + (state.toastGood ? ' good' : '') : ''; el.textContent = state.toast || '';
   el.style.display = state.toast ? '' : 'none';
 }
 
@@ -431,7 +436,8 @@ function routeHeadHTML(){
   var r = state.route, t = r.totals;
   return '<div class="top" id="ld-head"><div class="top-row"><button class="icon-btn" data-a="back" aria-label="Back">‹</button>' +
     '<div style="flex:1;"><h1>' + esc(r.code) + '</h1>' +
-    '<div class="sub">' + (r.vehicle ? 'Vehicle ' + esc(r.vehicle) + ' · ' : '') + r.stops + ' stops · ' + r.km + ' km' +
+    '<div class="sub"><button type="button" class="vbtn' + (r.vehicleChanged ? ' chg' : '') + '" data-a="vehicle">' +
+      (r.vehicle ? 'Vehicle ' + esc(r.vehicle) : 'Add vehicle') + ' ✎</button> · ' + r.stops + ' stops · ' + r.km + ' km' +
       (r.loader ? ' · ' + esc(r.loader) : '') + '</div></div>' +
     '<button class="icon-btn" data-a="reload" aria-label="Reload">↻</button></div>' +
     (r.areas && r.areas.length ? '<div class="sub" style="margin-top:6px;">' + esc(r.areas.join(', ')) + '</div>' : '') +
@@ -538,6 +544,9 @@ document.addEventListener('click', function(ev){
   if (a === 'open') return openRoute(el.getAttribute('data-v'));
   if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
   if (a === 'reload') return reloadRoute();
+  if (a === 'vehicle') return vehicleOpen();
+  if (a === 'veh-cancel') return vehicleClose();
+  if (a === 'veh-save') return vehicleSave();
   if (a === 'fill') { state.filling = ''; return fillItems(); }
   if (a === 'mode') {
     state.mode = el.getAttribute('data-v');
@@ -655,6 +664,43 @@ function saveCounts(i, loaded){
       return false;
     }
     return true;
+  });
+}
+
+/******************** VEHICLE ********************/
+function vehicleOpen(){
+  if (!state.route) return;
+  if (finished()) { toast('Reopen the route to change the vehicle.'); return; }
+  kpClose();
+  var m = document.getElementById('vm');
+  if (!m) { m = document.createElement('div'); m.id = 'vm'; document.body.appendChild(m); }
+  var r = state.route;
+  m.className = 'modal';
+  m.innerHTML = '<div class="box"><div style="font-weight:800; font-size:17px;">Vehicle number</div>' +
+    '<div class="note" style="margin-top:4px;">' + (r.vehiclePlanned ? 'Planned: ' + esc(r.vehiclePlanned) + '. ' : '') + 'Enter the van that is really being loaded.</div>' +
+    '<input id="vm-in" class="plain" type="text" autocapitalize="characters" autocomplete="off" maxlength="15" style="margin-top:12px; text-transform:uppercase;" value="' + esc(r.vehicle) + '" />' +
+    '<div id="vm-err" class="err" style="margin-top:10px; display:none;"></div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;">' +
+      '<button class="btn ghost" data-a="veh-cancel">Cancel</button><button class="btn" id="vm-save" data-a="veh-save">Save</button></div></div>';
+  m.style.display = '';
+  var inp = document.getElementById('vm-in');
+  setTimeout(function(){ try { inp.focus(); inp.select(); } catch (e) {} }, 50);
+}
+function vehicleClose(){ var m = document.getElementById('vm'); if (m) m.style.display = 'none'; }
+function vehicleSave(){
+  var inp = document.getElementById('vm-in'), err = document.getElementById('vm-err');
+  var v = String(inp.value || '').toUpperCase().replace(/[\s.]+/g, '');
+  if (!/^[A-Z0-9-]{3,15}$/.test(v)) { err.textContent = 'Letters and digits only, for example 5524 or DL1LAN9343.'; err.style.display = ''; return; }
+  if (v === state.route.vehicle) { vehicleClose(); return; }
+  var btn = document.getElementById('vm-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  send('ldVehicle', { date: state.shown, code: state.code, vehicle: v, light: true }).then(function(r){
+    if (r && r.success) {
+      state.route.vehicle = r.vehicle || v;
+      state.route.vehicleChanged = !!(state.route.vehiclePlanned && state.route.vehicle !== state.route.vehiclePlanned);
+      vehicleClose(); redrawHead(); touchCopy();
+      if (state.route.state === 'new') state.route.state = 'loading';
+      toast('Vehicle set to ' + state.route.vehicle, true);
+    } else { btn.disabled = false; btn.textContent = 'Save'; err.textContent = (r && r.error) || 'Not saved. Check your internet.'; err.style.display = ''; }
   });
 }
 
