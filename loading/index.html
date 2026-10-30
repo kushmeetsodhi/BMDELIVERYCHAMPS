@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=152f757dea"></script>
+<script src="config.js?v=e523898b2a"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -81,7 +81,7 @@
   input{ width:100%; height:50px; border-radius:10px; border:1px solid var(--line); background:var(--field);
          color:var(--ink); padding:0 12px; font-size:18px; font-weight:600; }
   input[type="text"].plain, input[type="password"]{ font-weight:400; font-size:16px; }
-  .counts{ display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:8px; }
+  .counts{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .counts label{ display:block; font-size:11.5px; font-weight:700; color:var(--sub); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
   .units{ display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:13px; color:var(--sub); }
   .units b{ font-size:16px; color:var(--ink); }
@@ -99,6 +99,14 @@
   .btn[disabled]{ opacity:.55; }
 
   .items{ margin-top:10px; border-top:1px solid var(--line); padding-top:8px; }
+  .seals{ margin-top:8px; }
+  .seals label{ display:block; font-size:11.5px; font-weight:700; color:var(--sub); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
+  .seals .sg{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+  .shortb{ display:inline-block; margin-top:3px; padding:1px 8px; border-radius:10px; background:#fde8e6; color:#b3261e; font-size:12px; font-weight:700; }
+  .qedit{ border:0; background:transparent; color:var(--blue); font-weight:700; font-size:13px; padding:6px 4px; }
+  .qs{ display:grid; grid-template-columns:64px 1fr 64px; gap:10px; align-items:center; margin-top:14px; }
+  .qs button{ height:56px; border-radius:14px; border:1.5px solid var(--blue); background:transparent; color:var(--blue); font-size:28px; font-weight:700; }
+  .qs b{ text-align:center; font-size:34px; }
   .it{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px dashed var(--line); }
   .it:last-child{ border-bottom:0; }
   .it .nm{ flex:1; min-width:0; font-size:14px; }
@@ -359,6 +367,17 @@ function sumUp(r){
   r.orders.forEach(function(o){ t.bags += o.bags; t.loose += o.loose; if (o.loaded) t.loaded++; });
   t.units = t.bags + t.loose; r.totals = t; return t;
 }
+function sealList(o, n){
+  var a = String(o.seal || '').split(','), out = [];
+  for (var k = 0; k < a.length; k++) out.push(a[k].replace(/^\s+|\s+$/g, ''));
+  while (out.length < n) out.push('');
+  return out;
+}
+function sealCount(o){ return Math.max(1, o.bags || 0); }
+function sealJoin(a){
+  var b = a.slice(); while (b.length && !b[b.length - 1]) b.pop();
+  return b.join(', ');
+}
 function orderAt(i){ return state.route && state.route.orders[i]; }
 function finished(){ return state.route && state.route.state === 'done'; }
 
@@ -469,7 +488,9 @@ function itemsHTML(o, i){
   var h = '<div class="items">';
   o.items.forEach(function(x, k){
     h += '<div class="it' + (x.d ? ' d' : '') + '"><div class="nm">' + esc(x.p) + '<small>' + esc(x.v) + (x.v ? ' · ' : '') + x.q + ' pack' + (x.q === 1 ? '' : 's') +
-      (x.pcs ? ' · ' + x.pcs + ' pcs' : '') + '</small></div>' +
+      (x.pcs ? ' · ' + x.pcs + ' pcs' : '') + '</small>' +
+      (x.lq !== undefined ? '<span class="shortb">Loaded ' + x.lq + ' of ' + x.q + '</span>' : '') + '</div>' +
+      (finished() ? '' : '<button class="qedit" data-a="qty" data-i="' + i + '" data-k="' + k + '">Qty</button>') +
       '<button class="tick' + (x.d ? ' on' : '') + '" data-a="item" data-i="' + i + '" data-k="' + k + '"' + (finished() ? ' disabled' : '') + '>' +
       (x.d ? '✓ Loaded' : 'Load') + '</button></div>';
   });
@@ -502,6 +523,12 @@ function photosHTML(o, i){
   return h + '</div>';
 }
 
+function sealsHTML(o, i, lock){
+  var n = sealCount(o), s = sealList(o, n), h = '<div class="seals"><label>' + (n > 1 ? 'Seal tags · one per bag' : 'Seal tag') + '</label><div class="sg">';
+  for (var k = 0; k < n; k++)
+    h += '<input type="text" readonly inputmode="none" class="plain" data-f="seal" data-s="' + k + '" data-i="' + i + '" value="' + esc(s[k]) + '"' + (lock ? ' disabled' : '') + ' placeholder="' + (n > 1 ? 'Bag ' + (k + 1) : 'No.') + '">';
+  return h + '</div></div>';
+}
 function orderHTML(o, i){
   var lock = finished();
   var open = !!state.open[i];
@@ -513,8 +540,7 @@ function orderHTML(o, i){
     '<div class="counts" style="margin-top:12px;">' +
       '<div><label>Bags</label><input type="text" readonly inputmode="none" data-f="bags" data-i="' + i + '" value="' + (o.bags || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
       '<div><label>Loose CTN</label><input type="text" readonly inputmode="none" data-f="loose" data-i="' + i + '" value="' + (o.loose || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
-      '<div><label>Seal tag</label><input type="text" readonly inputmode="none" class="plain" data-f="seal" data-i="' + i + '" value="' + esc(o.seal) + '"' + (lock ? ' disabled' : '') + ' placeholder="No."></div>' +
-    '</div>' +
+    '</div>' + sealsHTML(o, i, lock) +
     '<div class="units"><span>Total units <b id="u-' + i + '">' + (o.bags + o.loose) + '</b></span>' +
       (o.items ? '<button class="link" data-a="toggle" data-i="' + i + '">' + (open ? 'Hide items' : 'Items ' + o.itemsDone + '/' + o.itemsTotal) + '</button>'
                : '<span class="note">' + (state.filling ? 'Looking up items…' : 'No item list') + '</span>') + '</div>' +
@@ -600,6 +626,11 @@ document.addEventListener('click', function(ev){
   if (a === 'next') { goOrder(state.cur + 1); return; }
   if (a === 'toggle') { state.open[i] = !state.open[i]; redrawOrder(i); return; }
   if (a === 'item') return doItem(i, Number(el.getAttribute('data-k')));
+  if (a === 'qty') return qtyOpen(i, Number(el.getAttribute('data-k')));
+  if (a === 'qty-dn') { if (qm.n > 0) qm.n--; return qtyDraw(); }
+  if (a === 'qty-up') { if (qm.n < orderAt(qm.i).items[qm.k].q) qm.n++; return qtyDraw(); }
+  if (a === 'qty-cancel') { document.getElementById('qm').style.display = 'none'; return; }
+  if (a === 'qty-save') return qtySave();
   if (a === 'items-all') return doItemsAll(i);
   if (a === 'loaded') return doLoaded(i);
   if (a === 'unload') return doUnload(i);
@@ -613,12 +644,11 @@ document.addEventListener('keydown', function(ev){
 /******************** NUMBER KEYPAD ********************/
 // The phone's full keyboard never opens. Tapping Bags, Loose CTN or Seal
 // tag brings up a small keypad at the bottom instead.
-var kp = { i: -1, f: '', dirty: false };
-var KP_ORDER = ['bags', 'loose', 'seal'];
+var kp = { i: -1, f: '', s: 0, dirty: false };
 var KP_LABEL = { bags: 'Bags', loose: 'Loose cartons', seal: 'Seal tag' };
 
-function kpValue(o, f){ return f === 'seal' ? o.seal : String(o[f] || ''); }
-function kpInput(){ return document.querySelector('[data-f="' + kp.f + '"][data-i="' + kp.i + '"]'); }
+function kpValue(o, f, s){ return f === 'seal' ? sealList(o, sealCount(o))[s || 0] || '' : String(o[f] || ''); }
+function kpInput(){ return document.querySelector('[data-f="' + kp.f + '"][data-i="' + kp.i + '"]' + (kp.f === 'seal' ? '[data-s="' + kp.s + '"]' : '')); }
 function kpMark(){
   var all = document.querySelectorAll('[data-f]');
   for (var k = 0; k < all.length; k++) all[k].classList.remove('act');
@@ -630,19 +660,19 @@ function kpShow(){
   if (!box) { box = document.createElement('div'); box.id = 'kp'; box.className = 'kp'; document.body.appendChild(box); }
   var o = orderAt(kp.i);
   var key = function(v, label, cls){ return '<button type="button" class="k ' + (cls || '') + '" data-k="' + v + '">' + label + '</button>'; };
-  box.innerHTML = '<div class="kp-in"><div class="kp-top"><div class="grow"><b>' + KP_LABEL[kp.f] + '</b> · ' + esc(o ? o.shop : '') + '</div>' +
+  box.innerHTML = '<div class="kp-in"><div class="kp-top"><div class="grow"><b>' + KP_LABEL[kp.f] + (kp.f === 'seal' && sealCount(o) > 1 ? ' ' + (kp.s + 1) + ' of ' + sealCount(o) : '') + '</b> · ' + esc(o ? o.shop : '') + '</div>' +
     '<button type="button" class="kp-done" data-k="done">Done</button></div>' +
     '<div class="kp-grid">' + key('1','1') + key('2','2') + key('3','3') + key('4','4') + key('5','5') + key('6','6') +
     key('7','7') + key('8','8') + key('9','9') + key('back','⌫','alt') + key('0','0') +
-    (kp.f === 'seal' ? key(',',',','alt') : key('next','Next ›','go')) + '</div></div>';
+    key('next','Next ›','go') + '</div></div>';
   box.style.display = '';
   document.body.classList.add('kp-open');
   kpMark();
 }
-function kpOpen(i, f){
+function kpOpen(i, f, s){
   if (finished()) return;
-  if (kp.i !== i || kp.f !== f) kpCommit();
-  kp.i = i; kp.f = f;
+  if (kp.i !== i || kp.f !== f || kp.s !== (s || 0)) kpCommit();
+  kp.i = i; kp.f = f; kp.s = s || 0;
   kpShow();
   var el = kpInput();
   if (el && el.scrollIntoView) setTimeout(function(){ el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60);
@@ -650,11 +680,11 @@ function kpOpen(i, f){
 // Save what was typed once, when he moves on.
 function kpCommit(){
   touchCopy();
-  if (kp.i >= 0 && kp.dirty) { kp.dirty = false; redrawHeadOnly(); saveCounts(kp.i, null); }
+  if (kp.i >= 0 && kp.dirty) { var wasB = kp.f === 'bags', ii = kp.i; kp.dirty = false; redrawHeadOnly(); if (wasB) redrawOrder(ii); saveCounts(kp.i, null); }
 }
 function kpClose(){
   kpCommit();
-  kp.i = -1; kp.f = '';
+  kp.i = -1; kp.f = ''; kp.s = 0;
   var box = document.getElementById('kp'); if (box) box.style.display = 'none';
   document.body.classList.remove('kp-open');
   kpMark();
@@ -664,15 +694,23 @@ function kpKey(k){
   var o = orderAt(kp.i); if (!o) return;
   if (k === 'done') return kpClose();
   if (k === 'next') {
-    var nx = KP_ORDER[KP_ORDER.indexOf(kp.f) + 1];
-    kpCommit(); kp.f = nx; kpShow();
+    var nf = kp.f, ns = kp.s;
+    if (kp.f === 'bags') nf = 'loose';
+    else if (kp.f === 'loose') { nf = 'seal'; ns = 0; }
+    else if (kp.s + 1 < sealCount(o)) ns = kp.s + 1;
+    else return kpClose();
+    var wasBags = kp.f === 'bags';
+    kpCommit();
+    if (wasBags) { redrawOrder(kp.i); }
+    kp.f = nf; kp.s = ns; kpShow(); kpMark();
     var el = kpInput(); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     return;
   }
-  var cur = kpValue(o, kp.f), max = kp.f === 'seal' ? 40 : 3;
+  var cur = kpValue(o, kp.f, kp.s), max = kp.f === 'seal' ? 14 : 3;
   if (k === 'back') cur = cur.slice(0, -1);
-  else if (cur.length < max) cur += k;
-  if (kp.f === 'seal') o.seal = cur; else o[kp.f] = n0(cur);
+  else if (/^\d$/.test(k) && cur.length < max) cur += k;
+  if (kp.f === 'seal') { var sl = sealList(o, sealCount(o)); sl[kp.s] = cur; o.seal = sealJoin(sl); }
+  else o[kp.f] = n0(cur);
   kp.dirty = true;
   var el2 = kpInput(); if (el2) el2.value = kp.f === 'seal' ? cur : (o[kp.f] || '');
   var u = document.getElementById('u-' + kp.i); if (u) u.textContent = o.bags + o.loose;
@@ -680,10 +718,10 @@ function kpKey(k){
 document.addEventListener('focusin', function(ev){
   var t = ev.target; if (!t || !t.getAttribute || !t.getAttribute('data-f')) return;
   t.blur();   // no phone keyboard
-  kpOpen(Number(t.getAttribute('data-i')), t.getAttribute('data-f'));
+  kpOpen(Number(t.getAttribute('data-i')), t.getAttribute('data-f'), Number(t.getAttribute('data-s')) || 0);
 });
 document.addEventListener('click', function(ev){
-  var k = ev.target.closest && ev.target.closest('[data-k]');
+  var k = ev.target.closest && ev.target.closest('#kp [data-k]');
   if (k) { ev.preventDefault(); kpKey(k.getAttribute('data-k')); return; }
   if (kp.i < 0) return;
   var t = ev.target;
@@ -812,6 +850,8 @@ function doLoaded(i){
   kpClose();
   var o = orderAt(i);
   if (o.bags + o.loose < 1) { toast('Enter the bags or loose cartons first.'); return; }
+  var filled = sealList(o, sealCount(o)).filter(function(x){ return x; }).length;
+  if (o.bags > 0 && filled < o.bags && !window.confirm('Only ' + filled + ' of ' + o.bags + ' seal tags entered. Mark the order Loaded anyway?')) return;
   if (o.items && o.itemsDone < o.itemsTotal &&
       !window.confirm((o.itemsTotal - o.itemsDone) + ' item(s) are not ticked. Mark the order Loaded anyway?')) return;
   o.loaded = true; o.loadedAt = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -831,14 +871,43 @@ function doUnload(i){
 function doItem(i, k){
   var o = orderAt(i), it = o.items[k], on = !it.d;
   it.d = on; o.itemsDone += on ? 1 : -1;
+  if (!on) delete it.lq;
   redrawOrder(i);
   send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: k, done: on, light: true }).then(function(r){
     if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
   });
 }
+var qm = { i: -1, k: -1, n: 0 };
+function qtyOpen(i, k){
+  var o = orderAt(i), it = o.items[k];
+  qm = { i: i, k: k, n: it.lq !== undefined ? it.lq : it.q };
+  var m = document.getElementById('qm');
+  if (!m) { m = document.createElement('div'); m.id = 'qm'; document.body.appendChild(m); }
+  m.className = 'modal'; m.style.display = '';
+  qtyDraw();
+}
+function qtyDraw(){
+  var it = orderAt(qm.i).items[qm.k], m = document.getElementById('qm');
+  m.innerHTML = '<div class="box"><div style="font-weight:800; font-size:17px;">' + esc(it.p) + '</div>' +
+    '<div class="note" style="margin-top:4px;">Ordered ' + it.q + '. How many were loaded?</div>' +
+    '<div class="qs"><button data-a="qty-dn">−</button><b>' + qm.n + '</b><button data-a="qty-up">+</button></div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;">' +
+    '<button class="btn ghost" data-a="qty-cancel">Cancel</button><button class="btn" data-a="qty-save">Save</button></div></div>';
+}
+function qtySave(){
+  var o = orderAt(qm.i), it = o.items[qm.k], q = qm.n;
+  document.getElementById('qm').style.display = 'none';
+  if (!it.d) { it.d = true; o.itemsDone++; }
+  if (q >= it.q) delete it.lq; else it.lq = q;
+  o.short = o.items.filter(function(x){ return x.lq !== undefined; }).length;
+  redrawOrder(qm.i);
+  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: qm.k, done: true, qty: q, light: true }).then(function(r){
+    if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
+  });
+}
 function doItemsAll(i){
   var o = orderAt(i), on = o.itemsDone < o.itemsTotal;
-  o.items.forEach(function(x){ x.d = on; }); o.itemsDone = on ? o.itemsTotal : 0;
+  o.items.forEach(function(x){ x.d = on; if (!on) delete x.lq; }); o.itemsDone = on ? o.itemsTotal : 0;
   redrawOrder(i);
   send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: 'all', done: on, light: true }).then(function(r){
     if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
