@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=e523898b2a"></script>
+<script src="config.js?v=a2e56d9d60"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -154,6 +154,17 @@
   .vbtn.chg{ background:var(--amber-bg); color:var(--amber); }
   .modal{ position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:18px; }
   .modal .box{ width:100%; max-width:380px; background:var(--card); border-radius:16px; padding:18px; }
+  .cam{ position:fixed; inset:0; z-index:9999; background:#000; display:flex; flex-direction:column; }
+  .cam video{ flex:1; width:100%; min-height:0; object-fit:cover; background:#000; }
+  .cam.flash video{ opacity:.35; }
+  .cam-msg{ position:absolute; top:40%; left:0; right:0; text-align:center; color:#fff; font-size:15px; padding:0 20px; }
+  .cam-bar{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px calc(16px + env(safe-area-inset-bottom)); background:#000; }
+  .cam-shoot{ width:72px; height:72px; border-radius:50%; border:5px solid #fff; background:#ffffff40; padding:0; }
+  .cam-shoot:active{ transform:scale(.92); }
+  .cam-done{ background:none; border:1.5px solid #fff; color:#fff; border-radius:9px; padding:10px 18px; font-size:15px; font-weight:700; }
+  .cam-n{ color:#fff; font-size:15px; min-width:72px; text-align:right; }
+  .ph .th.stg{ outline:2px dashed var(--blue); }
+  .subm{ width:100%; margin-top:10px; }
   .ph{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   .ph .th{ position:relative; width:64px; height:64px; border-radius:10px; overflow:hidden; background:var(--bg); flex:none; }
   .ph .th img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -252,7 +263,7 @@ function touchCopy(){
   if (copyTimer) return;
   copyTimer = setTimeout(function(){
     copyTimer = 0;
-    if (state.token && state.route && state.shown) writeCopy('bm_ld_route_' + state.shown + '_' + state.code, JSON.parse(JSON.stringify(state.route, function(k, v){ return k === 'thumb' ? undefined : v; })));
+    if (state.token && state.route && state.shown) writeCopy('bm_ld_route_' + state.shown + '_' + state.code, JSON.parse(JSON.stringify(state.route, function(k, v){ return (k === 'thumb' || k === 'staged') ? undefined : v; })));
   }, 700);
 }
 
@@ -517,10 +528,20 @@ function photosHTML(o, i){
         (p.failed ? '<button type="button" class="x" data-a="photo-del" data-i="' + i + '" data-k="' + k + '" aria-label="Remove photo">×</button>' : '') + '</div>';
     }
   });
-  var full = ph.length >= 4;
-  if (!lock) h += '<label class="add' + (full ? ' dis' : '') + '">📷 ' + (ph.length ? 'Add' : 'Photo') +
-    '<input type="file" accept="image/*" capture="environment" hidden data-photo="' + i + '"' + (full ? ' disabled' : '') + '></label>';
-  return h + '</div>';
+  var sg = o.staged || [];
+  sg.forEach(function(s, k){
+    h += '<div class="th stg"><img src="' + esc(s.thumb) + '" alt="To submit ' + (k + 1) + '">' +
+      '<button type="button" class="x" data-a="stage-del" data-i="' + i + '" data-k="' + k + '" aria-label="Remove photo">×</button></div>';
+  });
+  var full = ph.length + sg.length >= 4;
+  if (!lock) {
+    if (camOK()) h += '<button type="button" class="add' + (full ? ' dis' : '') + '" data-a="cam" data-i="' + i + '">📷 ' + (ph.length + sg.length ? 'Add' : 'Photo') + '</button>';
+    else h += '<label class="add' + (full ? ' dis' : '') + '">📷 ' + (ph.length + sg.length ? 'Add' : 'Photo') +
+      '<input type="file" accept="image/*" capture="environment" multiple hidden data-photo="' + i + '"' + (full ? ' disabled' : '') + '></label>';
+  }
+  h += '</div>';
+  if (sg.length && !lock) h += '<button type="button" class="btn subm" data-a="stage-send" data-i="' + i + '">Submit ' + sg.length + ' photo' + (sg.length === 1 ? '' : 's') + '</button>';
+  return h;
 }
 
 function sealsHTML(o, i, lock){
@@ -610,6 +631,9 @@ document.addEventListener('click', function(ev){
   if (a === 'open') return openRoute(el.getAttribute('data-v'));
   if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
   if (a === 'reload') return reloadRoute();
+  if (a === 'cam') return camOpen(i);
+  if (a === 'stage-send') return stageSend(i);
+  if (a === 'stage-del') { var so = orderAt(i); if (so && so.staged) so.staged.splice(Number(el.getAttribute('data-k')), 1); return redrawOrder(i); }
   if (a === 'photo-del') return photoDel(i, Number(el.getAttribute('data-k')));
   if (a === 'vehicle') return vehicleOpen();
   if (a === 'veh-cancel') return vehicleClose();
@@ -804,19 +828,80 @@ function shrinkPhoto(file, cb){
   rd.onerror = function(){ cb(''); };
   rd.readAsDataURL(file);
 }
+// Photos are kept on the phone first. The loader takes one or two, looks
+// at them, then taps Submit; only then do they go to the sheet.
+function stageRoom(o){ return 4 - (o.photos || []).length - (o.staged || []).length; }
 document.addEventListener('change', function(ev){
   var t = ev.target; if (!t || !t.getAttribute || t.getAttribute('data-photo') === null) return;
-  var i = Number(t.getAttribute('data-photo')), o = orderAt(i), f = t.files && t.files[0];
+  var i = Number(t.getAttribute('data-photo')), o = orderAt(i), fs = [];
+  for (var n = 0; t.files && n < t.files.length; n++) fs.push(t.files[n]);
   t.value = '';
-  if (!o || !f || finished()) return;
-  if (o.photos.length >= 4) { toast('Up to 4 photos for one order.'); return; }
-  shrinkPhoto(f, function(data){
-    if (!data) { toast('Could not read that photo. Try again.'); return; }
-    var p = { link: '', thumb: data, uploading: true, failed: false };
-    o.photos.push(p); redrawOrder(i);
-    uploadPhoto(o, p, i, 1);
+  if (!o || !fs.length || finished()) return;
+  if (fs.length > stageRoom(o)) { toast('Up to 4 photos for one order.'); fs = fs.slice(0, Math.max(0, stageRoom(o))); }
+  fs.forEach(function(f){
+    shrinkPhoto(f, function(data){
+      if (!data) { toast('Could not read that photo. Try again.'); return; }
+      if (stageRoom(o) < 1) return;
+      (o.staged = o.staged || []).push({ thumb: data }); redrawOrder(i);
+    });
   });
 });
+function camOK(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+var cam = { stream: null, el: null, i: -1 };
+function camOpen(i){
+  var o = orderAt(i); if (cam.el || !o || stageRoom(o) < 1 || finished()) return;
+  kpClose();
+  cam.i = i;
+  var el = document.createElement('div'); el.id = 'cam'; el.className = 'cam';
+  el.innerHTML = '<video id="cam-v" autoplay playsinline muted></video><div class="cam-msg" id="cam-msg">Starting camera…</div>' +
+    '<div class="cam-bar"><button type="button" class="cam-done" id="cam-done">Done</button>' +
+    '<button type="button" class="cam-shoot" id="cam-shoot" aria-label="Take photo"></button><span class="cam-n" id="cam-n"></span></div>';
+  document.body.appendChild(el); cam.el = el; camCount();
+  document.getElementById('cam-done').addEventListener('click', function(){ camClose(); });
+  document.getElementById('cam-shoot').addEventListener('click', camShoot);
+  navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } } }).then(function(s){
+    if (!cam.el) { s.getTracks().forEach(function(t){ t.stop(); }); return; }
+    cam.stream = s; var v = document.getElementById('cam-v'); v.srcObject = s;
+    var pl = v.play && v.play(); if (pl && pl.catch) pl.catch(function(){});
+    document.getElementById('cam-msg').textContent = '';
+  }).catch(function(){
+    camClose(); toast('The camera could not start. Allow the camera for this app and try again.');
+  });
+}
+function camCount(){
+  var o = orderAt(cam.i), n = document.getElementById('cam-n');
+  if (n && o) n.textContent = ((o.staged || []).length + (o.photos || []).length) + ' / 4';
+}
+function camShoot(){
+  var v = document.getElementById('cam-v'), o = orderAt(cam.i);
+  if (!cam.stream || !v || !v.videoWidth || !o) return;
+  if (stageRoom(o) < 1) return camClose();
+  var maxEdge = 1000, w = v.videoWidth, h = v.videoHeight;
+  if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
+  else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
+  var c = document.createElement('canvas'); c.width = w; c.height = h;
+  var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(v, 0, 0, w, h);
+  (o.staged = o.staged || []).push({ thumb: c.toDataURL('image/jpeg', 0.6) }); c.width = 1; c.height = 1;
+  camCount();
+  cam.el.classList.add('flash'); setTimeout(function(){ if (cam.el) cam.el.classList.remove('flash'); }, 150);
+  if (stageRoom(o) < 1) camClose();
+}
+function camClose(){
+  if (cam.stream) { cam.stream.getTracks().forEach(function(t){ t.stop(); }); cam.stream = null; }
+  if (cam.el && cam.el.parentNode) cam.el.parentNode.removeChild(cam.el);
+  cam.el = null;
+  if (cam.i >= 0 && orderAt(cam.i)) redrawOrder(cam.i);
+  cam.i = -1;
+}
+function stageSend(i){
+  var o = orderAt(i); if (!o || !o.staged || !o.staged.length) return;
+  var list = o.staged; o.staged = [];
+  list.forEach(function(s){
+    var p = { link: '', thumb: s.thumb, uploading: true, failed: false };
+    o.photos.push(p); uploadPhoto(o, p, i, 1);
+  });
+  redrawOrder(i);
+}
 function uploadPhoto(o, p, i, tries){
   api('ldPhoto', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, base64: p.thumb.split(',')[1], mime: 'image/jpeg' }).then(function(r){
     if (r && r.success) { p.link = r.link; p.uploading = false; }
