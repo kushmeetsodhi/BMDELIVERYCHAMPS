@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=d1a220df7a"></script>
+<script src="config.js?v=3bf4b65c1e"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1570,10 +1570,14 @@ function orderHTML(){
 // What the loading team packed, so the DA and the shop can check it at the door.
 function loadBlock(o){
   var l = o && o.load; if (!l) return '';
-  var what = [];
-  if (l.bags) what.push(l.bags + ' bag' + (l.bags === 1 ? '' : 's'));
-  if (l.loose) what.push(l.loose + ' loose carton' + (l.loose === 1 ? '' : 's'));
-  return '<div class="field-row"><span class="l">Loaded</span><span class="v">' + esc(what.join(' + ')) + '</span></div>' +
+  var chip = function(txt, rgb){
+    return '<span style="display:inline-block; margin-left:6px; padding:3px 10px; border-radius:12px; font-weight:700; ' +
+      'background:rgba(' + rgb + ',0.16); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.45);">' + txt + '</span>';
+  };
+  var what = '';
+  if (l.bags) what += chip('\uD83D\uDECD ' + l.bags + ' bag' + (l.bags === 1 ? '' : 's'), '37,99,235');
+  if (l.loose) what += chip('\uD83D\uDCE6 ' + l.loose + ' loose', '217,119,6');
+  return '<div class="field-row"><span class="l">Loaded</span><span class="v">' + what + '</span></div>' +
     (l.seal ? '<div class="field-row"><span class="l">Seal tags</span><span class="v">' + esc(l.seal) + '</span></div>' : '');
 }
 
