@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=79c18f5412"></script>
+<script src="config.js?v=152f757dea"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -146,6 +146,15 @@
   .vbtn.chg{ background:var(--amber-bg); color:var(--amber); }
   .modal{ position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:18px; }
   .modal .box{ width:100%; max-width:380px; background:var(--card); border-radius:16px; padding:18px; }
+  .ph{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  .ph .th{ position:relative; width:64px; height:64px; border-radius:10px; overflow:hidden; background:var(--bg); flex:none; }
+  .ph .th img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ph .th.up img{ opacity:.45; }
+  .ph .th.bad{ outline:2px solid var(--red); }
+  .ph .th .x{ position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:11px; border:0; background:rgba(0,0,0,.6); color:#fff; font-size:13px; line-height:22px; padding:0; }
+  .ph .th .st{ position:absolute; left:0; right:0; bottom:0; font-size:10px; text-align:center; background:rgba(0,0,0,.6); color:#fff; padding:1px 0; }
+  .ph .add{ display:inline-flex; align-items:center; gap:6px; height:44px; padding:0 14px; border-radius:22px; background:var(--blue-bg); color:var(--blue); font-weight:700; font-size:13.5px; cursor:pointer; }
+  .ph .add.dis{ opacity:.5; pointer-events:none; }
   .plan{ margin:8px 2px 0; }
   .plan-t{ display:flex; align-items:center; gap:10px; font-size:17px; }
   .p-late{ background:var(--red-bg); color:var(--red); }
@@ -235,7 +244,7 @@ function touchCopy(){
   if (copyTimer) return;
   copyTimer = setTimeout(function(){
     copyTimer = 0;
-    if (state.token && state.route && state.shown) writeCopy('bm_ld_route_' + state.shown + '_' + state.code, state.route);
+    if (state.token && state.route && state.shown) writeCopy('bm_ld_route_' + state.shown + '_' + state.code, JSON.parse(JSON.stringify(state.route, function(k, v){ return k === 'thumb' ? undefined : v; })));
   }, 700);
 }
 
@@ -286,7 +295,7 @@ function openRoute(code){
   state.view = 'route'; state.code = code; state.route = null; state.error = ''; state.open = {};
   var c = readCopy('bm_ld_route_' + state.shown + '_' + code);
   var hadCopy = !!(c && c.data && c.data.success && Date.now() - c.at < 6 * 3600000);
-  if (hadCopy) { state.route = c.data; state.cur = firstOpen(c.data); }
+  if (hadCopy) { state.route = adopt(c.data); state.cur = firstOpen(c.data); }
   render(); window.scrollTo(0, 0);
   if (hadCopy) fillItems();
   api('ldRoute', { date: state.shown, code: code }).then(function(r){
@@ -294,7 +303,7 @@ function openRoute(code){
     if (r && r.success) {
       // Edits still on their way to the server (or being typed) win over this answer.
       if (!(hadCopy && ((state.pending || 0) > 0 || kp.i >= 0))) {
-        state.route = r;
+        state.route = adopt(r);
         if (!hadCopy || state.cur >= r.orders.length) state.cur = firstOpen(r);
       }
       touchCopy();
@@ -333,12 +342,18 @@ function reloadRoute(){
   if ((state.pending || 0) > 0) { toast('Still saving. Try again in a moment.'); return; }
   api('ldRoute', { date: state.shown, code: code }).then(function(r){
     if (state.code !== code) return;
-    if (r && r.success) { state.route = r; touchCopy(); render(); fillItems(); } else if (r) toast(r.error || 'Could not reload.');
+    if (r && r.success) { state.route = adopt(r); touchCopy(); render(); fillItems(); } else if (r) toast(r.error || 'Could not reload.');
   });
 }
 
 /******************** SMALL PIECES ********************/
 function n0(v){ var n = parseInt(String(v || '').replace(/\D/g, ''), 10); return isFinite(n) ? n : 0; }
+function adopt(r){
+  (r.orders || []).forEach(function(o){
+    o.photos = (o.photos || []).map(function(p){ return typeof p === 'string' ? { link: p } : p; });
+  });
+  return r;
+}
 function sumUp(r){
   var t = { orders: r.orders.length, loaded: 0, bags: 0, loose: 0 };
   r.orders.forEach(function(o){ t.bags += o.bags; t.loose += o.loose; if (o.loaded) t.loaded++; });
@@ -463,6 +478,30 @@ function itemsHTML(o, i){
   return h + '</div>';
 }
 
+function thumbUrl(link, size){
+  var m = String(link || '').match(/[-\w]{25,}/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 200) : '';
+}
+function photosHTML(o, i){
+  var ph = o.photos || [], lock = finished();
+  var h = '<div class="ph">';
+  ph.forEach(function(p, k){
+    var src = p.thumb || thumbUrl(p.link);
+    if (p.link) {
+      h += '<div class="th"><a href="' + esc(p.link) + '" target="_blank" rel="noopener"><img src="' + esc(src) + '" alt="Photo ' + (k + 1) + '" loading="lazy"></a>' +
+        (lock ? '' : '<button type="button" class="x" data-a="photo-del" data-i="' + i + '" data-k="' + k + '" aria-label="Remove photo">×</button>') + '</div>';
+    } else {
+      h += '<div class="th ' + (p.failed ? 'bad' : 'up') + '"><img src="' + esc(src) + '" alt="">' +
+        '<div class="st">' + (p.failed ? 'Not saved' : 'Saving…') + '</div>' +
+        (p.failed ? '<button type="button" class="x" data-a="photo-del" data-i="' + i + '" data-k="' + k + '" aria-label="Remove photo">×</button>' : '') + '</div>';
+    }
+  });
+  var full = ph.length >= 4;
+  if (!lock) h += '<label class="add' + (full ? ' dis' : '') + '">📷 ' + (ph.length ? 'Add' : 'Photo') +
+    '<input type="file" accept="image/*" capture="environment" hidden data-photo="' + i + '"' + (full ? ' disabled' : '') + '></label>';
+  return h + '</div>';
+}
+
 function orderHTML(o, i){
   var lock = finished();
   var open = !!state.open[i];
@@ -479,6 +518,7 @@ function orderHTML(o, i){
     '<div class="units"><span>Total units <b id="u-' + i + '">' + (o.bags + o.loose) + '</b></span>' +
       (o.items ? '<button class="link" data-a="toggle" data-i="' + i + '">' + (open ? 'Hide items' : 'Items ' + o.itemsDone + '/' + o.itemsTotal) + '</button>'
                : '<span class="note">' + (state.filling ? 'Looking up items…' : 'No item list') + '</span>') + '</div>' +
+    photosHTML(o, i) +
     (open ? itemsHTML(o, i) : '') +
     '<div style="margin-top:12px;">' +
       (o.loaded ? '<button class="btn undo" data-a="unload" data-i="' + i + '"' + (lock ? ' disabled' : '') + '>✓ Loaded' + (o.loadedAt ? ' · ' + esc(o.loadedAt) : '') + ' — tap to undo</button>'
@@ -544,6 +584,7 @@ document.addEventListener('click', function(ev){
   if (a === 'open') return openRoute(el.getAttribute('data-v'));
   if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
   if (a === 'reload') return reloadRoute();
+  if (a === 'photo-del') return photoDel(i, Number(el.getAttribute('data-k')));
   if (a === 'vehicle') return vehicleOpen();
   if (a === 'veh-cancel') return vehicleClose();
   if (a === 'veh-save') return vehicleSave();
@@ -704,6 +745,58 @@ function vehicleSave(){
   });
 }
 
+/******************** PHOTOS ********************/
+// Same size and quality as the DA app's proof photos.
+function shrinkPhoto(file, cb){
+  var rd = new FileReader();
+  rd.onload = function(){
+    var img = new Image();
+    img.onload = function(){
+      var maxEdge = 1000, w = img.width, h = img.height;
+      if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
+      else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
+      var c = document.createElement('canvas'); c.width = w; c.height = h;
+      var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
+      var out = c.toDataURL('image/jpeg', 0.6); c.width = 1; c.height = 1;
+      cb(out);
+    };
+    img.onerror = function(){ cb(''); };
+    img.src = rd.result;
+  };
+  rd.onerror = function(){ cb(''); };
+  rd.readAsDataURL(file);
+}
+document.addEventListener('change', function(ev){
+  var t = ev.target; if (!t || !t.getAttribute || t.getAttribute('data-photo') === null) return;
+  var i = Number(t.getAttribute('data-photo')), o = orderAt(i), f = t.files && t.files[0];
+  t.value = '';
+  if (!o || !f || finished()) return;
+  if (o.photos.length >= 4) { toast('Up to 4 photos for one order.'); return; }
+  shrinkPhoto(f, function(data){
+    if (!data) { toast('Could not read that photo. Try again.'); return; }
+    var p = { link: '', thumb: data, uploading: true, failed: false };
+    o.photos.push(p); redrawOrder(i);
+    uploadPhoto(o, p, i, 1);
+  });
+});
+function uploadPhoto(o, p, i, tries){
+  api('ldPhoto', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, base64: p.thumb.split(',')[1], mime: 'image/jpeg' }).then(function(r){
+    if (r && r.success) { p.link = r.link; p.uploading = false; }
+    else if (tries < 2 && (!r || r.offline)) { setTimeout(function(){ uploadPhoto(o, p, i, tries + 1); }, 2500); return; }
+    else { p.uploading = false; p.failed = true; toast((r && r.error) || 'Photo not saved. Check your internet.'); }
+    var idx = state.route ? state.route.orders.indexOf(o) : -1;
+    if (idx > -1) redrawOrder(idx);
+    touchCopy();
+  });
+}
+function photoDel(i, k){
+  var o = orderAt(i), p = o && o.photos[k]; if (!p) return;
+  o.photos.splice(k, 1); redrawOrder(i);
+  if (p.link) send('ldPhotoDel', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, link: p.link }).then(function(r){
+    if (!r || !r.success) { toast((r && r.error) || 'Not removed. Check your internet.'); reloadRoute(); }
+  });
+}
+
 function goOrder(i){
   if (i < 0 || i >= state.route.orders.length) return;
   state.cur = i; render(); window.scrollTo(0, 0);
@@ -794,6 +887,58 @@ function doLogin(){
     state.token = saved.token; state.name = saved.name; state.loginName = saved.loginName || '';
     state.view = 'routes'; loadRoutes(false);
   } else render();
+})();
+</script>
+<script>
+/* PHOTO-POPUP: photo links open in a big popup inside the app, not another app. */
+(function(){
+  var box = null, hist = false;
+  function fileId(u){ var m = String(u || '').match(/[-\w]{25,}/); return m ? m[0] : ''; }
+  function isPhotoLink(a){
+    var h = a.getAttribute('href') || '';
+    if (!/drive\.google\.com|googleusercontent\.com/i.test(h)) return false;
+    if (/\/maps|wa\.me|whatsapp/i.test(h)) return false;
+    var txt = (a.textContent || '').toLowerCase();
+    if (/pdf|manifest|sheet|doc\b/.test(txt)) return false;
+    return !!a.querySelector('img') || /photo|view|screenshot|image|proof|signature|pod/.test(txt);
+  }
+  function close(fromPop){
+    if (!box) return;
+    box.remove(); box = null;
+    if (hist && !fromPop) { hist = false; try { history.back(); } catch (e) {} }
+    hist = false;
+  }
+  function open(href){
+    var id = fileId(href); if (!id) return false;
+    close(true);
+    box = document.createElement('div');
+    box.setAttribute('style', 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;');
+    box.innerHTML =
+      '<div style="position:absolute;top:10px;right:10px;left:10px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" data-lb-skip="1" style="color:#fff;font:600 13px system-ui;text-decoration:underline;opacity:.85;">Open original</a>' +
+        '<button type="button" id="lb-x" style="background:#fff;color:#000;border:0;border-radius:20px;width:38px;height:38px;font:700 20px system-ui;cursor:pointer;">×</button>' +
+      '</div>' +
+      '<img alt="" style="max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;touch-action:pinch-zoom;" ' +
+        'src="https://drive.google.com/thumbnail?id=' + id + '&sz=w1600">' +
+      '<div id="lb-msg" style="color:#fff;font:13px system-ui;margin-top:10px;opacity:.8;">Tap outside the photo to close</div>';
+    var img = box.querySelector('img');
+    img.onerror = function(){ img.style.display = 'none'; box.querySelector('#lb-msg').textContent = 'Could not load the photo here. Use Open original.'; };
+    box.addEventListener('click', function(e){
+      if (e.target.closest && e.target.closest('[data-lb-skip]')) return;
+      if (e.target === img) return;
+      close();
+    });
+    document.body.appendChild(box);
+    try { history.pushState({ lb: 1 }, ''); hist = true; } catch (e) {}
+    return true;
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.hasAttribute('data-lb-skip') || !isPhotoLink(a)) return;
+    if (open(a.getAttribute('href'))) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  window.addEventListener('popstate', function(){ if (box) close(true); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
 })();
 </script>
 <script>
