@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=3bf4b65c1e"></script>
+<script src="config.js?v=3d56808768"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1568,6 +1568,16 @@ function orderHTML(){
 }
 
 // What the loading team packed, so the DA and the shop can check it at the door.
+// The loading team's insulated bag: navy, front flap, orange badge.
+function bagIcon(px){
+  return '<svg width="' + Math.round(px * 0.75) + '" height="' + px + '" viewBox="0 0 24 32" aria-hidden="true" style="vertical-align:-3px; margin-right:4px;">' +
+    '<rect x="2" y="3" width="20" height="27" rx="3.5" fill="#1F2A44"/>' +
+    '<rect x="2" y="3" width="20" height="11" rx="3.5" fill="#2B3A5E"/>' +
+    '<path d="M2 14h20" stroke="#0F1729" stroke-width="1.2"/>' +
+    '<rect x="8" y="0.8" width="8" height="3" rx="1.5" fill="#0F1729"/>' +
+    '<rect x="7.5" y="16.5" width="9" height="9" rx="2.2" fill="#F26A21"/>' +
+    '<path d="M10 19.5h4M10 22h3" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>';
+}
 function loadBlock(o){
   var l = o && o.load; if (!l) return '';
   var chip = function(txt, rgb){
@@ -1575,7 +1585,7 @@ function loadBlock(o){
       'background:rgba(' + rgb + ',0.16); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.45);">' + txt + '</span>';
   };
   var what = '';
-  if (l.bags) what += chip('\uD83D\uDECD ' + l.bags + ' bag' + (l.bags === 1 ? '' : 's'), '37,99,235');
+  if (l.bags) what += chip(bagIcon(15) + l.bags + ' bag' + (l.bags === 1 ? '' : 's'), '37,99,235');
   if (l.loose) what += chip('\uD83D\uDCE6 ' + l.loose + ' loose', '217,119,6');
   return '<div class="field-row"><span class="l">Loaded</span><span class="v">' + what + '</span></div>' +
     (l.seal ? '<div class="field-row"><span class="l">Seal tags</span><span class="v">' + esc(l.seal) + '</span></div>' : '');
