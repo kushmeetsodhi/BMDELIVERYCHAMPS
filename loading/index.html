@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=a2e56d9d60"></script>
+<script src="config.js?v=a1732cdf45"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -163,6 +163,14 @@
   .cam-shoot:active{ transform:scale(.92); }
   .cam-done{ background:none; border:1.5px solid #fff; color:#fff; border-radius:9px; padding:10px 18px; font-size:15px; font-weight:700; }
   .cam-n{ color:#fff; font-size:15px; min-width:72px; text-align:right; }
+  .spot{ display:inline-block; margin-top:10px; padding:6px 12px; border-radius:10px; background:var(--blue-bg); color:var(--blue); font-weight:800; font-size:15px; }
+  .fm-row{ display:flex; align-items:center; gap:10px; padding:4px 0; }
+  .fm-n{ width:28px; text-align:center; color:var(--sub); font-weight:700; font-size:14px; flex:none; }
+  .fm-c{ flex:1; height:50px; border-radius:12px; border:1.5px solid var(--line); background:var(--card); color:var(--ink); font-size:24px; font-weight:700; letter-spacing:.08em; text-align:left; padding:0 14px; }
+  .fm-c.act{ border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-bg); }
+  .fm-c.emp{ color:var(--faint); font-weight:500; }
+  .fm-x{ width:40px; height:40px; border:0; border-radius:20px; background:transparent; color:var(--sub); font-size:20px; flex:none; }
+  body.mk-open .page{ padding-bottom:330px; }
   .ph .th.stg{ outline:2px dashed var(--blue); }
   .subm{ width:100%; margin-top:10px; }
   .ph{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
@@ -396,7 +404,8 @@ function finished(){ return state.route && state.route.state === 'done'; }
 function render(){
   var app = document.getElementById('app');
   var y = window.pageYOffset;
-  app.innerHTML = state.view === 'login' ? loginHTML() : state.view === 'route' ? routeHTML() : state.view === 'settings' ? settingsHTML() : routesHTML();
+  if (state.view !== 'map') fmHide();
+  app.innerHTML = state.view === 'login' ? loginHTML() : state.view === 'route' ? routeHTML() : state.view === 'settings' ? settingsHTML() : state.view === 'map' ? mapHTML() : routesHTML();
   if (state.view === 'route') window.scrollTo(0, y);
 }
 
@@ -459,6 +468,7 @@ function routesHTML(){
   if (state.loading || !d) return head + '<div class="page">' + body + '<div class="spin">Loading the routes…</div></div>';
   if (!d.groups.length) return head + '<div class="page">' + body + '<div class="empty">No routes yet for ' + esc(dayLabel(d.day)) +
     '.<br>The plan shows up here as soon as it is issued.</div></div>';
+  body += '<button class="btn ghost" data-a="map-open" style="margin-bottom:12px;">🗺 Floor map · where each order is staged</button>';
   d.groups.forEach(function(g, gi){
     body += '<div class="plan"><div class="plan-t"><b>' + esc(g.title) + '</b>' +
       (g.late ? '<span class="pill p-late">Late</span>' : g.counts.open === 0 ? '<span class="pill p-ok">All loaded</span>' : '') + '</div>' +
@@ -557,6 +567,7 @@ function orderHTML(o, i){
     '<div class="row"><div class="seq" title="Load number">' + o.loadNo + '</div><div class="grow"><div class="shop">' + esc(o.shop) + '</div>' +
       '<div class="meta">Load ' + o.loadNo + ' · stop ' + o.seq + ' · SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + ' · ' + (/prepaid/i.test(o.orderType) ? 'Prepaid' : 'COD') + '</div></div>' +
       (o.loaded ? '<span class="pill p-ok">Loaded</span>' : '') + '</div>' +
+    (o.spot ? '<div class="spot">📍 Line ' + o.spot.line + ' · row ' + o.spot.pos + '</div>' : '') +
     (o.instructions ? '<div class="instr" style="margin-top:10px;">' + esc(o.instructions) + '</div>' : '') +
     '<div class="counts" style="margin-top:12px;">' +
       '<div><label>Bags</label><input type="text" readonly inputmode="none" data-f="bags" data-i="' + i + '" value="' + (o.bags || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
@@ -622,6 +633,11 @@ document.addEventListener('click', function(ev){
   var a = el.getAttribute('data-a'), i = Number(el.getAttribute('data-i'));
   if (a === 'login') return doLogin();
   if (a === 'logout') { logout(''); return; }
+  if (a === 'map-open') return fmOpen();
+  if (a === 'fm-line') { fm.buf = ''; fm.line = Number(el.getAttribute('data-v')); fm.pos = fmList().length; render(); return; }
+  if (a === 'fm-batch') { fm.batch = el.getAttribute('data-v'); fm.buf = ''; fm.line = 1; render(); return fmLoad(); }
+  if (a === 'fm-cell') { fm.buf = ''; fm.pos = Number(el.getAttribute('data-v')); render(); return; }
+  if (a === 'fm-del') { var di = Number(el.getAttribute('data-v')); fmList().splice(di, 1); fm.buf = ''; fm.pos = fmList().length; fmSave(); render(); return; }
   if (a === 'settings') { state.view = 'settings'; render(); window.scrollTo(0, 0); return; }
   if (a === 'back-routes') { state.view = 'routes'; render(); return; }
   if (a === 'theme') { setTheme(el.getAttribute('data-v')); return; }
@@ -664,6 +680,100 @@ document.addEventListener('click', function(ev){
 document.addEventListener('keydown', function(ev){
   if (ev.key === 'Enter' && state.view === 'login') doLogin();
 });
+
+/******************** FLOOR MAP ********************/
+// Typed in once per loading. A line is entered from the top down; the place
+// of an order in the list is its row on the floor.
+var fm = { day: '', batch: 'evening', line: 1, lines: {}, pos: 0, buf: '', busy: false };
+function fmList(){ return fm.lines[fm.line] || (fm.lines[fm.line] = []); }
+function fmMaxLine(){ var m = 14; for (var k in fm.lines) if (fm.lines[k] && fm.lines[k].length && Number(k) + 1 > m) m = Number(k) + 1; return Math.max(m, fm.line); }
+function fmOpen(){
+  var hr = new Date().getHours();
+  fm = { day: state.routes ? state.routes.day : (state.shown || ''), batch: (hr >= 17 || hr < 2) ? 'evening' : 'morning', line: 1, lines: {}, pos: 0, buf: '', busy: true };
+  state.view = 'map'; render(); window.scrollTo(0, 0); fmLoad();
+}
+function fmLoad(){
+  fm.busy = true; fm.lines = {};
+  var want = fm.batch;
+  api('ldMapGet', { date: fm.day, batch: fm.batch }).then(function(r){
+    if (want !== fm.batch) return;
+    fm.busy = false;
+    if (r && r.success) { fm.lines = r.lines || {}; fm.pos = fmList().length; }
+    else toast((r && r.error) || 'Could not open the floor map.');
+    if (state.view === 'map') render();
+  });
+}
+function fmSave(){
+  var line = fm.line, list = (fm.lines[line] || []).slice();
+  send('ldMapSave', { date: fm.day, batch: fm.batch, line: line, orders: list }).then(function(r){
+    if (!r || !r.success) toast((r && r.error) || 'Not saved. Check your internet.');
+  });
+}
+function fmWhere(n, exceptLine, exceptPos){
+  for (var k in fm.lines) { var l = fm.lines[k] || [];
+    for (var i = 0; i < l.length; i++) if (l[i] === n && !(Number(k) === exceptLine && i === exceptPos)) return { line: Number(k), pos: i + 1 }; }
+  return null;
+}
+function mapHTML(){
+  var chips = '<div class="chips">';
+  for (var n = 1; n <= fmMaxLine(); n++) {
+    var c = (fm.lines[n] || []).length;
+    chips += '<button class="chip' + (n === fm.line ? ' cur' : '') + '" data-a="fm-line" data-v="' + n + '">' + n + (c ? '<small style="opacity:.7"> ·' + c + '</small>' : '') + '</button>';
+  }
+  chips += '</div>';
+  var head = '<div class="top"><div class="top-row"><button class="icon-btn" data-a="back-routes" aria-label="Back">‹</button><div style="flex:1;"><h1>Floor map</h1>' +
+    '<div class="sub">' + esc(dayLabel(fm.day)) + ' · type each line from the top down</div></div></div>' + chips + '</div>';
+  var seg = '<div class="seg"><button class="' + (fm.batch === 'evening' ? 'on' : '') + '" data-a="fm-batch" data-v="evening">Evening loading</button>' +
+    '<button class="' + (fm.batch === 'morning' ? 'on' : '') + '" data-a="fm-batch" data-v="morning">Night loading</button></div>';
+  var list = fmList(), rows = '';
+  if (fm.busy) rows = '<div class="spin">Opening…</div>';
+  else {
+    var upto = Math.max(list.length, fm.pos) + 1;
+    for (var i = 0; i < upto; i++) {
+      var act = i === fm.pos, v = act ? fm.buf : (list[i] || '');
+      rows += '<div class="fm-row"><span class="fm-n">' + (i + 1) + '</span>' +
+        '<button class="fm-c' + (act ? ' act' : '') + (v ? '' : ' emp') + '" data-a="fm-cell" data-v="' + i + '">' + (v || (act ? 'type 5 digits' : (i < list.length ? '' : '—'))) + '</button>' +
+        (i < list.length ? '<button class="fm-x" data-a="fm-del" data-v="' + i + '" aria-label="Remove">×</button>' : '<span class="fm-x"></span>') + '</div>';
+    }
+  }
+  return head + '<div class="page">' + seg + '<div class="card" style="margin-top:12px;"><div style="font-weight:800; margin-bottom:6px;">Line ' + fm.line +
+    ' <span class="note">· ' + list.length + ' order' + (list.length === 1 ? '' : 's') + '</span></div>' + rows + '</div></div>' + fmPad();
+}
+function fmPad(){
+  var key = function(v, label, cls){ return '<button type="button" class="k ' + (cls || '') + '" data-m="' + v + '">' + label + '</button>'; };
+  var box = document.getElementById('mk');
+  if (!box) { box = document.createElement('div'); box.id = 'mk'; box.className = 'kp'; document.body.appendChild(box); }
+  box.innerHTML = '<div class="kp-in"><div class="kp-top"><div class="grow"><b>Line ' + fm.line + '</b> · row ' + (fm.pos + 1) + '</div>' +
+    '<button type="button" class="kp-done" data-m="done">Done</button></div><div class="kp-grid">' +
+    key('1','1') + key('2','2') + key('3','3') + key('4','4') + key('5','5') + key('6','6') + key('7','7') + key('8','8') + key('9','9') +
+    key('back','⌫','alt') + key('0','0') + key('nl','Next line ›','go') + '</div></div>';
+  box.style.display = '';
+  document.body.classList.add('mk-open');
+  return '';
+}
+function fmHide(){
+  var box = document.getElementById('mk'); if (box) box.style.display = 'none';
+  document.body.classList.remove('mk-open');
+}
+function fmKey(k){
+  if (k === 'done') { fm.buf = ''; fm.pos = fmList().length; render(); return; }
+  if (k === 'nl') { fm.buf = ''; fm.line++; fm.pos = fmList().length; render(); window.scrollTo(0, 0); return; }
+  var list = fmList();
+  if (k === 'back') {
+    if (fm.buf) fm.buf = fm.buf.slice(0, -1);
+    else if (fm.pos > 0) { fm.pos--; list.splice(fm.pos, 1); fmSave(); }
+    return render();
+  }
+  if (fm.buf.length >= 5) return;
+  fm.buf += k;
+  if (fm.buf.length === 5) {
+    var dup = fmWhere(fm.buf, fm.line, fm.pos);
+    if (dup) { toast(fm.buf + ' is already on line ' + dup.line + ', row ' + dup.pos + '.'); fm.buf = ''; return render(); }
+    list[fm.pos] = fm.buf; fm.buf = ''; fm.pos = Math.min(fm.pos + 1, list.length);
+    fmSave();
+  }
+  render();
+}
 
 /******************** NUMBER KEYPAD ********************/
 // The phone's full keyboard never opens. Tapping Bags, Loose CTN or Seal
@@ -745,6 +855,8 @@ document.addEventListener('focusin', function(ev){
   kpOpen(Number(t.getAttribute('data-i')), t.getAttribute('data-f'), Number(t.getAttribute('data-s')) || 0);
 });
 document.addEventListener('click', function(ev){
+  var mk = ev.target.closest && ev.target.closest('#mk [data-m]');
+  if (mk) { ev.preventDefault(); fmKey(mk.getAttribute('data-m')); return; }
   var k = ev.target.closest && ev.target.closest('#kp [data-k]');
   if (k) { ev.preventDefault(); kpKey(k.getAttribute('data-k')); return; }
   if (kp.i < 0) return;
