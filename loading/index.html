@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BM Loading</title>
+<script src="config.js?v=bf417100d0"></script>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<style>
+  :root{
+    --brand:#0E1466; --brand-ink:#FFFFFF; --brand-soft:#C9CDF2;
+    --bg:#F3F4F8; --card:#FFFFFF; --ink:#151826; --sub:#5A6075; --faint:#8B91A3; --line:#E2E5EC;
+    --field:#FFFFFF;
+    --green:#16794A; --green-bg:#E3F4EA;
+    --red:#B42323; --red-bg:#FDE2E2;
+    --amber:#8A5300; --amber-bg:#FFF1D6;
+    --blue:#1B2A8F; --blue-bg:#E3E7FB;
+    --shadow:0 1px 2px rgba(20,20,43,0.06), 0 1px 3px rgba(20,20,43,0.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --brand:#151A4D; --brand-soft:#A9AECB;
+      --bg:#0F1222; --card:#1A1E33; --ink:#ECEEF7; --sub:#A9AECB; --faint:#7D83A3; --line:#2E3350; --field:#12152A;
+      --green:#4ADE80; --green-bg:#16301F; --red:#F87171; --red-bg:#3A1C1C;
+      --amber:#FBBF24; --amber-bg:#33290F; --blue:#9DB2FF; --blue-bg:#1E2650;
+      --shadow:0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --brand:#151A4D; --brand-soft:#A9AECB;
+    --bg:#0F1222; --card:#1A1E33; --ink:#ECEEF7; --sub:#A9AECB; --faint:#7D83A3; --line:#2E3350; --field:#12152A;
+    --green:#4ADE80; --green-bg:#16301F; --red:#F87171; --red-bg:#3A1C1C;
+    --amber:#FBBF24; --amber-bg:#33290F; --blue:#9DB2FF; --blue-bg:#1E2650;
+    --shadow:0 1px 3px rgba(0,0,0,0.4);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{ font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;
+        background:var(--bg); color:var(--ink); font-size:15px; }
+  button{ font:inherit; }
+
+  .top{ position:sticky; top:0; z-index:20; background:var(--brand); color:var(--brand-ink);
+        padding:calc(14px + env(safe-area-inset-top)) 16px 14px; }
+  .top-row{ display:flex; align-items:center; gap:10px; }
+  .top h1{ margin:0; font-size:20px; font-weight:700; flex:1; }
+  .top .sub{ font-size:13px; color:var(--brand-soft); margin-top:3px; }
+  .icon-btn{ width:42px; height:42px; border-radius:21px; border:0; background:rgba(255,255,255,0.13);
+             color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; flex:none; }
+  .days{ display:flex; gap:8px; margin-top:12px; }
+  .day{ flex:1; padding:9px 0; text-align:center; border-radius:10px; background:rgba(255,255,255,0.10);
+        color:var(--brand-soft); font-weight:600; font-size:13.5px; border:0; cursor:pointer; }
+  .day.on{ background:#fff; color:#0E1466; }
+  .prog{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; margin-top:12px; }
+  .prog div{ background:rgba(255,255,255,0.10); border-radius:10px; padding:7px 4px; text-align:center; }
+  .prog b{ display:block; font-size:18px; font-variant-numeric:tabular-nums; }
+  .prog span{ font-size:11px; color:var(--brand-soft); }
+
+  .page{ padding:14px 14px 120px; max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  .card{ background:var(--card); border-radius:14px; padding:14px; box-shadow:var(--shadow); }
+  .card.done{ border-left:5px solid var(--green); }
+  .row{ display:flex; align-items:center; gap:10px; }
+  .grow{ flex:1; min-width:0; }
+  .shop{ font-weight:700; font-size:16px; }
+  .meta{ font-size:13px; color:var(--sub); }
+  .seq{ width:34px; height:34px; border-radius:10px; background:var(--bg); display:flex; align-items:center; justify-content:center;
+        font-weight:800; flex:none; }
+  .pill{ font-size:12px; font-weight:700; padding:4px 10px; border-radius:12px; white-space:nowrap; }
+  .p-ok{ background:var(--green-bg); color:var(--green); } .p-mid{ background:var(--amber-bg); color:var(--amber); }
+  .p-blue{ background:var(--blue-bg); color:var(--blue); }
+  .instr{ background:var(--amber-bg); color:var(--amber); border-radius:10px; padding:8px 10px; font-size:13.5px; font-weight:600; }
+  .note{ font-size:12.5px; color:var(--sub); }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:10px 12px; font-size:13.5px; }
+  .okmsg{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:10px 12px; font-size:13.5px; }
+  .sec{ font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); margin:6px 2px 0; }
+  .empty{ text-align:center; color:var(--sub); padding:30px 10px; }
+  .spin{ text-align:center; color:var(--sub); padding:40px 0; }
+
+  label.f{ display:block; font-size:13px; font-weight:600; color:var(--sub); margin:12px 0 6px; }
+  input{ width:100%; height:50px; border-radius:10px; border:1px solid var(--line); background:var(--field);
+         color:var(--ink); padding:0 12px; font-size:18px; font-weight:600; }
+  input[type="text"].plain, input[type="password"]{ font-weight:400; font-size:16px; }
+  .counts{ display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:8px; }
+  .counts label{ display:block; font-size:11.5px; font-weight:700; color:var(--sub); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
+  .units{ display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:13px; color:var(--sub); }
+  .units b{ font-size:16px; color:var(--ink); }
+
+  .btn{ width:100%; height:52px; border-radius:12px; border:0; background:var(--brand); color:#fff; font-weight:700;
+        font-size:16px; cursor:pointer; }
+  :root[data-theme="dark"] .btn{ background:#3B4BC8; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn{ background:#3B4BC8; } }
+  .btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn.go{ background:var(--green); color:#fff; }
+  :root[data-theme="dark"] .btn.go{ background:#1F9D5B; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn.go{ background:#1F9D5B; } }
+  .btn.undo{ background:var(--green-bg); color:var(--green); }
+  .btn.sm{ width:auto; height:38px; padding:0 14px; font-size:13.5px; border-radius:19px; }
+  .btn[disabled]{ opacity:.55; }
+
+  .items{ margin-top:10px; border-top:1px solid var(--line); padding-top:8px; }
+  .it{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px dashed var(--line); }
+  .it:last-child{ border-bottom:0; }
+  .it .nm{ flex:1; min-width:0; font-size:14px; }
+  .it .nm small{ display:block; color:var(--sub); font-size:12px; }
+  .it.d .nm{ color:var(--faint); text-decoration:line-through; }
+  .tick{ width:78px; height:40px; border-radius:20px; border:1.5px solid var(--blue); background:transparent; color:var(--blue);
+         font-weight:700; font-size:13.5px; cursor:pointer; flex:none; }
+  .tick.on{ background:var(--green); border-color:var(--green); color:#fff; }
+  .link{ background:none; border:0; color:var(--blue); font-weight:700; font-size:13.5px; padding:6px 0; cursor:pointer; }
+
+  .foot{ position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--card); border-top:1px solid var(--line);
+         padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  .foot-in{ max-width:560px; margin:0 auto; }
+  .login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:22px; }
+  .login .card{ width:100%; max-width:380px; padding:26px 20px; }
+  .toast{ position:fixed; left:14px; right:14px; bottom:calc(86px + env(safe-area-inset-bottom)); z-index:40; background:var(--red); color:#fff;
+          border-radius:12px; padding:11px 13px; font-weight:600; font-size:14px; max-width:532px; margin:0 auto; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var BM_HOSTED = !!window.BM_EXEC_URL;
+var state = { token:'', name:'', loginName:'', view:'login', day:'today', routes:null, route:null, code:'',
+              error:'', loading:false, busy:false, open:{}, toast:'' };
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+  return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dayStr(){ var d = new Date(); if (state.day === 'yesterday') d.setDate(d.getDate() - 1); return ymd(d); }
+function store(){ try { return window.localStorage; } catch (e) { return null; } }
+function tel(p){ return String(p || '').replace(/[^\d+]/g, ''); }
+
+/******************** SERVER ********************/
+function api(action, payload){
+  return new Promise(function(resolve){
+    if (!BM_HOSTED) { resolve({ success:false, error:'This page has no server address set.' }); return; }
+    var data = { action: action, token: state.token };
+    for (var k in (payload || {})) if (payload.hasOwnProperty(k)) data[k] = payload[k];
+    fetch(window.BM_EXEC_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify(data), redirect:'follow', credentials:'omit', cache:'no-store' })
+      .then(function(r){ return r.text(); })
+      .then(function(t){
+        var r;
+        try { r = JSON.parse(t); } catch (e) { r = { success:false, error:'The server sent a page instead of an answer.' }; }
+        if (r && r.expired) logout('Please sign in again.');
+        resolve(r);
+      })
+      .catch(function(){ resolve({ success:false, error:'No connection. Check your internet and try again.', offline:true }); });
+  });
+}
+
+// Writes go one after another, so a quick run of taps lands in order.
+var chain = Promise.resolve();
+function send(action, payload){
+  var p = chain.then(function(){ return api(action, payload); });
+  chain = p.then(function(){}, function(){});
+  return p;
+}
+
+function saveSession(){
+  var s = store(); if (!s) return;
+  try { s.setItem('bm_ld', JSON.stringify({ token: state.token, name: state.name, loginName: state.loginName })); } catch (e) {}
+}
+function logout(msg){
+  if (state.token) api('ldLogout', {});
+  state.token = ''; state.name = ''; state.routes = null; state.route = null;
+  state.view = 'login'; state.error = msg || '';
+  var s = store(); if (s) try { s.removeItem('bm_ld'); } catch (e) {}
+  render();
+}
+function toast(msg){
+  state.toast = msg; renderToast();
+  clearTimeout(toast.t); toast.t = setTimeout(function(){ state.toast = ''; renderToast(); }, 4500);
+}
+function renderToast(){
+  var el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.className = state.toast ? 'toast' : ''; el.textContent = state.toast || '';
+  el.style.display = state.toast ? '' : 'none';
+}
+
+/******************** LOADING DATA ********************/
+function loadRoutes(quiet){
+  if (!quiet) { state.loading = !state.routes; state.error = ''; render(); }
+  api('ldRoutes', { date: dayStr() }).then(function(r){
+    state.loading = false;
+    if (r && r.success) state.routes = r; else if (!quiet) state.error = (r && r.error) || 'Could not load the routes.';
+    if (state.view === 'routes') render();
+  });
+}
+function openRoute(code){
+  state.view = 'route'; state.code = code; state.route = null; state.error = ''; state.open = {};
+  render(); window.scrollTo(0, 0);
+  api('ldRoute', { date: dayStr(), code: code }).then(function(r){
+    if (state.code !== code) return;
+    if (r && r.success) state.route = r; else state.error = (r && r.error) || 'Could not open the route.';
+    render();
+  });
+}
+function reloadRoute(){
+  var code = state.code;
+  api('ldRoute', { date: dayStr(), code: code }).then(function(r){
+    if (state.code !== code) return;
+    if (r && r.success) { state.route = r; render(); } else if (r) toast(r.error || 'Could not reload.');
+  });
+}
+
+/******************** SMALL PIECES ********************/
+function n0(v){ var n = parseInt(String(v || '').replace(/\D/g, ''), 10); return isFinite(n) ? n : 0; }
+function sumUp(r){
+  var t = { orders: r.orders.length, loaded: 0, bags: 0, loose: 0 };
+  r.orders.forEach(function(o){ t.bags += o.bags; t.loose += o.loose; if (o.loaded) t.loaded++; });
+  t.units = t.bags + t.loose; r.totals = t; return t;
+}
+function orderAt(i){ return state.route && state.route.orders[i]; }
+function finished(){ return state.route && state.route.state === 'done'; }
+
+/******************** RENDER ********************/
+function render(){
+  var app = document.getElementById('app');
+  var y = window.pageYOffset;
+  app.innerHTML = state.view === 'login' ? loginHTML() : state.view === 'route' ? routeHTML() : routesHTML();
+  if (state.view === 'route') window.scrollTo(0, y);
+}
+
+function loginHTML(){
+  return '<div class="login"><div class="card">' +
+    '<div style="font-size:22px; font-weight:800;">BM Loading</div>' +
+    '<div class="note" style="margin:4px 0 14px;">Load the vans, count the bags, close the route.</div>' +
+    '<label class="f">Login name</label>' +
+    '<input id="lg-name" class="plain" type="text" autocomplete="username" autocapitalize="none" value="' + esc(state.loginName) + '" />' +
+    '<label class="f">PIN</label>' +
+    '<input id="lg-pin" type="password" inputmode="numeric" autocomplete="current-password" />' +
+    (state.error ? '<div class="err" style="margin-top:12px;">' + esc(state.error) + '</div>' : '') +
+    '<div style="margin-top:16px;"><button class="btn" data-a="login"' + (state.busy ? ' disabled' : '') + '>' +
+      (state.busy ? 'Signing in…' : 'Sign in') + '</button></div></div></div>';
+}
+
+function statePill(s){
+  return s === 'done' ? '<span class="pill p-ok">Loaded</span>'
+       : s === 'loading' ? '<span class="pill p-mid">Loading</span>'
+       : '<span class="pill p-blue">To load</span>';
+}
+
+function routesHTML(){
+  var d = state.routes;
+  var head = '<div class="top"><div class="top-row"><div style="flex:1;"><h1>' + (state.name ? 'Hi, ' + esc(state.name) : 'BM Loading') + '</h1>' +
+    '<div class="sub">' + (d ? d.counts.total + ' routes · ' + d.day : 'Loading…') + '</div></div>' +
+    '<button class="icon-btn" data-a="refresh" aria-label="Refresh">↻</button>' +
+    '<button class="icon-btn" data-a="logout" aria-label="Log out">⎋</button></div>' +
+    '<div class="days"><button class="day' + (state.day === 'today' ? ' on' : '') + '" data-a="day" data-v="today">Today</button>' +
+    '<button class="day' + (state.day === 'yesterday' ? ' on' : '') + '" data-a="day" data-v="yesterday">Yesterday</button></div>' +
+    (d ? '<div class="prog"><div><b>' + d.counts.total + '</b><span>Routes</span></div><div><b>' + d.counts.fresh + '</b><span>To load</span></div>' +
+         '<div><b>' + d.counts.loading + '</b><span>Loading</span></div><div><b>' + d.counts.done + '</b><span>Loaded</span></div></div>' : '') +
+    '</div>';
+  var body = state.error ? '<div class="err">' + esc(state.error) + '</div>' : '';
+  if (state.loading || !d) return head + '<div class="page">' + body + '<div class="spin">Loading the routes…</div></div>';
+  if (!d.routes.length) return head + '<div class="page">' + body + '<div class="empty">No routes are planned for ' + esc(d.day) + '.</div></div>';
+  d.routes.forEach(function(r){
+    body += '<div class="card" data-a="open" data-v="' + esc(r.code) + '" style="cursor:pointer;">' +
+      '<div class="row"><div class="grow"><div class="shop">Load ' + r.n + ' of ' + r.of + ' · ' + esc(r.code) + '</div>' +
+      '<div class="meta">' + (r.vehicle ? 'Vehicle ' + esc(r.vehicle) + ' · ' : '') + r.stops + ' stops · ' + r.km + ' km</div></div>' + statePill(r.state) + '</div>' +
+      (r.state !== 'new' ? '<div class="note" style="margin-top:6px;">' + r.loaded + ' of ' + r.orders + ' orders loaded' +
+        (r.loader ? ' · ' + esc(r.loader) : '') + (r.started ? ' · started ' + esc(r.started) : '') +
+        (r.finished ? ' · finished ' + esc(r.finished) : '') + '</div>' : '') + '</div>';
+  });
+  return head + '<div class="page">' + body + '</div>';
+}
+
+function routeHeadHTML(){
+  var r = state.route, t = r.totals;
+  return '<div class="top" id="ld-head"><div class="top-row"><button class="icon-btn" data-a="back" aria-label="Back">‹</button>' +
+    '<div style="flex:1;"><h1>' + esc(r.code) + '</h1>' +
+    '<div class="sub">' + (r.vehicle ? 'Vehicle ' + esc(r.vehicle) + ' · ' : '') + r.stops + ' stops · ' + r.km + ' km' +
+      (r.loader ? ' · ' + esc(r.loader) : '') + '</div></div>' +
+    '<button class="icon-btn" data-a="reload" aria-label="Reload">↻</button></div>' +
+    (r.areas && r.areas.length ? '<div class="sub" style="margin-top:6px;">' + esc(r.areas.join(', ')) + '</div>' : '') +
+    '<div class="prog"><div><b>' + t.loaded + '/' + t.orders + '</b><span>Loaded</span></div><div><b>' + t.bags + '</b><span>Bags</span></div>' +
+    '<div><b>' + t.loose + '</b><span>Loose</span></div><div><b>' + t.units + '</b><span>Units</span></div></div>' +
+    (r.started ? '<div class="sub" style="margin-top:8px;">Started ' + esc(r.started) + (r.finished ? ' · finished ' + esc(r.finished) : '') + '</div>' : '') +
+    '</div>';
+}
+
+function itemsHTML(o, i){
+  if (!o.items) return '<div class="items"><div class="note">No item list was saved for this order.</div></div>';
+  var h = '<div class="items">';
+  o.items.forEach(function(x, k){
+    h += '<div class="it' + (x.d ? ' d' : '') + '"><div class="nm">' + esc(x.p) + '<small>' + esc(x.v) + (x.v ? ' · ' : '') + x.q + ' pack' + (x.q === 1 ? '' : 's') +
+      (x.pcs ? ' · ' + x.pcs + ' pcs' : '') + '</small></div>' +
+      '<button class="tick' + (x.d ? ' on' : '') + '" data-a="item" data-i="' + i + '" data-k="' + k + '"' + (finished() ? ' disabled' : '') + '>' +
+      (x.d ? '✓ Loaded' : 'Load') + '</button></div>';
+  });
+  if (!finished()) h += '<div style="text-align:right;"><button class="link" data-a="items-all" data-i="' + i + '">' +
+    (o.itemsDone === o.itemsTotal ? 'Untick all' : 'Load all items') + '</button></div>';
+  return h + '</div>';
+}
+
+function orderHTML(o, i){
+  var lock = finished();
+  var open = !!state.open[i];
+  return '<div class="card' + (o.loaded ? ' done' : '') + '" id="o-' + i + '">' +
+    '<div class="row"><div class="seq">' + o.seq + '</div><div class="grow"><div class="shop">' + esc(o.shop) + '</div>' +
+      '<div class="meta">SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + ' · ' + (/prepaid/i.test(o.orderType) ? 'Prepaid' : 'COD') + '</div></div>' +
+      (o.loaded ? '<span class="pill p-ok">Loaded</span>' : '') + '</div>' +
+    (o.instructions ? '<div class="instr" style="margin-top:10px;">' + esc(o.instructions) + '</div>' : '') +
+    '<div class="counts" style="margin-top:12px;">' +
+      '<div><label>Bags</label><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" data-f="bags" data-i="' + i + '" value="' + (o.bags || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
+      '<div><label>Loose CTN</label><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" data-f="loose" data-i="' + i + '" value="' + (o.loose || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
+      '<div><label>Seal tag</label><input type="text" class="plain" maxlength="40" data-f="seal" data-i="' + i + '" value="' + esc(o.seal) + '"' + (lock ? ' disabled' : '') + ' placeholder="No."></div>' +
+    '</div>' +
+    '<div class="units"><span>Total units <b id="u-' + i + '">' + (o.bags + o.loose) + '</b></span>' +
+      (o.items ? '<button class="link" data-a="toggle" data-i="' + i + '">' + (open ? 'Hide items' : 'Items ' + o.itemsDone + '/' + o.itemsTotal) + '</button>'
+               : '<span class="note">No item list</span>') + '</div>' +
+    (open ? itemsHTML(o, i) : '') +
+    '<div style="margin-top:12px;">' +
+      (o.loaded ? '<button class="btn undo" data-a="unload" data-i="' + i + '"' + (lock ? ' disabled' : '') + '>✓ Loaded' + (o.loadedAt ? ' · ' + esc(o.loadedAt) : '') + ' — tap to undo</button>'
+                : '<button class="btn go" data-a="loaded" data-i="' + i + '"' + (lock ? ' disabled' : '') + '>Loaded</button>') +
+    '</div></div>';
+}
+
+function routeHTML(){
+  if (!state.route) {
+    return '<div class="top"><div class="top-row"><button class="icon-btn" data-a="back" aria-label="Back">‹</button><h1>' + esc(state.code) + '</h1></div></div>' +
+      '<div class="page">' + (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '<div class="spin">Opening the route…</div>') + '</div>';
+  }
+  var r = state.route, body = '';
+  if (state.error) body += '<div class="err">' + esc(state.error) + '</div>';
+  if (r.state === 'done') body += '<div class="okmsg">Loading finished at ' + esc(r.finished) + '. Reopen the route to change anything.</div>';
+  r.orders.forEach(function(o, i){ body += orderHTML(o, i); });
+  var foot = r.state === 'done'
+    ? '<button class="btn ghost" data-a="reopen">Reopen this route</button>'
+    : '<button class="btn" data-a="finish">Finish loading (' + r.totals.loaded + ' of ' + r.totals.orders + ' loaded)</button>';
+  return routeHeadHTML() + '<div class="page">' + body + '</div><div class="foot"><div class="foot-in">' + foot + '</div></div>';
+}
+
+// Only the pieces that changed, so a number being typed is never lost.
+function redrawHead(){
+  var el = document.getElementById('ld-head'); if (!el) return;
+  var tmp = document.createElement('div'); tmp.innerHTML = routeHeadHTML();
+  el.replaceWith(tmp.firstChild);
+  var f = document.querySelector('.foot-in');
+  if (f && !finished()) f.innerHTML = '<button class="btn" data-a="finish">Finish loading (' + state.route.totals.loaded + ' of ' + state.route.totals.orders + ' loaded)</button>';
+}
+function redrawOrder(i){
+  var el = document.getElementById('o-' + i); if (!el) return;
+  var tmp = document.createElement('div'); tmp.innerHTML = orderHTML(orderAt(i), i);
+  el.replaceWith(tmp.firstChild);
+}
+
+/******************** ACTIONS ********************/
+document.addEventListener('click', function(ev){
+  var el = ev.target.closest('[data-a]');
+  if (!el || el.disabled) return;
+  var a = el.getAttribute('data-a'), i = Number(el.getAttribute('data-i'));
+  if (a === 'login') return doLogin();
+  if (a === 'logout') { logout(''); return; }
+  if (a === 'refresh') return loadRoutes(false);
+  if (a === 'day') { state.day = el.getAttribute('data-v'); state.routes = null; loadRoutes(false); return; }
+  if (a === 'open') return openRoute(el.getAttribute('data-v'));
+  if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
+  if (a === 'reload') return reloadRoute();
+  if (a === 'toggle') { state.open[i] = !state.open[i]; redrawOrder(i); return; }
+  if (a === 'item') return doItem(i, Number(el.getAttribute('data-k')));
+  if (a === 'items-all') return doItemsAll(i);
+  if (a === 'loaded') return doLoaded(i);
+  if (a === 'unload') return doUnload(i);
+  if (a === 'finish') return doFinish(false);
+  if (a === 'reopen') return doReopen();
+});
+document.addEventListener('keydown', function(ev){
+  if (ev.key === 'Enter' && state.view === 'login') doLogin();
+});
+
+// Typing: keep the number on the card; the server hears about it when
+// he leaves the box.
+document.addEventListener('input', function(ev){
+  var t = ev.target; if (!t || !t.getAttribute) return;
+  var f = t.getAttribute('data-f'); if (!f) return;
+  var i = Number(t.getAttribute('data-i')), o = orderAt(i); if (!o) return;
+  if (f === 'seal') { o.seal = t.value; return; }
+  var v = t.value.replace(/\D/g, '');
+  if (v !== t.value) t.value = v;
+  o[f] = n0(v);
+  var u = document.getElementById('u-' + i); if (u) u.textContent = o.bags + o.loose;
+  sumUp(state.route);
+});
+document.addEventListener('change', function(ev){
+  var t = ev.target; if (!t || !t.getAttribute || !t.getAttribute('data-f')) return;
+  var i = Number(t.getAttribute('data-i')), o = orderAt(i); if (!o || finished()) return;
+  redrawHead();
+  saveCounts(i, null);
+});
+
+function countsPayload(i, loaded){
+  var o = orderAt(i), p = { date: dayStr(), code: state.code, invoiceNo: o.invoiceNo, bags: o.bags, loose: o.loose, seal: o.seal };
+  if (loaded !== null) p.loaded = loaded;
+  return p;
+}
+function saveCounts(i, loaded){
+  return send('ldOrder', countsPayload(i, loaded)).then(function(r){
+    if (!r || !r.success) {
+      toast((r && r.error) || 'Not saved. Check your internet.');
+      if (r && !r.offline) reloadRoute();
+      return false;
+    }
+    return true;
+  });
+}
+
+function doLoaded(i){
+  var o = orderAt(i);
+  if (o.bags + o.loose < 1) { toast('Enter the bags or loose cartons first.'); return; }
+  if (o.items && o.itemsDone < o.itemsTotal &&
+      !window.confirm((o.itemsTotal - o.itemsDone) + ' item(s) are not ticked. Mark the order Loaded anyway?')) return;
+  o.loaded = true; o.loadedAt = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  sumUp(state.route); redrawOrder(i); redrawHead();
+  saveCounts(i, true).then(function(ok){
+    if (!ok) { o.loaded = false; o.loadedAt = ''; sumUp(state.route); redrawOrder(i); redrawHead(); }
+  });
+}
+function doUnload(i){
+  var o = orderAt(i);
+  o.loaded = false; o.loadedAt = '';
+  sumUp(state.route); redrawOrder(i); redrawHead();
+  saveCounts(i, false).then(function(ok){ if (!ok) { o.loaded = true; sumUp(state.route); redrawOrder(i); redrawHead(); } });
+}
+
+function doItem(i, k){
+  var o = orderAt(i), it = o.items[k], on = !it.d;
+  it.d = on; o.itemsDone += on ? 1 : -1;
+  redrawOrder(i);
+  send('ldItem', { date: dayStr(), code: state.code, invoiceNo: o.invoiceNo, idx: k, done: on }).then(function(r){
+    if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
+  });
+}
+function doItemsAll(i){
+  var o = orderAt(i), on = o.itemsDone < o.itemsTotal;
+  o.items.forEach(function(x){ x.d = on; }); o.itemsDone = on ? o.itemsTotal : 0;
+  redrawOrder(i);
+  send('ldItem', { date: dayStr(), code: state.code, invoiceNo: o.invoiceNo, idx: 'all', done: on }).then(function(r){
+    if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
+  });
+}
+
+function doFinish(force){
+  var t = state.route.totals;
+  if (!force && t.loaded < t.orders &&
+      !window.confirm((t.orders - t.loaded) + ' order(s) are not marked Loaded. Finish loading anyway?')) return;
+  if (!force && t.loaded === t.orders && !window.confirm('Finish loading ' + state.code + '? ' + t.bags + ' bags and ' + t.loose + ' loose cartons.')) return;
+  send('ldFinish', { date: dayStr(), code: state.code, force: true }).then(function(r){
+    if (r && r.success) { state.route = r; state.error = ''; render(); window.scrollTo(0, 0); }
+    else toast((r && r.error) || 'Could not finish the route.');
+  });
+}
+function doReopen(){
+  if (!window.confirm('Reopen ' + state.code + ' so orders can be changed?')) return;
+  send('ldReopen', { date: dayStr(), code: state.code }).then(function(r){
+    if (r && r.success) { state.route = r; render(); }
+    else toast((r && r.error) || 'Could not reopen the route.');
+  });
+}
+
+function doLogin(){
+  var n = ((document.getElementById('lg-name') || {}).value || '').trim();
+  var p = (document.getElementById('lg-pin') || {}).value || '';
+  state.loginName = n;
+  if (!n || !p) { state.error = 'Enter your login name and PIN.'; render(); return; }
+  state.busy = true; state.error = ''; render();
+  api('ldLogin', { loginName: n, pin: p }).then(function(r){
+    state.busy = false;
+    if (r && r.success) {
+      state.token = r.token; state.name = r.name; state.loginName = n;
+      saveSession(); state.view = 'routes'; loadRoutes(false);
+    } else { state.error = (r && r.error) || 'Could not sign in.'; render(); }
+  });
+}
+
+/******************** START ********************/
+(function(){
+  var s = store(), saved = null;
+  try { saved = s && JSON.parse(s.getItem('bm_ld') || 'null'); } catch (e) {}
+  if (saved && saved.token) {
+    state.token = saved.token; state.name = saved.name; state.loginName = saved.loginName || '';
+    state.view = 'routes'; loadRoutes(false);
+  } else render();
+})();
+</script>
+<script>
+// Keeps the app on the phone. Registered after load so it never
+// slows the first screen down.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
