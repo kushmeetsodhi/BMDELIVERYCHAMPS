@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=bf417100d0"></script>
+<script src="config.js?v=00063ba2b1"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -114,6 +114,24 @@
   .foot-in{ max-width:560px; margin:0 auto; }
   .login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:22px; }
   .login .card{ width:100%; max-width:380px; padding:26px 20px; }
+  input.act{ border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-bg); }
+  input[readonly]{ caret-color:transparent; }
+  body.kp-open .page{ padding-bottom:330px; }
+  body.kp-open .foot{ display:none; }
+  .kp{ position:fixed; left:0; right:0; bottom:0; z-index:60; background:var(--card); border-top:1px solid var(--line);
+       box-shadow:0 -6px 20px rgba(0,0,0,.18); padding:8px 10px calc(10px + env(safe-area-inset-bottom)); }
+  .kp-in{ max-width:560px; margin:0 auto; }
+  .kp-top{ display:flex; align-items:center; gap:10px; padding:2px 4px 8px; font-size:14px; color:var(--sub); }
+  .kp-top b{ color:var(--ink); }
+  .kp-done{ height:36px; padding:0 18px; border-radius:18px; border:0; background:var(--brand); color:#fff; font-weight:700; }
+  .kp-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .kp .k{ height:56px; border-radius:12px; border:0; background:var(--bg); color:var(--ink); font-size:24px; font-weight:700; }
+  .kp .k:active{ background:var(--blue-bg); }
+  .kp .k.alt{ color:var(--sub); }
+  .kp .k.go{ background:var(--blue-bg); color:var(--blue); font-size:17px; }
+  .plan{ margin:8px 2px 0; }
+  .plan-t{ display:flex; align-items:center; gap:10px; font-size:17px; }
+  .p-late{ background:var(--red-bg); color:var(--red); }
   .toast{ position:fixed; left:14px; right:14px; bottom:calc(86px + env(safe-area-inset-bottom)); z-index:40; background:var(--red); color:#fff;
           border-radius:12px; padding:11px 13px; font-weight:600; font-size:14px; max-width:532px; margin:0 auto; }
 </style>
@@ -122,13 +140,23 @@
 <div id="app"></div>
 <script>
 var BM_HOSTED = !!window.BM_EXEC_URL;
-var state = { token:'', name:'', loginName:'', view:'login', day:'today', routes:null, route:null, code:'',
+var state = { token:'', name:'', loginName:'', view:'login', date:'', routes:null, route:null, code:'',
               error:'', loading:false, busy:false, open:{}, toast:'' };
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
   return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
 function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-function dayStr(){ var d = new Date(); if (state.day === 'yesterday') d.setDate(d.getDate() - 1); return ymd(d); }
+function dayStr(){ return state.date || ''; }   // empty: the server picks the delivery day now being loaded
+function shiftDay(day, n){ var d = new Date(day + 'T12:00:00'); d.setDate(d.getDate() + n); return ymd(d); }
+function clock12(t){
+  var m = String(t || '').match(/^(\d{1,2}):(\d{2})/); if (!m) return '';
+  var hr = Number(m[1]);
+  return ((hr % 12) || 12) + ':' + m[2] + (hr < 12 ? ' AM' : ' PM');
+}
+function dayLabel(day){
+  var d = new Date(day + 'T12:00:00');
+  return d.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' });
+}
 function store(){ try { return window.localStorage; } catch (e) { return null; } }
 function tel(p){ return String(p || '').replace(/[^\d+]/g, ''); }
 
@@ -186,14 +214,15 @@ function loadRoutes(quiet){
   if (!quiet) { state.loading = !state.routes; state.error = ''; render(); }
   api('ldRoutes', { date: dayStr() }).then(function(r){
     state.loading = false;
-    if (r && r.success) state.routes = r; else if (!quiet) state.error = (r && r.error) || 'Could not load the routes.';
+    if (r && r.success) { state.routes = r; if (!state.date) state.shown = r.day; else state.shown = state.date; }
+    else if (!quiet) state.error = (r && r.error) || 'Could not load the routes.';
     if (state.view === 'routes') render();
   });
 }
 function openRoute(code){
   state.view = 'route'; state.code = code; state.route = null; state.error = ''; state.open = {};
   render(); window.scrollTo(0, 0);
-  api('ldRoute', { date: dayStr(), code: code }).then(function(r){
+  api('ldRoute', { date: state.shown, code: code }).then(function(r){
     if (state.code !== code) return;
     if (r && r.success) state.route = r; else state.error = (r && r.error) || 'Could not open the route.';
     render();
@@ -201,7 +230,7 @@ function openRoute(code){
 }
 function reloadRoute(){
   var code = state.code;
-  api('ldRoute', { date: dayStr(), code: code }).then(function(r){
+  api('ldRoute', { date: state.shown, code: code }).then(function(r){
     if (state.code !== code) return;
     if (r && r.success) { state.route = r; render(); } else if (r) toast(r.error || 'Could not reload.');
   });
@@ -244,27 +273,36 @@ function statePill(s){
        : '<span class="pill p-blue">To load</span>';
 }
 
+function routeCardHTML(r){
+  return '<div class="card" data-a="open" data-v="' + esc(r.code) + '" style="cursor:pointer;">' +
+    '<div class="row"><div class="grow"><div class="shop">Load ' + r.n + ' of ' + r.of + ' · ' + esc(r.code) + '</div>' +
+    '<div class="meta">' + (r.vehicle ? 'Vehicle ' + esc(r.vehicle) + ' · ' : '') + r.stops + ' stops · ' + r.km + ' km</div></div>' + statePill(r.state) + '</div>' +
+    (r.state !== 'new' ? '<div class="note" style="margin-top:6px;">' + r.loaded + ' of ' + r.orders + ' orders loaded' +
+      (r.loader ? ' · ' + esc(r.loader) : '') + (r.started ? ' · started ' + esc(r.started) : '') +
+      (r.finished ? ' · finished ' + esc(r.finished) : '') + '</div>' : '') + '</div>';
+}
+
 function routesHTML(){
   var d = state.routes;
   var head = '<div class="top"><div class="top-row"><div style="flex:1;"><h1>' + (state.name ? 'Hi, ' + esc(state.name) : 'BM Loading') + '</h1>' +
-    '<div class="sub">' + (d ? d.counts.total + ' routes · ' + d.day : 'Loading…') + '</div></div>' +
+    '<div class="sub">' + (d ? d.counts.total + ' routes for delivery on ' + esc(dayLabel(d.day)) : 'Loading…') + '</div></div>' +
     '<button class="icon-btn" data-a="refresh" aria-label="Refresh">↻</button>' +
     '<button class="icon-btn" data-a="logout" aria-label="Log out">⎋</button></div>' +
-    '<div class="days"><button class="day' + (state.day === 'today' ? ' on' : '') + '" data-a="day" data-v="today">Today</button>' +
-    '<button class="day' + (state.day === 'yesterday' ? ' on' : '') + '" data-a="day" data-v="yesterday">Yesterday</button></div>' +
-    (d ? '<div class="prog"><div><b>' + d.counts.total + '</b><span>Routes</span></div><div><b>' + d.counts.fresh + '</b><span>To load</span></div>' +
+    (d ? '<div class="days"><button class="day" data-a="shift" data-v="-1" style="flex:none; width:44px;">‹</button>' +
+         '<button class="day on" data-a="now" style="cursor:default;">' + esc(dayLabel(d.day)) + (d.auto ? '' : ' · tap for now') + '</button>' +
+         '<button class="day" data-a="shift" data-v="1" style="flex:none; width:44px;">›</button></div>' +
+         '<div class="prog"><div><b>' + d.counts.total + '</b><span>Routes</span></div><div><b>' + d.counts.fresh + '</b><span>To load</span></div>' +
          '<div><b>' + d.counts.loading + '</b><span>Loading</span></div><div><b>' + d.counts.done + '</b><span>Loaded</span></div></div>' : '') +
     '</div>';
   var body = state.error ? '<div class="err">' + esc(state.error) + '</div>' : '';
   if (state.loading || !d) return head + '<div class="page">' + body + '<div class="spin">Loading the routes…</div></div>';
-  if (!d.routes.length) return head + '<div class="page">' + body + '<div class="empty">No routes are planned for ' + esc(d.day) + '.</div></div>';
-  d.routes.forEach(function(r){
-    body += '<div class="card" data-a="open" data-v="' + esc(r.code) + '" style="cursor:pointer;">' +
-      '<div class="row"><div class="grow"><div class="shop">Load ' + r.n + ' of ' + r.of + ' · ' + esc(r.code) + '</div>' +
-      '<div class="meta">' + (r.vehicle ? 'Vehicle ' + esc(r.vehicle) + ' · ' : '') + r.stops + ' stops · ' + r.km + ' km</div></div>' + statePill(r.state) + '</div>' +
-      (r.state !== 'new' ? '<div class="note" style="margin-top:6px;">' + r.loaded + ' of ' + r.orders + ' orders loaded' +
-        (r.loader ? ' · ' + esc(r.loader) : '') + (r.started ? ' · started ' + esc(r.started) : '') +
-        (r.finished ? ' · finished ' + esc(r.finished) : '') + '</div>' : '') + '</div>';
+  if (!d.groups.length) return head + '<div class="page">' + body + '<div class="empty">No routes yet for ' + esc(dayLabel(d.day)) +
+    '.<br>The plan shows up here as soon as it is issued.</div></div>';
+  d.groups.forEach(function(g, gi){
+    body += '<div class="plan"><div class="plan-t"><b>' + esc(g.title) + '</b>' +
+      (g.late ? '<span class="pill p-late">Late</span>' : g.counts.open === 0 ? '<span class="pill p-ok">All loaded</span>' : '') + '</div>' +
+      '<div class="note">' + (g.issued ? 'Issued ' + esc(clock12(g.issued)) + ' · ' : '') + esc(g.window) + ' · ' + g.counts.done + ' of ' + g.counts.total + ' loaded</div></div>';
+    g.routes.forEach(function(r){ body += routeCardHTML(r); });
   });
   return head + '<div class="page">' + body + '</div>';
 }
@@ -301,14 +339,14 @@ function orderHTML(o, i){
   var lock = finished();
   var open = !!state.open[i];
   return '<div class="card' + (o.loaded ? ' done' : '') + '" id="o-' + i + '">' +
-    '<div class="row"><div class="seq">' + o.seq + '</div><div class="grow"><div class="shop">' + esc(o.shop) + '</div>' +
-      '<div class="meta">SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + ' · ' + (/prepaid/i.test(o.orderType) ? 'Prepaid' : 'COD') + '</div></div>' +
+    '<div class="row"><div class="seq" title="Load number">' + o.loadNo + '</div><div class="grow"><div class="shop">' + esc(o.shop) + '</div>' +
+      '<div class="meta">Load ' + o.loadNo + ' · stop ' + o.seq + ' · SO ' + esc(o.soNo) + (o.area ? ' · ' + esc(o.area) : '') + ' · ' + (/prepaid/i.test(o.orderType) ? 'Prepaid' : 'COD') + '</div></div>' +
       (o.loaded ? '<span class="pill p-ok">Loaded</span>' : '') + '</div>' +
     (o.instructions ? '<div class="instr" style="margin-top:10px;">' + esc(o.instructions) + '</div>' : '') +
     '<div class="counts" style="margin-top:12px;">' +
-      '<div><label>Bags</label><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" data-f="bags" data-i="' + i + '" value="' + (o.bags || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
-      '<div><label>Loose CTN</label><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" data-f="loose" data-i="' + i + '" value="' + (o.loose || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
-      '<div><label>Seal tag</label><input type="text" class="plain" maxlength="40" data-f="seal" data-i="' + i + '" value="' + esc(o.seal) + '"' + (lock ? ' disabled' : '') + ' placeholder="No."></div>' +
+      '<div><label>Bags</label><input type="text" readonly inputmode="none" data-f="bags" data-i="' + i + '" value="' + (o.bags || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
+      '<div><label>Loose CTN</label><input type="text" readonly inputmode="none" data-f="loose" data-i="' + i + '" value="' + (o.loose || '') + '"' + (lock ? ' disabled' : '') + ' placeholder="0"></div>' +
+      '<div><label>Seal tag</label><input type="text" readonly inputmode="none" class="plain" data-f="seal" data-i="' + i + '" value="' + esc(o.seal) + '"' + (lock ? ' disabled' : '') + ' placeholder="No."></div>' +
     '</div>' +
     '<div class="units"><span>Total units <b id="u-' + i + '">' + (o.bags + o.loose) + '</b></span>' +
       (o.items ? '<button class="link" data-a="toggle" data-i="' + i + '">' + (open ? 'Hide items' : 'Items ' + o.itemsDone + '/' + o.itemsTotal) + '</button>'
@@ -347,6 +385,7 @@ function redrawOrder(i){
   var el = document.getElementById('o-' + i); if (!el) return;
   var tmp = document.createElement('div'); tmp.innerHTML = orderHTML(orderAt(i), i);
   el.replaceWith(tmp.firstChild);
+  kpMark();
 }
 
 /******************** ACTIONS ********************/
@@ -357,7 +396,8 @@ document.addEventListener('click', function(ev){
   if (a === 'login') return doLogin();
   if (a === 'logout') { logout(''); return; }
   if (a === 'refresh') return loadRoutes(false);
-  if (a === 'day') { state.day = el.getAttribute('data-v'); state.routes = null; loadRoutes(false); return; }
+  if (a === 'shift') { state.date = shiftDay(state.routes ? state.routes.day : state.shown, Number(el.getAttribute('data-v'))); state.routes = null; loadRoutes(false); return; }
+  if (a === 'now') { if (state.date) { state.date = ''; state.routes = null; loadRoutes(false); } return; }
   if (a === 'open') return openRoute(el.getAttribute('data-v'));
   if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
   if (a === 'reload') return reloadRoute();
@@ -373,28 +413,88 @@ document.addEventListener('keydown', function(ev){
   if (ev.key === 'Enter' && state.view === 'login') doLogin();
 });
 
-// Typing: keep the number on the card; the server hears about it when
-// he leaves the box.
-document.addEventListener('input', function(ev){
-  var t = ev.target; if (!t || !t.getAttribute) return;
-  var f = t.getAttribute('data-f'); if (!f) return;
-  var i = Number(t.getAttribute('data-i')), o = orderAt(i); if (!o) return;
-  if (f === 'seal') { o.seal = t.value; return; }
-  var v = t.value.replace(/\D/g, '');
-  if (v !== t.value) t.value = v;
-  o[f] = n0(v);
-  var u = document.getElementById('u-' + i); if (u) u.textContent = o.bags + o.loose;
-  sumUp(state.route);
-});
-document.addEventListener('change', function(ev){
+/******************** NUMBER KEYPAD ********************/
+// The phone's full keyboard never opens. Tapping Bags, Loose CTN or Seal
+// tag brings up a small keypad at the bottom instead.
+var kp = { i: -1, f: '', dirty: false };
+var KP_ORDER = ['bags', 'loose', 'seal'];
+var KP_LABEL = { bags: 'Bags', loose: 'Loose cartons', seal: 'Seal tag' };
+
+function kpValue(o, f){ return f === 'seal' ? o.seal : String(o[f] || ''); }
+function kpInput(){ return document.querySelector('[data-f="' + kp.f + '"][data-i="' + kp.i + '"]'); }
+function kpMark(){
+  var all = document.querySelectorAll('[data-f]');
+  for (var k = 0; k < all.length; k++) all[k].classList.remove('act');
+  var el = kp.i >= 0 ? kpInput() : null;
+  if (el) el.classList.add('act');
+}
+function kpShow(){
+  var box = document.getElementById('kp');
+  if (!box) { box = document.createElement('div'); box.id = 'kp'; box.className = 'kp'; document.body.appendChild(box); }
+  var o = orderAt(kp.i);
+  var key = function(v, label, cls){ return '<button type="button" class="k ' + (cls || '') + '" data-k="' + v + '">' + label + '</button>'; };
+  box.innerHTML = '<div class="kp-in"><div class="kp-top"><div class="grow"><b>' + KP_LABEL[kp.f] + '</b> · ' + esc(o ? o.shop : '') + '</div>' +
+    '<button type="button" class="kp-done" data-k="done">Done</button></div>' +
+    '<div class="kp-grid">' + key('1','1') + key('2','2') + key('3','3') + key('4','4') + key('5','5') + key('6','6') +
+    key('7','7') + key('8','8') + key('9','9') + key('back','⌫','alt') + key('0','0') +
+    (kp.f === 'seal' ? key(',',',','alt') : key('next','Next ›','go')) + '</div></div>';
+  box.style.display = '';
+  document.body.classList.add('kp-open');
+  kpMark();
+}
+function kpOpen(i, f){
+  if (finished()) return;
+  if (kp.i !== i || kp.f !== f) kpCommit();
+  kp.i = i; kp.f = f;
+  kpShow();
+  var el = kpInput();
+  if (el && el.scrollIntoView) setTimeout(function(){ el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60);
+}
+// Save what was typed once, when he moves on.
+function kpCommit(){
+  if (kp.i >= 0 && kp.dirty) { kp.dirty = false; redrawHeadOnly(); saveCounts(kp.i, null); }
+}
+function kpClose(){
+  kpCommit();
+  kp.i = -1; kp.f = '';
+  var box = document.getElementById('kp'); if (box) box.style.display = 'none';
+  document.body.classList.remove('kp-open');
+  kpMark();
+}
+function redrawHeadOnly(){ sumUp(state.route); redrawHead(); }
+function kpKey(k){
+  var o = orderAt(kp.i); if (!o) return;
+  if (k === 'done') return kpClose();
+  if (k === 'next') {
+    var nx = KP_ORDER[KP_ORDER.indexOf(kp.f) + 1];
+    kpCommit(); kp.f = nx; kpShow();
+    var el = kpInput(); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  var cur = kpValue(o, kp.f), max = kp.f === 'seal' ? 40 : 3;
+  if (k === 'back') cur = cur.slice(0, -1);
+  else if (cur.length < max) cur += k;
+  if (kp.f === 'seal') o.seal = cur; else o[kp.f] = n0(cur);
+  kp.dirty = true;
+  var el2 = kpInput(); if (el2) el2.value = kp.f === 'seal' ? cur : (o[kp.f] || '');
+  var u = document.getElementById('u-' + kp.i); if (u) u.textContent = o.bags + o.loose;
+}
+document.addEventListener('focusin', function(ev){
   var t = ev.target; if (!t || !t.getAttribute || !t.getAttribute('data-f')) return;
-  var i = Number(t.getAttribute('data-i')), o = orderAt(i); if (!o || finished()) return;
-  redrawHead();
-  saveCounts(i, null);
+  t.blur();   // no phone keyboard
+  kpOpen(Number(t.getAttribute('data-i')), t.getAttribute('data-f'));
 });
+document.addEventListener('click', function(ev){
+  var k = ev.target.closest && ev.target.closest('[data-k]');
+  if (k) { ev.preventDefault(); kpKey(k.getAttribute('data-k')); return; }
+  if (kp.i < 0) return;
+  var t = ev.target;
+  if (t.closest && (t.closest('[data-f]') || t.closest('#kp'))) return;
+  kpClose();
+}, true);
 
 function countsPayload(i, loaded){
-  var o = orderAt(i), p = { date: dayStr(), code: state.code, invoiceNo: o.invoiceNo, bags: o.bags, loose: o.loose, seal: o.seal };
+  var o = orderAt(i), p = { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, bags: o.bags, loose: o.loose, seal: o.seal };
   if (loaded !== null) p.loaded = loaded;
   return p;
 }
@@ -410,6 +510,7 @@ function saveCounts(i, loaded){
 }
 
 function doLoaded(i){
+  kpClose();
   var o = orderAt(i);
   if (o.bags + o.loose < 1) { toast('Enter the bags or loose cartons first.'); return; }
   if (o.items && o.itemsDone < o.itemsTotal &&
@@ -431,7 +532,7 @@ function doItem(i, k){
   var o = orderAt(i), it = o.items[k], on = !it.d;
   it.d = on; o.itemsDone += on ? 1 : -1;
   redrawOrder(i);
-  send('ldItem', { date: dayStr(), code: state.code, invoiceNo: o.invoiceNo, idx: k, done: on }).then(function(r){
+  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: k, done: on }).then(function(r){
     if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
   });
 }
@@ -439,24 +540,25 @@ function doItemsAll(i){
   var o = orderAt(i), on = o.itemsDone < o.itemsTotal;
   o.items.forEach(function(x){ x.d = on; }); o.itemsDone = on ? o.itemsTotal : 0;
   redrawOrder(i);
-  send('ldItem', { date: dayStr(), code: state.code, invoiceNo: o.invoiceNo, idx: 'all', done: on }).then(function(r){
+  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: 'all', done: on }).then(function(r){
     if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
   });
 }
 
 function doFinish(force){
+  kpClose();
   var t = state.route.totals;
   if (!force && t.loaded < t.orders &&
       !window.confirm((t.orders - t.loaded) + ' order(s) are not marked Loaded. Finish loading anyway?')) return;
   if (!force && t.loaded === t.orders && !window.confirm('Finish loading ' + state.code + '? ' + t.bags + ' bags and ' + t.loose + ' loose cartons.')) return;
-  send('ldFinish', { date: dayStr(), code: state.code, force: true }).then(function(r){
+  send('ldFinish', { date: state.shown, code: state.code, force: true }).then(function(r){
     if (r && r.success) { state.route = r; state.error = ''; render(); window.scrollTo(0, 0); }
     else toast((r && r.error) || 'Could not finish the route.');
   });
 }
 function doReopen(){
   if (!window.confirm('Reopen ' + state.code + ' so orders can be changed?')) return;
-  send('ldReopen', { date: dayStr(), code: state.code }).then(function(r){
+  send('ldReopen', { date: state.shown, code: state.code }).then(function(r){
     if (r && r.success) { state.route = r; render(); }
     else toast((r && r.error) || 'Could not reopen the route.');
   });
