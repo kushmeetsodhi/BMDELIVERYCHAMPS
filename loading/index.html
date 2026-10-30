@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=00063ba2b1"></script>
+<script src="config.js?v=2a05a14dee"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -129,6 +129,15 @@
   .kp .k:active{ background:var(--blue-bg); }
   .kp .k.alt{ color:var(--sub); }
   .kp .k.go{ background:var(--blue-bg); color:var(--blue); font-size:17px; }
+  .seg{ display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card); border-radius:12px; padding:4px; box-shadow:var(--shadow); }
+  .seg button{ height:42px; border-radius:9px; border:0; background:transparent; color:var(--sub); font-weight:600; cursor:pointer; }
+  .seg button.on{ background:var(--brand); color:#fff; }
+  .chips{ display:flex; gap:6px; overflow-x:auto; margin-top:10px; padding-bottom:2px; -webkit-overflow-scrolling:touch; }
+  .chip{ flex:none; min-width:44px; height:36px; padding:0 10px; border-radius:18px; border:0; background:rgba(255,255,255,0.12);
+         color:var(--brand-soft); font-weight:700; font-size:14px; }
+  .chip.ok{ background:rgba(74,222,128,0.28); color:#fff; }
+  .chip.cur{ background:#fff; color:#0E1466; }
+  .pn{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .plan{ margin:8px 2px 0; }
   .plan-t{ display:flex; align-items:center; gap:10px; font-size:17px; }
   .p-late{ background:var(--red-bg); color:var(--red); }
@@ -141,7 +150,8 @@
 <script>
 var BM_HOSTED = !!window.BM_EXEC_URL;
 var state = { token:'', name:'', loginName:'', view:'login', date:'', routes:null, route:null, code:'',
-              error:'', loading:false, busy:false, open:{}, toast:'' };
+              error:'', loading:false, busy:false, open:{}, toast:'', cur:0,
+              mode:(function(){ try { return localStorage.getItem('bm_ld_mode') === 'one' ? 'one' : 'list'; } catch (e) { return 'list'; } })() };
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
   return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
@@ -224,7 +234,10 @@ function openRoute(code){
   render(); window.scrollTo(0, 0);
   api('ldRoute', { date: state.shown, code: code }).then(function(r){
     if (state.code !== code) return;
-    if (r && r.success) state.route = r; else state.error = (r && r.error) || 'Could not open the route.';
+    if (r && r.success) {
+      state.route = r; state.cur = 0;
+      for (var k = 0; k < r.orders.length; k++) if (!r.orders[k].loaded) { state.cur = k; break; }
+    } else state.error = (r && r.error) || 'Could not open the route.';
     render();
   });
 }
@@ -307,6 +320,15 @@ function routesHTML(){
   return head + '<div class="page">' + body + '</div>';
 }
 
+function chipsHTML(){
+  var h = '<div class="chips">';
+  state.route.orders.forEach(function(o, i){
+    h += '<button type="button" class="chip' + (i === state.cur ? ' cur' : '') + (o.loaded ? ' ok' : '') + '" data-a="goto" data-i="' + i + '">' +
+      o.loadNo + (o.loaded ? '✓' : '') + '</button>';
+  });
+  return h + '</div>';
+}
+
 function routeHeadHTML(){
   var r = state.route, t = r.totals;
   return '<div class="top" id="ld-head"><div class="top-row"><button class="icon-btn" data-a="back" aria-label="Back">‹</button>' +
@@ -317,6 +339,7 @@ function routeHeadHTML(){
     (r.areas && r.areas.length ? '<div class="sub" style="margin-top:6px;">' + esc(r.areas.join(', ')) + '</div>' : '') +
     '<div class="prog"><div><b>' + t.loaded + '/' + t.orders + '</b><span>Loaded</span></div><div><b>' + t.bags + '</b><span>Bags</span></div>' +
     '<div><b>' + t.loose + '</b><span>Loose</span></div><div><b>' + t.units + '</b><span>Units</span></div></div>' +
+    (state.mode === 'one' ? chipsHTML() : '') +
     (r.started ? '<div class="sub" style="margin-top:8px;">Started ' + esc(r.started) + (r.finished ? ' · finished ' + esc(r.finished) : '') + '</div>' : '') +
     '</div>';
 }
@@ -366,7 +389,17 @@ function routeHTML(){
   var r = state.route, body = '';
   if (state.error) body += '<div class="err">' + esc(state.error) + '</div>';
   if (r.state === 'done') body += '<div class="okmsg">Loading finished at ' + esc(r.finished) + '. Reopen the route to change anything.</div>';
-  r.orders.forEach(function(o, i){ body += orderHTML(o, i); });
+  var modeBar = '<div class="seg"><button class="' + (state.mode === 'list' ? 'on' : '') + '" data-a="mode" data-v="list">☰ List</button>' +
+    '<button class="' + (state.mode === 'one' ? 'on' : '') + '" data-a="mode" data-v="one">▭ One by one</button></div>';
+  body += modeBar;
+  if (state.mode === 'one') {
+    if (state.cur >= r.orders.length) state.cur = 0;
+    body += orderHTML(r.orders[state.cur], state.cur) +
+      '<div class="pn"><button class="btn ghost" data-a="prev"' + (state.cur === 0 ? ' disabled' : '') + '>‹ Previous</button>' +
+      '<button class="btn ghost" data-a="next"' + (state.cur >= r.orders.length - 1 ? ' disabled' : '') + '>Next ›</button></div>';
+  } else {
+    r.orders.forEach(function(o, i){ body += orderHTML(o, i); });
+  }
   var foot = r.state === 'done'
     ? '<button class="btn ghost" data-a="reopen">Reopen this route</button>'
     : '<button class="btn" data-a="finish">Finish loading (' + r.totals.loaded + ' of ' + r.totals.orders + ' loaded)</button>';
@@ -401,6 +434,15 @@ document.addEventListener('click', function(ev){
   if (a === 'open') return openRoute(el.getAttribute('data-v'));
   if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
   if (a === 'reload') return reloadRoute();
+  if (a === 'mode') {
+    state.mode = el.getAttribute('data-v');
+    if (state.mode === 'one' && state.route) {   // start on the first order not yet loaded
+      for (var k = 0; k < state.route.orders.length; k++) if (!state.route.orders[k].loaded) { state.cur = k; break; }
+    }
+    try { localStorage.setItem('bm_ld_mode', state.mode); } catch (e) {} render(); window.scrollTo(0, 0); return; }
+  if (a === 'goto') { goOrder(i); return; }
+  if (a === 'prev') { goOrder(state.cur - 1); return; }
+  if (a === 'next') { goOrder(state.cur + 1); return; }
   if (a === 'toggle') { state.open[i] = !state.open[i]; redrawOrder(i); return; }
   if (a === 'item') return doItem(i, Number(el.getAttribute('data-k')));
   if (a === 'items-all') return doItemsAll(i);
@@ -509,6 +551,17 @@ function saveCounts(i, loaded){
   });
 }
 
+function goOrder(i){
+  if (i < 0 || i >= state.route.orders.length) return;
+  state.cur = i; render(); window.scrollTo(0, 0);
+}
+// After Loaded in one-by-one view, on to the next order not yet loaded.
+function advanceFrom(i){
+  var os = state.route.orders, n = os.length;
+  for (var k = 1; k <= n; k++) { var j = (i + k) % n; if (!os[j].loaded) { goOrder(j); return; } }
+  render();
+}
+
 function doLoaded(i){
   kpClose();
   var o = orderAt(i);
@@ -516,9 +569,10 @@ function doLoaded(i){
   if (o.items && o.itemsDone < o.itemsTotal &&
       !window.confirm((o.itemsTotal - o.itemsDone) + ' item(s) are not ticked. Mark the order Loaded anyway?')) return;
   o.loaded = true; o.loadedAt = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  sumUp(state.route); redrawOrder(i); redrawHead();
+  sumUp(state.route);
+  if (state.mode === 'one') advanceFrom(i); else { redrawOrder(i); redrawHead(); }
   saveCounts(i, true).then(function(ok){
-    if (!ok) { o.loaded = false; o.loadedAt = ''; sumUp(state.route); redrawOrder(i); redrawHead(); }
+    if (!ok) { o.loaded = false; o.loadedAt = ''; sumUp(state.route); if (state.mode === 'one') { state.cur = i; render(); } else { redrawOrder(i); redrawHead(); } }
   });
 }
 function doUnload(i){
