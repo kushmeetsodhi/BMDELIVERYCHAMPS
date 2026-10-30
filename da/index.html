@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=c4f003749f"></script>
+<script src="config.js?v=d1a220df7a"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1553,6 +1553,7 @@ function orderHTML(){
       '<div class="field-row"><span class="l">SO name</span><span class="v">' + esc(o.soName) + '</span></div>' +
       '<div class="field-row"><span class="l">SO number</span><span class="v">' + esc(o.soNumber) + '</span></div>' +
       '<div class="field-row"><span class="l">Order type</span><span class="v">' + esc(o.orderType) + codStr + '</span></div>' +
+      loadBlock(o) +
       '<div class="field-row"><span class="l">Location</span><span class="v">' +
         '<a class="maps-link" href="' + mapUrl + '" target="_blank" rel="noopener">Open in Maps</a></span></div>' +
       instr +
@@ -1564,6 +1565,16 @@ function orderHTML(){
       '<button class="secondary" data-action="next-order" ' + nextDis + '>Next</button>' +
     '</div>' +
     finishBtn;
+}
+
+// What the loading team packed, so the DA and the shop can check it at the door.
+function loadBlock(o){
+  var l = o && o.load; if (!l) return '';
+  var what = [];
+  if (l.bags) what.push(l.bags + ' bag' + (l.bags === 1 ? '' : 's'));
+  if (l.loose) what.push(l.loose + ' loose carton' + (l.loose === 1 ? '' : 's'));
+  return '<div class="field-row"><span class="l">Loaded</span><span class="v">' + esc(what.join(' + ')) + '</span></div>' +
+    (l.seal ? '<div class="field-row"><span class="l">Seal tags</span><span class="v">' + esc(l.seal) + '</span></div>' : '');
 }
 
 // A bill revised after the route was loaded. The DA has to be told,
