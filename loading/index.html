@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=2a05a14dee"></script>
+<script src="config.js?v=9d65397554"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -138,6 +138,10 @@
   .chip.ok{ background:rgba(74,222,128,0.28); color:#fff; }
   .chip.cur{ background:#fff; color:#0E1466; }
   .pn{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .avatar{ width:46px; height:46px; border-radius:23px; background:var(--blue-bg); color:var(--blue); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; flex:none; }
+  .seg3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; background:var(--bg); border-radius:12px; padding:4px; }
+  .seg3 button{ height:44px; border-radius:9px; border:0; background:transparent; color:var(--sub); font-weight:600; cursor:pointer; }
+  .seg3 button.on{ background:var(--brand); color:#fff; }
   .plan{ margin:8px 2px 0; }
   .plan-t{ display:flex; align-items:center; gap:10px; font-size:17px; }
   .p-late{ background:var(--red-bg); color:var(--red); }
@@ -152,6 +156,15 @@ var BM_HOSTED = !!window.BM_EXEC_URL;
 var state = { token:'', name:'', loginName:'', view:'login', date:'', routes:null, route:null, code:'',
               error:'', loading:false, busy:false, open:{}, toast:'', cur:0,
               mode:(function(){ try { return localStorage.getItem('bm_ld_mode') === 'one' ? 'one' : 'list'; } catch (e) { return 'list'; } })() };
+
+/******************** THEME ********************/
+function theme(){ try { return localStorage.getItem('bm_ld_theme') || ''; } catch (e) { return ''; } }
+function applyTheme(t){
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+function setTheme(t){ try { if (t) localStorage.setItem('bm_ld_theme', t); else localStorage.removeItem('bm_ld_theme'); } catch (e) {} applyTheme(t); render(); }
+applyTheme(theme());
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
   return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
@@ -192,9 +205,33 @@ function api(action, payload){
 // Writes go one after another, so a quick run of taps lands in order.
 var chain = Promise.resolve();
 function send(action, payload){
+  state.pending = (state.pending || 0) + 1;
   var p = chain.then(function(){ return api(action, payload); });
-  chain = p.then(function(){}, function(){});
+  chain = p.then(function(){ state.pending--; }, function(){ state.pending--; });
   return p;
+}
+
+// A copy of the last screens is kept on the phone, so a route opens at
+// once and the fresh answer replaces it when it arrives.
+function readCopy(key){ try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+function writeCopy(key, data){
+  try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: data })); } catch (e) { pruneCopies(true); }
+}
+function pruneCopies(hard){
+  try {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('bm_ld_route_') === 0) keys.push(k); }
+    var all = keys.map(function(k){ var c = readCopy(k); return { k: k, at: c ? c.at : 0 }; }).sort(function(a, b){ return b.at - a.at; });
+    all.slice(hard ? 2 : 14).forEach(function(x){ localStorage.removeItem(x.k); });
+  } catch (e) {}
+}
+var copyTimer = 0;
+function touchCopy(){
+  if (copyTimer) return;
+  copyTimer = setTimeout(function(){
+    copyTimer = 0;
+    if (state.token && state.route && state.shown) writeCopy('bm_ld_route_' + state.shown + '_' + state.code, state.route);
+  }, 700);
 }
 
 function saveSession(){
@@ -203,9 +240,10 @@ function saveSession(){
 }
 function logout(msg){
   if (state.token) api('ldLogout', {});
-  state.token = ''; state.name = ''; state.routes = null; state.route = null;
+  state.token = ''; state.name = ''; state.routes = null; state.route = null; state.date = '';
   state.view = 'login'; state.error = msg || '';
   var s = store(); if (s) try { s.removeItem('bm_ld'); } catch (e) {}
+  try { var del = []; for (var q = 0; q < localStorage.length; q++) { var kk = localStorage.key(q); if (kk && kk.indexOf('bm_ld_r') === 0) del.push(kk); } del.forEach(function(x){ localStorage.removeItem(x); }); } catch (e) {}
   render();
 }
 function toast(msg){
@@ -221,31 +259,76 @@ function renderToast(){
 
 /******************** LOADING DATA ********************/
 function loadRoutes(quiet){
+  var ck = 'bm_ld_routes_' + (dayStr() || 'now');
+  if (!state.routes) {
+    var c = readCopy(ck);
+    if (c && c.data && Date.now() - c.at < 12 * 3600000) { state.routes = c.data; state.shown = c.data.day; }
+  }
   if (!quiet) { state.loading = !state.routes; state.error = ''; render(); }
   api('ldRoutes', { date: dayStr() }).then(function(r){
+    if (!state.token) return;
     state.loading = false;
-    if (r && r.success) { state.routes = r; if (!state.date) state.shown = r.day; else state.shown = state.date; }
+    if (r && r.success) { state.routes = r; state.shown = r.day; writeCopy(ck, r); }
     else if (!quiet) state.error = (r && r.error) || 'Could not load the routes.';
     if (state.view === 'routes') render();
   });
 }
+function firstOpen(r){
+  for (var k = 0; k < r.orders.length; k++) if (!r.orders[k].loaded) return k;
+  return 0;
+}
 function openRoute(code){
   state.view = 'route'; state.code = code; state.route = null; state.error = ''; state.open = {};
+  var c = readCopy('bm_ld_route_' + state.shown + '_' + code);
+  var hadCopy = !!(c && c.data && c.data.success && Date.now() - c.at < 6 * 3600000);
+  if (hadCopy) { state.route = c.data; state.cur = firstOpen(c.data); }
   render(); window.scrollTo(0, 0);
+  if (hadCopy) fillItems();
   api('ldRoute', { date: state.shown, code: code }).then(function(r){
-    if (state.code !== code) return;
+    if (state.code !== code || !state.token) return;
     if (r && r.success) {
-      state.route = r; state.cur = 0;
-      for (var k = 0; k < r.orders.length; k++) if (!r.orders[k].loaded) { state.cur = k; break; }
-    } else state.error = (r && r.error) || 'Could not open the route.';
-    render();
+      // Edits still on their way to the server (or being typed) win over this answer.
+      if (!(hadCopy && ((state.pending || 0) > 0 || kp.i >= 0))) {
+        state.route = r;
+        if (!hadCopy || state.cur >= r.orders.length) state.cur = firstOpen(r);
+      }
+      touchCopy();
+    } else if (!state.route) state.error = (r && r.error) || 'Could not open the route.';
+    if (kp.i < 0) render();
+    fillItems();
+  });
+}
+
+// Orders whose items were not saved when the route was made: look them
+// up in the background and fill them in as they arrive.
+function fillItems(){
+  var r = state.route, code = state.code;
+  if (!r || state.filling === code) return;
+  var need = r.orders.some(function(o){ return !o.items; });
+  if (!need) return;
+  state.filling = code; state.fillDone = false; if (kp.i < 0) render();
+  api('ldItemsFill', { date: state.shown, code: code }).then(function(x){
+    state.filling = ''; state.fillDone = true;
+    if (state.code !== code || !state.route || !state.token) return;
+    if (x && x.success) {
+      state.route.orders.forEach(function(o, i){
+        var its = x.items[o.invoiceNo];
+        if (its && !o.items) {
+          o.items = its.map(function(y){ return { p: y.p, v: y.v, q: y.q, pcs: y.pcs, d: false }; });
+          o.itemsTotal = its.length; o.itemsDone = 0;
+        }
+      });
+      touchCopy();
+    }
+    if (kp.i < 0) render(); else state.route.orders.forEach(function(o, i){ redrawOrder(i); });
   });
 }
 function reloadRoute(){
   var code = state.code;
+  if ((state.pending || 0) > 0) { toast('Still saving. Try again in a moment.'); return; }
   api('ldRoute', { date: state.shown, code: code }).then(function(r){
     if (state.code !== code) return;
-    if (r && r.success) { state.route = r; render(); } else if (r) toast(r.error || 'Could not reload.');
+    if (r && r.success) { state.route = r; touchCopy(); render(); fillItems(); } else if (r) toast(r.error || 'Could not reload.');
   });
 }
 
@@ -263,8 +346,23 @@ function finished(){ return state.route && state.route.state === 'done'; }
 function render(){
   var app = document.getElementById('app');
   var y = window.pageYOffset;
-  app.innerHTML = state.view === 'login' ? loginHTML() : state.view === 'route' ? routeHTML() : routesHTML();
+  app.innerHTML = state.view === 'login' ? loginHTML() : state.view === 'route' ? routeHTML() : state.view === 'settings' ? settingsHTML() : routesHTML();
   if (state.view === 'route') window.scrollTo(0, y);
+}
+
+function settingsHTML(){
+  var t = theme();
+  return '<div class="top"><div class="top-row"><button class="icon-btn" data-a="back-routes" aria-label="Back">‹</button><h1>Settings</h1></div></div>' +
+    '<div class="page">' +
+    '<div class="card row"><div class="avatar">' + esc((state.name || '?').charAt(0).toUpperCase()) + '</div>' +
+      '<div><div style="font-weight:700;">' + esc(state.name) + '</div><div class="note">Loading team</div></div></div>' +
+    '<div class="card"><div style="font-weight:700; margin-bottom:10px;">Appearance</div>' +
+      '<div class="seg3"><button class="' + (t === 'light' ? 'on' : '') + '" data-a="theme" data-v="light">☀ Light</button>' +
+      '<button class="' + (t === 'dark' ? 'on' : '') + '" data-a="theme" data-v="dark">☾ Dark</button>' +
+      '<button class="' + (t ? '' : 'on') + '" data-a="theme" data-v="">Auto</button></div>' +
+      '<div class="note" style="margin-top:8px;">Remembered on this phone. Auto follows the phone’s own setting.</div></div>' +
+    '<button class="btn ghost" style="color:var(--red);" data-a="logout">Log out</button>' +
+    '</div>';
 }
 
 function loginHTML(){
@@ -300,7 +398,7 @@ function routesHTML(){
   var head = '<div class="top"><div class="top-row"><div style="flex:1;"><h1>' + (state.name ? 'Hi, ' + esc(state.name) : 'BM Loading') + '</h1>' +
     '<div class="sub">' + (d ? d.counts.total + ' routes for delivery on ' + esc(dayLabel(d.day)) : 'Loading…') + '</div></div>' +
     '<button class="icon-btn" data-a="refresh" aria-label="Refresh">↻</button>' +
-    '<button class="icon-btn" data-a="logout" aria-label="Log out">⎋</button></div>' +
+    '<button class="icon-btn" data-a="settings" aria-label="Settings">⚙</button></div>' +
     (d ? '<div class="days"><button class="day" data-a="shift" data-v="-1" style="flex:none; width:44px;">‹</button>' +
          '<button class="day on" data-a="now" style="cursor:default;">' + esc(dayLabel(d.day)) + (d.auto ? '' : ' · tap for now') + '</button>' +
          '<button class="day" data-a="shift" data-v="1" style="flex:none; width:44px;">›</button></div>' +
@@ -345,7 +443,8 @@ function routeHeadHTML(){
 }
 
 function itemsHTML(o, i){
-  if (!o.items) return '<div class="items"><div class="note">No item list was saved for this order.</div></div>';
+  if (!o.items) return '<div class="items"><div class="note">' + (state.filling ? 'Looking up the items…' : 'No item list found for this order.') + '</div>' +
+    (state.filling ? '' : '<button class="link" data-a="fill">Look again</button>') + '</div>';
   var h = '<div class="items">';
   o.items.forEach(function(x, k){
     h += '<div class="it' + (x.d ? ' d' : '') + '"><div class="nm">' + esc(x.p) + '<small>' + esc(x.v) + (x.v ? ' · ' : '') + x.q + ' pack' + (x.q === 1 ? '' : 's') +
@@ -373,7 +472,7 @@ function orderHTML(o, i){
     '</div>' +
     '<div class="units"><span>Total units <b id="u-' + i + '">' + (o.bags + o.loose) + '</b></span>' +
       (o.items ? '<button class="link" data-a="toggle" data-i="' + i + '">' + (open ? 'Hide items' : 'Items ' + o.itemsDone + '/' + o.itemsTotal) + '</button>'
-               : '<span class="note">No item list</span>') + '</div>' +
+               : '<span class="note">' + (state.filling ? 'Looking up items…' : 'No item list') + '</span>') + '</div>' +
     (open ? itemsHTML(o, i) : '') +
     '<div style="margin-top:12px;">' +
       (o.loaded ? '<button class="btn undo" data-a="unload" data-i="' + i + '"' + (lock ? ' disabled' : '') + '>✓ Loaded' + (o.loadedAt ? ' · ' + esc(o.loadedAt) : '') + ' — tap to undo</button>'
@@ -409,6 +508,7 @@ function routeHTML(){
 // Only the pieces that changed, so a number being typed is never lost.
 function redrawHead(){
   var el = document.getElementById('ld-head'); if (!el) return;
+  touchCopy();
   var tmp = document.createElement('div'); tmp.innerHTML = routeHeadHTML();
   el.replaceWith(tmp.firstChild);
   var f = document.querySelector('.foot-in');
@@ -419,6 +519,7 @@ function redrawOrder(i){
   var tmp = document.createElement('div'); tmp.innerHTML = orderHTML(orderAt(i), i);
   el.replaceWith(tmp.firstChild);
   kpMark();
+  touchCopy();
 }
 
 /******************** ACTIONS ********************/
@@ -428,12 +529,16 @@ document.addEventListener('click', function(ev){
   var a = el.getAttribute('data-a'), i = Number(el.getAttribute('data-i'));
   if (a === 'login') return doLogin();
   if (a === 'logout') { logout(''); return; }
+  if (a === 'settings') { state.view = 'settings'; render(); window.scrollTo(0, 0); return; }
+  if (a === 'back-routes') { state.view = 'routes'; render(); return; }
+  if (a === 'theme') { setTheme(el.getAttribute('data-v')); return; }
   if (a === 'refresh') return loadRoutes(false);
   if (a === 'shift') { state.date = shiftDay(state.routes ? state.routes.day : state.shown, Number(el.getAttribute('data-v'))); state.routes = null; loadRoutes(false); return; }
   if (a === 'now') { if (state.date) { state.date = ''; state.routes = null; loadRoutes(false); } return; }
   if (a === 'open') return openRoute(el.getAttribute('data-v'));
   if (a === 'back') { state.view = 'routes'; state.route = null; state.error = ''; render(); loadRoutes(true); return; }
   if (a === 'reload') return reloadRoute();
+  if (a === 'fill') { state.filling = ''; return fillItems(); }
   if (a === 'mode') {
     state.mode = el.getAttribute('data-v');
     if (state.mode === 'one' && state.route) {   // start on the first order not yet loaded
@@ -494,6 +599,7 @@ function kpOpen(i, f){
 }
 // Save what was typed once, when he moves on.
 function kpCommit(){
+  touchCopy();
   if (kp.i >= 0 && kp.dirty) { kp.dirty = false; redrawHeadOnly(); saveCounts(kp.i, null); }
 }
 function kpClose(){
@@ -541,7 +647,8 @@ function countsPayload(i, loaded){
   return p;
 }
 function saveCounts(i, loaded){
-  return send('ldOrder', countsPayload(i, loaded)).then(function(r){
+  var p = countsPayload(i, loaded); p.light = true;
+  return send('ldOrder', p).then(function(r){
     if (!r || !r.success) {
       toast((r && r.error) || 'Not saved. Check your internet.');
       if (r && !r.offline) reloadRoute();
@@ -586,7 +693,7 @@ function doItem(i, k){
   var o = orderAt(i), it = o.items[k], on = !it.d;
   it.d = on; o.itemsDone += on ? 1 : -1;
   redrawOrder(i);
-  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: k, done: on }).then(function(r){
+  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: k, done: on, light: true }).then(function(r){
     if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
   });
 }
@@ -594,7 +701,7 @@ function doItemsAll(i){
   var o = orderAt(i), on = o.itemsDone < o.itemsTotal;
   o.items.forEach(function(x){ x.d = on; }); o.itemsDone = on ? o.itemsTotal : 0;
   redrawOrder(i);
-  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: 'all', done: on }).then(function(r){
+  send('ldItem', { date: state.shown, code: state.code, invoiceNo: o.invoiceNo, idx: 'all', done: on, light: true }).then(function(r){
     if (!r || !r.success) { toast((r && r.error) || 'Not saved. Check your internet.'); if (r && !r.offline) reloadRoute(); }
   });
 }
