@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=a1732cdf45"></script>
+<script src="config.js?v=bc5ba8ced9"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -164,6 +164,9 @@
   .cam-done{ background:none; border:1.5px solid #fff; color:#fff; border-radius:9px; padding:10px 18px; font-size:15px; font-weight:700; }
   .cam-n{ color:#fff; font-size:15px; min-width:72px; text-align:right; }
   .spot{ display:inline-block; margin-top:10px; padding:6px 12px; border-radius:10px; background:var(--blue-bg); color:var(--blue); font-weight:800; font-size:15px; }
+  .chip.bad{ background:#ffd9d6; color:#b3261e; }
+  .fm-c.red{ border-color:var(--red); background:#fff1f0; color:#b3261e; }
+  .scanb{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:48px; margin-top:12px; border-radius:12px; background:var(--blue-bg); color:var(--blue); font-weight:700; cursor:pointer; }
   .fm-row{ display:flex; align-items:center; gap:10px; padding:4px 0; }
   .fm-n{ width:28px; text-align:center; color:var(--sub); font-weight:700; font-size:14px; flex:none; }
   .fm-c{ flex:1; height:50px; border-radius:12px; border:1.5px solid var(--line); background:var(--card); color:var(--ink); font-size:24px; font-weight:700; letter-spacing:.08em; text-align:left; padding:0 14px; }
@@ -420,6 +423,10 @@ function settingsHTML(){
       '<button class="' + (t === 'dark' ? 'on' : '') + '" data-a="theme" data-v="dark">☾ Dark</button>' +
       '<button class="' + (t ? '' : 'on') + '" data-a="theme" data-v="">Auto</button></div>' +
       '<div class="note" style="margin-top:8px;">Remembered on this phone. Auto follows the phone’s own setting.</div></div>' +
+    '<div class="card"><div style="font-weight:700; margin-bottom:6px;">Floor map scan</div>' +
+      '<div class="note">' + (state.aiHas === true ? 'A Gemini key is saved. Paste a new one to replace it.' : state.aiHas === false ? 'No Gemini key yet. Paste it once to let the app read the sheet photo.' : 'Checking…') + '</div>' +
+      '<input id="ai-key" class="plain" type="password" autocomplete="off" placeholder="Gemini key" style="margin-top:10px;">' +
+      '<button class="btn" style="margin-top:10px;" data-a="ai-save">Save key</button></div>' +
     '<button class="btn ghost" style="color:var(--red);" data-a="logout">Log out</button>' +
     '</div>';
 }
@@ -634,11 +641,14 @@ document.addEventListener('click', function(ev){
   if (a === 'login') return doLogin();
   if (a === 'logout') { logout(''); return; }
   if (a === 'map-open') return fmOpen();
+  if (a === 'fm-saveall') return fmSaveAll();
+  if (a === 'fm-discard') return fmDiscard();
+  if (a === 'ai-save') return aiSave();
   if (a === 'fm-line') { fm.buf = ''; fm.line = Number(el.getAttribute('data-v')); fm.pos = fmList().length; render(); return; }
   if (a === 'fm-batch') { fm.batch = el.getAttribute('data-v'); fm.buf = ''; fm.line = 1; render(); return fmLoad(); }
   if (a === 'fm-cell') { fm.buf = ''; fm.pos = Number(el.getAttribute('data-v')); render(); return; }
-  if (a === 'fm-del') { var di = Number(el.getAttribute('data-v')); fmList().splice(di, 1); fm.buf = ''; fm.pos = fmList().length; fmSave(); render(); return; }
-  if (a === 'settings') { state.view = 'settings'; render(); window.scrollTo(0, 0); return; }
+  if (a === 'fm-del') { var di = Number(el.getAttribute('data-v')); fmList().splice(di, 1); fm.unsure = {}; fm.buf = ''; fm.pos = fmList().length; fmSave(); render(); return; }
+  if (a === 'settings') { state.view = 'settings'; render(); window.scrollTo(0, 0); aiCheck(); return; }
   if (a === 'back-routes') { state.view = 'routes'; render(); return; }
   if (a === 'theme') { setTheme(el.getAttribute('data-v')); return; }
   if (a === 'refresh') return loadRoutes(false);
@@ -681,15 +691,28 @@ document.addEventListener('keydown', function(ev){
   if (ev.key === 'Enter' && state.view === 'login') doLogin();
 });
 
+/******************** SCAN KEY ********************/
+function aiCheck(){
+  api('ldAiKey', {}).then(function(r){ if (r && r.success) { state.aiHas = !!r.has; if (state.view === 'settings') render(); } });
+}
+function aiSave(){
+  var el = document.getElementById('ai-key'), k = el ? el.value.trim() : '';
+  if (!k) { toast('Paste the key first.'); return; }
+  api('ldAiKey', { key: k }).then(function(r){
+    if (r && r.success) { state.aiHas = !!r.has; toast('Key saved.', true); render(); }
+    else toast((r && r.error) || 'Not saved. Check your internet.');
+  });
+}
+
 /******************** FLOOR MAP ********************/
 // Typed in once per loading. A line is entered from the top down; the place
 // of an order in the list is its row on the floor.
-var fm = { day: '', batch: 'evening', line: 1, lines: {}, pos: 0, buf: '', busy: false };
+var fm = { day: '', batch: 'evening', line: 1, lines: {}, pos: 0, buf: '', busy: false, draft: false, unsure: {}, orig: {}, scanning: false };
 function fmList(){ return fm.lines[fm.line] || (fm.lines[fm.line] = []); }
 function fmMaxLine(){ var m = 14; for (var k in fm.lines) if (fm.lines[k] && fm.lines[k].length && Number(k) + 1 > m) m = Number(k) + 1; return Math.max(m, fm.line); }
 function fmOpen(){
   var hr = new Date().getHours();
-  fm = { day: state.routes ? state.routes.day : (state.shown || ''), batch: (hr >= 17 || hr < 2) ? 'evening' : 'morning', line: 1, lines: {}, pos: 0, buf: '', busy: true };
+  fm = { day: state.routes ? state.routes.day : (state.shown || ''), batch: (hr >= 17 || hr < 2) ? 'evening' : 'morning', line: 1, lines: {}, pos: 0, buf: '', busy: true, draft: false, unsure: {}, orig: {}, scanning: false };
   state.view = 'map'; render(); window.scrollTo(0, 0); fmLoad();
 }
 function fmLoad(){
@@ -704,6 +727,7 @@ function fmLoad(){
   });
 }
 function fmSave(){
+  if (fm.draft) return;
   var line = fm.line, list = (fm.lines[line] || []).slice();
   send('ldMapSave', { date: fm.day, batch: fm.batch, line: line, orders: list }).then(function(r){
     if (!r || !r.success) toast((r && r.error) || 'Not saved. Check your internet.');
@@ -714,31 +738,128 @@ function fmWhere(n, exceptLine, exceptPos){
     for (var i = 0; i < l.length; i++) if (l[i] === n && !(Number(k) === exceptLine && i === exceptPos)) return { line: Number(k), pos: i + 1 }; }
   return null;
 }
+// Cells that need a second look: not 5 digits, repeated, or doubtful to the reader.
+function fmBad(){
+  var bad = {}, seen = {};
+  for (var k in fm.lines) { var l = fm.lines[k] || [];
+    for (var i = 0; i < l.length; i++) {
+      var key = k + ':' + i;
+      if (fm.draft && fm.unsure[key]) bad[key] = 1;
+      if (!/^\d{5}$/.test(l[i])) { if (fm.draft || l[i]) bad[key] = 1; continue; }
+      if (seen[l[i]]) { bad[key] = 1; bad[seen[l[i]]] = 1; } else seen[l[i]] = key;
+    } }
+  return bad;
+}
+function fmScanFile(file){
+  if (!file) return;
+  fm.scanning = true; render();
+  shrinkPhoto(file, function(data){
+    if (!data) { fm.scanning = false; toast('Could not read that photo.'); return render(); }
+    api('ldMapScan', { date: fm.day, batch: fm.batch, base64: data.split(',')[1], mime: 'image/jpeg' }).then(function(r){
+      fm.scanning = false;
+      if (!r || !r.success) { toast((r && r.error) || 'Could not read the sheet. Check your internet.'); return render(); }
+      fm.orig = fm.lines; fm.lines = {}; fm.unsure = {};
+      for (var k in r.lines) fm.lines[k] = r.lines[k];
+      (r.flags || []).forEach(function(f){ if (f.why === 'unsure') fm.unsure[f.line + ':' + (f.pos - 1)] = 1; });
+      fm.draft = true; fm.buf = ''; fm.line = 1; fm.pos = fmList().length;
+      render(); window.scrollTo(0, 0);
+    });
+  }, 1600, 0.85);
+}
+function fmDiscard(){ fm.draft = false; fm.unsure = {}; fm.buf = ''; fm.lines = fm.orig || {}; fm.line = 1; fm.pos = fmList().length; render(); }
+function fmSaveAll(){
+  var bad = fmBad(), n = 0; for (var b in bad) n++;
+  var empty = false;
+  for (var k in fm.lines) (fm.lines[k] || []).forEach(function(v){ if (!/^\d{5}$/.test(v)) empty = true; });
+  if (empty) { toast('Some cells are not 5 digits. Fix the red ones first.'); return; }
+  if (n && !window.confirm(n + ' cell(s) are still marked. Save the map anyway?')) return;
+  var keys = {}, k2;
+  for (k2 in fm.lines) keys[k2] = 1;
+  for (k2 in fm.orig) keys[k2] = 1;
+  fm.draft = false; fm.unsure = {}; var left = 0, failed = false;
+  for (k2 in keys) { left++; (function(line){
+    send('ldMapSave', { date: fm.day, batch: fm.batch, line: Number(line), orders: fm.lines[line] || [] }).then(function(r){
+      if (!r || !r.success) failed = true;
+      if (--left === 0) toast(failed ? 'Some lines were not saved. Try again.' : 'Floor map saved.', !failed);
+    });
+  })(k2); }
+  fm.orig = {}; render();
+}
 function mapHTML(){
   var chips = '<div class="chips">';
   for (var n = 1; n <= fmMaxLine(); n++) {
     var c = (fm.lines[n] || []).length;
-    chips += '<button class="chip' + (n === fm.line ? ' cur' : '') + '" data-a="fm-line" data-v="' + n + '">' + n + (c ? '<small style="opacity:.7"> ·' + c + '</small>' : '') + '</button>';
+    var bd = fm.draft && (function(){ var bb = fmBad(); for (var q in bb) if (q.split(':')[0] === String(n)) return true; return false; })();
+    chips += '<button class="chip' + (n === fm.line ? ' cur' : bd ? ' bad' : '') + '" data-a="fm-line" data-v="' + n + '">' + n + (c ? '<small style="opacity:.7"> ·' + c + '</small>' : '') + '</button>';
   }
   chips += '</div>';
   var head = '<div class="top"><div class="top-row"><button class="icon-btn" data-a="back-routes" aria-label="Back">‹</button><div style="flex:1;"><h1>Floor map</h1>' +
     '<div class="sub">' + esc(dayLabel(fm.day)) + ' · type each line from the top down</div></div></div>' + chips + '</div>';
   var seg = '<div class="seg"><button class="' + (fm.batch === 'evening' ? 'on' : '') + '" data-a="fm-batch" data-v="evening">Evening loading</button>' +
     '<button class="' + (fm.batch === 'morning' ? 'on' : '') + '" data-a="fm-batch" data-v="morning">Night loading</button></div>';
-  var list = fmList(), rows = '';
+  var list = fmList(), rows = '', bad = fm.draft ? fmBad() : {};
   if (fm.busy) rows = '<div class="spin">Opening…</div>';
   else {
     var upto = Math.max(list.length, fm.pos) + 1;
     for (var i = 0; i < upto; i++) {
       var act = i === fm.pos, v = act ? fm.buf : (list[i] || '');
       rows += '<div class="fm-row"><span class="fm-n">' + (i + 1) + '</span>' +
-        '<button class="fm-c' + (act ? ' act' : '') + (v ? '' : ' emp') + '" data-a="fm-cell" data-v="' + i + '">' + (v || (act ? 'type 5 digits' : (i < list.length ? '' : '—'))) + '</button>' +
+        '<button class="fm-c' + (act ? ' act' : '') + (v ? '' : ' emp') + (fm.draft && bad[fm.line + ':' + i] ? ' red' : '') + '" data-a="fm-cell" data-v="' + i + '">' + (v || (act ? 'type 5 digits' : (i < list.length ? '' : '—'))) + '</button>' +
         (i < list.length ? '<button class="fm-x" data-a="fm-del" data-v="' + i + '" aria-label="Remove">×</button>' : '<span class="fm-x"></span>') + '</div>';
     }
   }
-  return head + '<div class="page">' + seg + '<div class="card" style="margin-top:12px;"><div style="font-weight:800; margin-bottom:6px;">Line ' + fm.line +
+  var scan = '';
+  if (fm.scanning) scan = '<div class="card" style="margin-top:12px;"><div class="spin">Reading the sheet… about 15 seconds</div></div>';
+  else if (fm.draft) {
+    var tl = 0, nb = 0, q; for (q in fm.lines) tl += (fm.lines[q] || []).length; for (q in bad) nb++;
+    scan = '<div class="card" style="margin-top:12px;"><div style="font-weight:800;">Read ' + Object.keys(fm.lines).length + ' lines, ' + tl + ' orders</div>' +
+      '<div class="note" style="margin:4px 0 10px;">' + (nb ? nb + ' cell(s) in red need a look: tap one and retype it. ' : 'Nothing doubtful. ') + 'Nothing is saved until you tap Save all.</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><button class="btn ghost" data-a="fm-discard">Discard</button><button class="btn" data-a="fm-saveall">Save all</button></div></div>';
+  } else if (!fm.busy) scan = '<label class="scanb">📷 Scan the sheet<input type="file" accept="image/*" hidden id="fm-scan"></label>' +
+    '<label class="btn ghost" style="display:block; text-align:center; margin-top:10px; cursor:pointer;">⬆ Import from a CSV file<input type="file" id="fm-csv" accept=".csv,text/csv,text/plain" hidden></label>';
+  return head + '<div class="page">' + seg + scan +
+    '<div class="card" style="margin-top:12px;"><div style="font-weight:800; margin-bottom:6px;">Line ' + fm.line +
     ' <span class="note">· ' + list.length + ' order' + (list.length === 1 ? '' : 's') + '</span></div>' + rows + '</div></div>' + fmPad();
 }
+// CSV import: line,row,order or date,batch,line,position,order (a header row is fine). Whatever is in the
+// file replaces the map of the chosen loading.
+function fmImport(text){
+  var byLine = {}, bad = 0, rows = 0;
+  String(text || '').split(/\r?\n/).forEach(function(ln){
+    var c = ln.split(/[,;\t]/).map(function(x){ return x.replace(/^[\s"']+|[\s"']+$/g, ''); });
+    // line,row,order  or  date,batch,line,position,order
+    var o = c.length >= 5 ? 2 : 0;
+    if (c.length < 3 || !/^\d+$/.test(c[o])) return;      // header or blank
+    var line = Number(c[o]), row = Number(c[o + 1]), n = (c[o + 2] || '').replace(/\D/g, '');
+    if (!(line >= 1 && line <= 60) || !(row >= 1) || n.length !== 5) { bad++; return; }
+    (byLine[line] = byLine[line] || []).push({ row: row, n: n }); rows++;
+  });
+  var lines = {}, seen = {}, dups = [];
+  Object.keys(byLine).forEach(function(k){
+    lines[k] = byLine[k].sort(function(a, b){ return a.row - b.row; }).map(function(x){
+      if (seen[x.n]) dups.push(x.n); seen[x.n] = 1; return x.n; });
+  });
+  if (!rows) { toast('No orders found in that file. Each row needs: line, row, order.'); return; }
+  var msg = rows + ' orders on ' + Object.keys(lines).length + ' lines for ' + (fm.batch === 'evening' ? 'Evening' : 'Night') + ' loading.' +
+    (bad ? '\n' + bad + ' bad row(s) were skipped.' : '') + (dups.length ? '\nOn the sheet twice: ' + dups.slice(0, 8).join(', ') + '.' : '') +
+    '\nReplace the current map with this?';
+  if (!window.confirm(msg)) return;
+  Object.keys(fm.lines).forEach(function(k){ if (!lines[k]) lines[k] = []; });
+  fm.lines = lines; fm.line = 1; fm.pos = (lines[1] || []).length; fm.buf = '';
+  Object.keys(lines).forEach(function(k){
+    send('ldMapSave', { date: fm.day, batch: fm.batch, line: Number(k), orders: lines[k] }).then(function(r){
+      if (!r || !r.success) toast((r && r.error) || 'Line ' + k + ' not saved.');
+    });
+  });
+  render(); toast('Map imported.', true);
+}
+document.addEventListener('change', function(ev){
+  var t = ev.target; if (!t || t.id !== 'fm-csv') return;
+  var f = t.files && t.files[0]; t.value = '';
+  if (!f) return;
+  var rd = new FileReader(); rd.onload = function(){ fmImport(rd.result); };
+  rd.onerror = function(){ toast('Could not read that file.'); }; rd.readAsText(f);
+});
 function fmPad(){
   var key = function(v, label, cls){ return '<button type="button" class="k ' + (cls || '') + '" data-m="' + v + '">' + label + '</button>'; };
   var box = document.getElementById('mk');
@@ -761,7 +882,7 @@ function fmKey(k){
   var list = fmList();
   if (k === 'back') {
     if (fm.buf) fm.buf = fm.buf.slice(0, -1);
-    else if (fm.pos > 0) { fm.pos--; list.splice(fm.pos, 1); fmSave(); }
+    else if (fm.pos > 0) { fm.pos--; list.splice(fm.pos, 1); fm.unsure = {}; fmSave(); }
     return render();
   }
   if (fm.buf.length >= 5) return;
@@ -769,7 +890,7 @@ function fmKey(k){
   if (fm.buf.length === 5) {
     var dup = fmWhere(fm.buf, fm.line, fm.pos);
     if (dup) { toast(fm.buf + ' is already on line ' + dup.line + ', row ' + dup.pos + '.'); fm.buf = ''; return render(); }
-    list[fm.pos] = fm.buf; fm.buf = ''; fm.pos = Math.min(fm.pos + 1, list.length);
+    delete fm.unsure[fm.line + ':' + fm.pos]; list[fm.pos] = fm.buf; fm.buf = ''; fm.pos = Math.min(fm.pos + 1, list.length);
     fmSave();
   }
   render();
@@ -921,17 +1042,17 @@ function vehicleSave(){
 
 /******************** PHOTOS ********************/
 // Same size and quality as the DA app's proof photos.
-function shrinkPhoto(file, cb){
+function shrinkPhoto(file, cb, edge, q){
   var rd = new FileReader();
   rd.onload = function(){
     var img = new Image();
     img.onload = function(){
-      var maxEdge = 1000, w = img.width, h = img.height;
+      var maxEdge = edge || 1000, w = img.width, h = img.height;
       if (w > h && w > maxEdge) { h = Math.round(h * maxEdge / w); w = maxEdge; }
       else if (h >= w && h > maxEdge) { w = Math.round(w * maxEdge / h); h = maxEdge; }
       var c = document.createElement('canvas'); c.width = w; c.height = h;
       var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
-      var out = c.toDataURL('image/jpeg', 0.6); c.width = 1; c.height = 1;
+      var out = c.toDataURL('image/jpeg', q || 0.6); c.width = 1; c.height = 1;
       cb(out);
     };
     img.onerror = function(){ cb(''); };
@@ -944,6 +1065,7 @@ function shrinkPhoto(file, cb){
 // at them, then taps Submit; only then do they go to the sheet.
 function stageRoom(o){ return 4 - (o.photos || []).length - (o.staged || []).length; }
 document.addEventListener('change', function(ev){
+  var sc = ev.target; if (sc && sc.id === 'fm-scan') { var f0 = sc.files && sc.files[0]; sc.value = ''; return fmScanFile(f0); }
   var t = ev.target; if (!t || !t.getAttribute || t.getAttribute('data-photo') === null) return;
   var i = Number(t.getAttribute('data-photo')), o = orderAt(i), fs = [];
   for (var n = 0; t.files && n < t.files.length; n++) fs.push(t.files[n]);
