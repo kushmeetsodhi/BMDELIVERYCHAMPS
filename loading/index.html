@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=c236677fc8"></script>
+<script src="config.js?v=4d23be7912"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -178,6 +178,8 @@
   .subm{ width:100%; margin-top:10px; }
   .ph{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   .ph .th{ position:relative; width:64px; height:64px; border-radius:10px; overflow:hidden; background:var(--bg); flex:none; }
+  .ph .th.nophoto{ background:#e5e7eb; }
+  .ph .th.nophoto img{ visibility:hidden; }
   .ph .th img{ width:100%; height:100%; object-fit:cover; display:block; }
   .ph .th.up img{ opacity:.45; }
   .ph .th.bad{ outline:2px solid var(--red); }
@@ -537,6 +539,27 @@ function itemsHTML(o, i){
   return h + '</div>';
 }
 
+// Saved photos come through the server (the phone is not signed in to
+// Google, so Drive's own thumbnail link would not show).
+var photoCache = {};
+function photoData(link, full, cb){
+  var key = (full ? 'f:' : 't:') + link;
+  if (photoCache[key]) { cb(photoCache[key]); return; }
+  api('ldPhotoGet', { link: link, size: full ? 'full' : 'thumb' }).then(function(r){
+    if (r && r.success && r.base64) { photoCache[key] = 'data:' + r.mime + ';base64,' + r.base64; cb(photoCache[key]); }
+    else cb('');
+  });
+}
+function hydratePhotos(){
+  var list = document.querySelectorAll('img[data-pid]');
+  Array.prototype.forEach.call(list, function(im){
+    var link = im.getAttribute('data-pid'); im.removeAttribute('data-pid');
+    photoData(link, false, function(u){
+      if (u) im.src = u; else im.parentNode && im.parentNode.classList.add('nophoto');
+    });
+  });
+}
+new MutationObserver(function(){ hydratePhotos(); }).observe(document.documentElement, { childList: true, subtree: true });
 function thumbUrl(link, size){
   var m = String(link || '').match(/[-\w]{25,}/);
   return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 200) : '';
@@ -545,9 +568,9 @@ function photosHTML(o, i){
   var ph = o.photos || [], lock = finished();
   var h = '<div class="ph">';
   ph.forEach(function(p, k){
-    var src = p.thumb || thumbUrl(p.link);
+    var src = p.thumb || '';
     if (p.link) {
-      h += '<div class="th"><a href="' + esc(p.link) + '" target="_blank" rel="noopener"><img src="' + esc(src) + '" alt="Photo ' + (k + 1) + '" loading="lazy"></a>' +
+      h += '<div class="th"><a href="' + esc(p.link) + '" target="_blank" rel="noopener"><img ' + (src ? 'src="' + esc(src) + '"' : 'data-pid="' + esc(p.link) + '"') + ' alt="Photo ' + (k + 1) + '"></a>' +
         (lock ? '' : '<button type="button" class="x" data-a="photo-del" data-i="' + i + '" data-k="' + k + '" aria-label="Remove photo">×</button>') + '</div>';
     } else {
       h += '<div class="th ' + (p.failed ? 'bad' : 'up') + '"><img src="' + esc(src) + '" alt="">' +
@@ -1316,11 +1339,12 @@ function doLogin(){
         '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" data-lb-skip="1" style="color:#fff;font:600 13px system-ui;text-decoration:underline;opacity:.85;">Open original</a>' +
         '<button type="button" id="lb-x" style="background:#fff;color:#000;border:0;border-radius:20px;width:38px;height:38px;font:700 20px system-ui;cursor:pointer;">×</button>' +
       '</div>' +
-      '<img alt="" style="max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;touch-action:pinch-zoom;" ' +
-        'src="https://drive.google.com/thumbnail?id=' + id + '&sz=w1600">' +
+      '<img alt="" style="max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;touch-action:pinch-zoom;">' +
       '<div id="lb-msg" style="color:#fff;font:13px system-ui;margin-top:10px;opacity:.8;">Tap outside the photo to close</div>';
     var img = box.querySelector('img');
     img.onerror = function(){ img.style.display = 'none'; box.querySelector('#lb-msg').textContent = 'Could not load the photo here. Use Open original.'; };
+    if (window.photoData) photoData(href, true, function(u){ if (u) img.src = u; else img.onerror(); });
+    else img.src = 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1600';
     box.addEventListener('click', function(e){
       if (e.target.closest && e.target.closest('[data-lb-skip]')) return;
       if (e.target === img) return;
