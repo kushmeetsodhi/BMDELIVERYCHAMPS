@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=ec9ac756cf"></script>
+<script src="config.js?v=9e112cf7fa"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -681,7 +681,7 @@ function deskHTML(){
     (L ? '<div class="stats" style="grid-template-columns:repeat(2,1fr); margin-top:12px;">' +
         st('RD area', L.counts.rd || 0, 'go out again') +
         st('CANCEL area', L.counts.cancel || 0, 'take inward') +
-        st('Pending', L.counts.pending || 0, 'support still calling') +
+        st('Pending', L.counts.pending || 0, 'to be decided') +
         st('Items / extra', (L.counts.returned || 0) + (L.counts.extra || 0), 'returned \u00b7 sent by mistake') + '</div>' +
         (L.counts.moveToCancel ? '<div class="err" style="margin-top:10px;"><b>' + L.counts.moveToCancel +
           ' order' + (L.counts.moveToCancel > 1 ? 's' : '') + ' to move from the RD area to the CANCEL area</b> \u2014 support has cancelled ' +
@@ -1798,7 +1798,7 @@ function finalBoxHTML(f){
     ? 'Sent again on ' + esc(f.deliveredLater.code) + ' and delivered ' + esc(f.deliveredLater.on) +
       (f.deliveredLater.daName ? ' by ' + esc(f.deliveredLater.daName) : '') + '. Earlier decision: ' + esc(f.decision || 'pending') + '.'
     : esc(f.why || '') + (f.incomplete ? ' (calls not finished)' : '');
-  var who = f.pending ? 'Failed on ' + esc(f.day) + ' · support still calling' + (f.attempts ? ' (' + f.attempts + ' call' + (f.attempts > 1 ? 's' : '') + ')' : '')
+  var who = f.pending ? 'Failed on ' + esc(f.day) + (f.pastNine ? ' · not decided by 9 pm, you decide' : ' · support still calling') + (f.attempts ? ' (' + f.attempts + ' call' + (f.attempts > 1 ? 's' : '') + ')' : '')
     : 'Decided by ' + esc(f.by || src) + (f.by && f.by.indexOf('Automatic') !== 0 ? ' (' + src + ')' : '') +
       (f.at ? ' · ' + esc(f.at) : '') + ' · failed on ' + esc(f.day);
   var area = f.deliveredLater ? '' : '<div class="fd-area">Goods: ' + (f.area === 'CANCEL' ? 'CANCEL area' : f.area === 'RD' ? 'RD area' : 'RD area for now') + '</div>';
@@ -1806,12 +1806,13 @@ function finalBoxHTML(f){
     '<div class="fd-l">' + line + '</div><div class="fd-w">' + who + '</div>' + area + '</div>';
 }
 
-// Admins can change a final decision - an order auto-cancelled at 9 pm
-// sent as RD instead, say. Kept on record with the admin's note.
+// Supervisors and admins decide or change a decision. Nothing is
+// cancelled automatically at 9 pm any more: an order still undecided
+// then waits here for a supervisor. Kept on record with the note.
 function overrideHTML(f){
-  if (!f || f.deliveredLater || (state.roles || []).indexOf('Admin') === -1) return '';
+  if (!f || f.deliveredLater || ((state.roles || []).indexOf('Admin') === -1 && (state.roles || []).indexOf('Supervisor') === -1)) return '';
   if (!state.ovOpen) {
-    return '<div style="margin:-4px 0 12px; text-align:right;"><button class="btn sm ghost" data-a="ov-open">Change decision (admin)</button></div>';
+    return '<div style="margin:-4px 0 12px; text-align:right;"><button class="btn sm ghost" data-a="ov-open">'+(f.decision ? 'Change decision' : 'Decide: RD or Cancel')+'</button></div>';
   }
   var cur = f.decision || 'pending';
   return '<div class="card" style="padding:12px 14px;">' +
