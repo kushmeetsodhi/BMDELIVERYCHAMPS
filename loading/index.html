@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Loading</title>
-<script src="config.js?v=5e44930926"></script>
+<script src="config.js?v=5b012ea612"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -495,6 +495,14 @@ function routesHTML(){
     body += '<div class="plan"><div class="plan-t"><b>' + esc(g.title) + '</b>' +
       (g.late ? '<span class="pill p-late">Late</span>' : g.counts.open === 0 ? '<span class="pill p-ok">All loaded</span>' : '') + '</div>' +
       '<div class="note">' + (g.issued ? 'Issued ' + esc(clock12(g.issued)) + ' · ' : '') + esc(g.window) + ' · ' + g.counts.done + ' of ' + g.counts.total + ' loaded</div></div>';
+    if (g.giftTotal) {
+      body += '<div class="card" style="border-color:#f0c75e;"><div class="shop">🎁 Diwali gifts to load: ' + g.giftTotal + '</div>' +
+        '<div class="note" style="margin-bottom:6px;">Put each gift with the order shown on the route.</div>' +
+        g.giftRoutes.map(function(r){
+          return '<div class="note" style="margin-top:4px;"><b>' + esc(r.code) + '</b>' + (r.vehicle ? ' · ' + esc(r.vehicle) : '') +
+            ' · <b>' + r.n + '</b> gift' + (r.n === 1 ? '' : 's') + (r.shops.length ? ' — ' + esc(r.shops.join(', ')) : '') + '</div>';
+        }).join('') + '</div>';
+    }
     g.routes.forEach(function(r){ body += routeCardHTML(r); });
   });
   return head + '<div class="page">' + body + '</div>';
