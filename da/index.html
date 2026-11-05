@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BM Champs" />
 <meta name="mobile-web-app-capable" content="yes" />
 <title>BM Delivery Champs</title>
-<script src="config.js?v=3d56808768"></script>
+<script src="config.js?v=0bd75d16ec"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -386,6 +386,7 @@ var state = {
   returnPhotoMime: null,
   returnPhotoPreview: null,
   collectingReturn: null,
+  giftPhoto: null, giftPhotoMime: null, giftPhotoPreview: null, giftMode: '', giftNote: '',
   amountChoice: null,
   issueOpen: false,
   issueType: '',
@@ -972,6 +973,7 @@ function bodyHTML(){
   if(state.view === 'order')   return orderHTML();
   if(state.view === 'mark')    return markHTML();
   if(state.view === 'collect') return collectHTML();
+  if(state.view === 'gift') return giftHTML();
   if(state.view === 'pod')     return podHTML();
   if(state.view === 'socall')  return soCallHTML();
   if(state.view === 'closing') return closingHTML();
@@ -1526,6 +1528,19 @@ function orderHTML(){
           esc(rq.requestId) + '">Collect return</button></div>') +
       '</div>';
   }
+  // Diwali gift: one per loyal shop, handed over with this order.
+  var giftBlock = '';
+  if (o.gift) {
+    var gst = o.gift._done || o.gift.state;
+    giftBlock = '<div class="ret-box" style="background:#fff4d6; border-color:#f0c75e;">' +
+      '<div class="ret-head" style="color:#7a4b00;">\uD83C\uDF81 ' + (gst === 'Pending' ? 'DIWALI GIFT FOR THIS SHOP'
+        : gst === 'Given' ? 'DIWALI GIFT HANDED OVER' : gst === 'Refused' ? 'GIFT REFUSED BY THE SHOP' : 'GIFT') + '</div>' +
+      (gst === 'Pending'
+        ? '<div class="ret-detail">Hand the gift to the shop and take a photo.</div>' +
+          '<div style="margin-top:10px;"><button class="secondary small" data-action="start-gift">Hand over gift</button></div>'
+        : '') +
+      '</div>';
+  }
   var codStr = cod ? ' \u00b7 ' + money(o.balanceDue) : '';
   var pct = total ? (done / total * 100) : 0;
   var finishBtn = (done === total && total > 0)
@@ -1557,6 +1572,7 @@ function orderHTML(){
       '<div class="field-row"><span class="l">Location</span><span class="v">' +
         '<a class="maps-link" href="' + mapUrl + '" target="_blank" rel="noopener">Open in Maps</a></span></div>' +
       instr +
+      giftBlock +
       retBlock +
       statusBlock +
     '</div>' +
@@ -1979,6 +1995,40 @@ function collectHTML(){
     '<div style="margin-top:11px;">' +
       '<button class="secondary" data-action="start-defer" style="width:100%;">Shop can\'t hand it over today</button>' +
     '</div>' +
+    '</div>';
+}
+
+function giftHTML(){
+  var o = currentOrder();
+  if (!o || !o.gift) return '<div class="card">No gift for this order.</div>';
+  var head = '<p style="font-weight:600; margin:0 0 3px; font-size:15px;">\uD83C\uDF81 Diwali gift</p>' +
+    '<p class="hint" style="margin:0 0 2px;">' + esc(cleanName(o.partyName)) + '</p>';
+  if (state.giftMode === 'refuse' || state.giftMode === 'missing') {
+    var missing = state.giftMode === 'missing';
+    return '<div class="card">' + head +
+      '<label>' + (missing ? 'What happened to the gift?' : 'Why did the shop not take it?') + '</label>' +
+      '<input type="text" id="gift-note" value="' + esc(state.giftNote) + '" placeholder="' +
+        (missing ? 'e.g. gift was not loaded in the vehicle' : 'e.g. owner not interested') + '" />' +
+      errHTML() +
+      '<div class="nav-row">' +
+        '<button class="secondary" data-action="gift-back-mode">Back</button>' +
+        '<button class="primary" data-action="gift-confirm-' + (missing ? 'missing' : 'refuse') + '">Save</button>' +
+      '</div>' +
+      (missing ? '<div class="hint">The gift will go with this shop\u2019s next order.</div>' : '') + '</div>';
+  }
+  var img = state.giftPhotoPreview ? '<img class="thumb" src="' + state.giftPhotoPreview + '" alt="" />' : '';
+  var dis = state.giftPhoto ? '' : 'disabled';
+  return '<div class="card">' + head +
+    '<label>Photo of the gift with the shop (required)</label>' + img +
+    '<label class="file-btn">' + (state.giftPhotoPreview ? 'Change photo' : 'Take photo') +
+      '<input type="file" accept="image/*" id="gift-photo-input" style="display:none;" /></label>' +
+    errHTML() +
+    '<div class="nav-row">' +
+      '<button class="secondary" data-action="cancel-gift">Back</button>' +
+      '<button class="primary" data-action="confirm-gift" ' + dis + '>Gift handed over</button>' +
+    '</div>' +
+    '<div style="margin-top:11px;"><button class="secondary" data-action="gift-refuse" style="width:100%;">Shop did not take the gift</button></div>' +
+    '<div style="margin-top:8px;"><button class="secondary" data-action="gift-missing" style="width:100%;">I do not have the gift</button></div>' +
     '</div>';
 }
 
@@ -2612,6 +2662,21 @@ function attachEvents(){
     });
   }
 
+  var giftInput = document.getElementById('gift-photo-input');
+  if (giftInput) {
+    giftInput.addEventListener('change', function(){
+      var file = giftInput.files && giftInput.files[0];
+      if (!file) return;
+      state.loading = true; state.loadingMsg = 'Preparing photo...'; render();
+      compressImage(file, function(out){
+        state.giftPhotoPreview = out.dataUrl; state.giftPhotoMime = out.mime; state.giftPhoto = out.base64;
+        state.loading = false; render();
+      });
+    });
+  }
+  var giftNoteEl = document.getElementById('gift-note');
+  if (giftNoteEl) giftNoteEl.addEventListener('input', function(){ state.giftNote = giftNoteEl.value; });
+
   var shotEl = document.getElementById('screenshot-input');
   if (shotEl) {
     shotEl.addEventListener('change', function(){
@@ -3183,6 +3248,19 @@ function onAction(ev){
   }
 
   if (action === 'confirm-collect') { doCollectReturn(); return; }
+
+  if (action === 'start-gift') {
+    state.giftPhoto = null; state.giftPhotoMime = null; state.giftPhotoPreview = null;
+    state.giftMode = ''; state.giftNote = ''; state.error = '';
+    state.view = 'gift'; render(); return;
+  }
+  if (action === 'cancel-gift') { state.view = 'order'; state.error = ''; render(); return; }
+  if (action === 'gift-refuse') { state.giftMode = 'refuse'; state.giftNote = ''; state.error = ''; render(); return; }
+  if (action === 'gift-missing') { state.giftMode = 'missing'; state.giftNote = ''; state.error = ''; render(); return; }
+  if (action === 'gift-back-mode') { state.giftMode = ''; state.error = ''; render(); return; }
+  if (action === 'confirm-gift') { doGift('given'); return; }
+  if (action === 'gift-confirm-refuse') { doGift('refused'); return; }
+  if (action === 'gift-confirm-missing') { doGift('missing'); return; }
 
   if (action === 'start-defer') {
     state.deferring = true; state.deferReason = ''; state.error = '';
@@ -4082,6 +4160,12 @@ function validateMark(){
     }
   }
 
+  if (state.markStatus === 'Delivered' && o.gift && (o.gift._done || o.gift.state) === 'Pending') {
+    state.error = 'Hand over the Diwali gift for this shop first (or say the shop did not take it).';
+    render();
+    return;
+  }
+
   if (state.markStatus === 'Delivered') {
     var pend = (o.returns || []).filter(function(r){ return !r._collected && !r._deferred; });
     if (pend.length) {
@@ -4220,6 +4304,25 @@ function waitForQueue(cb){
     // than leaving them staring at a spinner for a minute.
     if (waited >= 10000) { clearInterval(timer); cb(false); }
   }, 1000);
+}
+
+function doGift(outcome){
+  var o = currentOrder();
+  if (!o || !o.gift) return;
+  var note = String(state.giftNote || '').trim();
+  if (outcome === 'given' && !state.giftPhoto) { state.error = 'Take a photo first.'; render(); return; }
+  if (outcome !== 'given' && note.length < 3) { state.error = 'Write a short reason.'; render(); return; }
+  state.loading = true; state.loadingMsg = 'Saving gift...'; render();
+  var payload = { loginName: state.loginName, code: state.code, invoiceNo: o.invoiceNo, outcome: outcome, note: note };
+  if (outcome === 'given') { payload.screenshotBase64 = state.giftPhoto; payload.screenshotMime = state.giftPhotoMime; }
+  api('giftGiven', payload).then(function(res){
+    state.loading = false;
+    if (!res || !res.success) { state.error = (res && res.error) || 'Could not save that.'; render(); return; }
+    o.gift._done = outcome === 'given' ? 'Given' : outcome === 'refused' ? 'Refused' : 'Missing';
+    if (outcome === 'missing') o.gift = null;
+    state.giftPhoto = null; state.giftPhotoMime = null; state.giftPhotoPreview = null; state.giftMode = ''; state.giftNote = '';
+    state.view = 'order'; state.error = ''; render();
+  });
 }
 
 function doCollectReturn(){
