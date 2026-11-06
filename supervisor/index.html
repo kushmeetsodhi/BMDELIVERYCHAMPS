@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=5a3265c330"></script>
+<script src="config.js?v=c1c54fe514"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -644,7 +644,7 @@ var DK_MAX_PHOTOS = 6;
 
 function dkReset(keepQuery){
   state.dk = { q: keepQuery ? state.dk.q : '', data: null, type: '', qty: {}, note: '',
-               photos: [], saving: false, list: state.dk ? state.dk.list : null,
+               photos: [], act: '', saving: false, list: state.dk ? state.dk.list : null,
                pdfBusy: false, pdfLink: '', mode: state.dk ? state.dk.mode : 'so',
                extra: [{ name: '', qty: '' }] };
 }
@@ -791,6 +791,18 @@ function dkOrderHTML(d){
     }).join('') + '</div>';
 
   if (!d.type) return html;
+  // Support leaves at 9 pm, so the desk says what happens to an Inward order
+  // that support has not decided: RD (goes out again) or Cancel.
+  var needAct = d.type === DK_INWARD && !(d.data.place && d.data.place.decision) && !d.data.order.routeOnly;
+  if (needAct) {
+    html += '<div class="sec">What should happen to it?</div><div class="dk-types" style="grid-template-columns:1fr 1fr;">' +
+      ['RD', 'Cancel'].map(function(t){
+        return '<button class="dk-type' + (d.act === t ? ' on ' + (t === 'RD' ? 'b-blue' : 'b-bad') : '') +
+          '" data-a="dk-act" data-v="' + t + '">' + (t === 'RD' ? 'RD \u2014 send again' : 'Cancel') + '</button>';
+      }).join('') + '</div>' +
+      '<div class="fnt" style="margin:6px 2px 0;">After 9 pm there is no one to call, so your choice is final. ' +
+      'Before 9 pm support may still call the shop.</div>';
+  }
   var needPhoto = d.type === 'Items returned' || d.type === DK_EXTRA;
 
   if (d.type === DK_EXTRA) {
@@ -1015,9 +1027,12 @@ function dkSave(){
     }
   }
   var o = d.data.order;
+  if (d.type === DK_INWARD && !(d.data.place && d.data.place.decision) && !o.routeOnly && !d.act) {
+    state.error = 'Choose RD or Cancel for this order.'; render(); return;
+  }
   state.dkQueue.unshift({
     key: 'q' + Date.now(), soNo: o.soNo, invoiceNo: o.invoiceNo, party: o.partyName, code: o.code,
-    routeOnly: !!o.routeOnly, type: d.type, items: items, note: d.note, photos: d.photos.slice(),
+    routeOnly: !!o.routeOnly, type: d.type, act: d.type === DK_INWARD ? d.act : '', items: items, note: d.note, photos: d.photos.slice(),
     status: 'waiting', error: ''
   });
   state.error = '';
@@ -1042,7 +1057,7 @@ function dkPump(){
       dkQueueChanged(); return;
     }
     job.status = 'saving';
-    api('deskMark', { soNo: job.soNo, invoiceNo: job.invoiceNo, code: job.code, type: job.type, items: job.items,
+    api('deskMark', { soNo: job.soNo, invoiceNo: job.invoiceNo, code: job.code, type: job.type, items: job.items, act: job.act || '',
                       note: job.note, photos: job.photos.map(function(p){ return p.link; }) })
       .then(function(res){
         if (res && res.success) {
@@ -2358,6 +2373,7 @@ function onClick(ev){
   if (a === 'dk-type')  { dkCapture(); state.dk.type = el.getAttribute('data-v'); state.error = ''; render(); return; }
   if (a === 'dk-cam')   { dkCapture(); state.error = ''; scamOpen(); return; }
   if (a === 'dk-photo-x'){ dkCapture(); state.dk.photos.splice(Number(el.getAttribute('data-i')), 1); render(); return; }
+  if (a === 'dk-act')   { dkCapture(); state.dk.act = el.getAttribute('data-v'); state.error = ''; render(); return; }
   if (a === 'dk-save')  { dkSave(); return; }
   if (a === 'dk-retry') { dkRetry(el.getAttribute('data-k')); return; }
   if (a === 'dk-mode')  { var keepL = state.dk.list; state.dk.mode = el.getAttribute('data-v'); dkReset(false);
