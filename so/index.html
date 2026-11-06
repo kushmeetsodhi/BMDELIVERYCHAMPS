@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM SO</title>
-<script src="config.js?v=39cab67e74"></script>
+<script src="config.js?v=a774435ef0"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -173,11 +173,11 @@ function api(action, payload){
 
 function saveSession(){
   var s = store(); if (!s) return;
-  try { s.setItem('bm_so', JSON.stringify({ token: state.token, name: state.name, phone: state.phone })); } catch (e) {}
+  try { s.setItem('bm_so', JSON.stringify({ token: state.token, name: state.name, phone: state.phone, role: state.role })); } catch (e) {}
 }
 function logout(msg){
   if (state.token) api('soLogout', {});
-  state.token = ''; state.name = ''; state.home = null; state.order = null;
+  state.token = ''; state.name = ''; state.home = null; state.order = null; state.role = ''; state.viewSo = null;
   state.view = 'login'; state.error = msg || '';
   var s = store(); if (s) try { s.removeItem('bm_so'); } catch (e) {}
   try { localStorage.removeItem('bm_so_copy'); } catch (e) {}
@@ -221,12 +221,13 @@ function askNotify(){
 /******************** LOADING ********************/
 function loadHome(quiet){
   if (!quiet) { state.loading = !state.home; state.error = ''; render(); }
-  api('soHome', { date: dayStr() }).then(function(r){
+  api('soHome', { date: dayStr(), soPhone: state.viewSo ? state.viewSo.phone : '' }).then(function(r){
     state.loading = false;
     if (r && r.success) {
+      if (!!state.viewSo !== !!r.soPhone) return;          // answer to an old request
       state.home = r; state.loadedAt = Date.now(); notifyNew(r);
       // Kept on the phone so the app opens on it next time, at once.
-      try { localStorage.setItem('bm_so_copy', JSON.stringify({ phone: state.phone, day: dayStr(), data: r })); } catch (e) {}
+      if (!state.viewSo && !r.asm) try { localStorage.setItem('bm_so_copy', JSON.stringify({ phone: state.phone, day: dayStr(), data: r })); } catch (e) {}
     }
     else if (!quiet) state.error = (r && r.error) || 'Could not load your orders.';
     if (state.view === 'home') render();
@@ -294,8 +295,11 @@ function soCheckLine(v){
 
 function homeHTML(){
   var d = state.home;
-  var head = '<div class="top"><div class="top-row"><div style="flex:1;"><h1>' + (state.name ? 'Hi, ' + esc(state.name) : 'BM SO') + '</h1>' +
-    '<div class="sub">' + (d ? d.counts.total + ' orders on ' + (state.day === 'today' ? 'today’s' : 'yesterday’s') + ' routes' : 'Loading…') + '</div></div>' +
+  var asmTop = state.role === 'asm' && !state.viewSo;
+  var head = '<div class="top"><div class="top-row">' +
+    (state.viewSo ? '<button class="icon-btn" data-a="team" aria-label="Back to team">‹</button>' : '') +
+    '<div style="flex:1;"><h1>' + (state.viewSo ? esc(state.viewSo.name) : state.name ? 'Hi, ' + esc(state.name) : 'BM SO') + '</h1>' +
+    '<div class="sub">' + (d ? (asmTop ? d.sos.length + ' SOs · ' : '') + d.counts.total + ' orders on ' + (state.day === 'today' ? 'today’s' : 'yesterday’s') + ' routes' : 'Loading…') + '</div></div>' +
     '<button class="icon-btn" data-a="refresh" aria-label="Refresh">↻</button>' +
     '<button class="icon-btn" data-a="settings" aria-label="Settings">⚙</button></div>' +
     '<div class="days"><button class="day' + (state.day === 'today' ? ' on' : '') + '" data-a="day" data-v="today">Today</button>' +
@@ -306,6 +310,20 @@ function homeHTML(){
   if (state.loading || !d) return head + '<div class="page">' + body + '<div class="spin">Loading your orders…</div></div>';
   if (state.fresh) body += '<div class="banner" data-a="fresh-ok">' + state.fresh + ' order' + (state.fresh > 1 ? 's' : '') + ' just marked not delivered</div>';
   var c = d.counts;
+  if (asmTop) {
+    var tb = body + '<div class="tiles"><div class="tile bad"><b>' + c.failed + '</b><span>Not delivered</span></div>' +
+      '<div class="tile mid"><b>' + c.onTheWay + '</b><span>On the way</span></div>' +
+      '<div class="tile"><b>' + c.waiting + '</b><span>Not left</span></div>' +
+      '<div class="tile ok"><b>' + c.delivered + '</b><span>Delivered</span></div></div><div class="sec">Your SOs</div>';
+    if (!d.sos.length) tb += '<div class="empty">No SOs are set up under you yet. Ask the office.</div>';
+    d.sos.forEach(function(x){
+      tb += '<div class="card order' + (x.counts.failed ? ' failed' : '') + '" data-a="so" data-v="' + esc(x.phone) + '" data-n="' + esc(x.name) + '">' +
+        '<div class="row"><div class="grow"><div class="shop">' + esc(x.name) + '</div>' +
+        '<div class="meta">' + x.counts.total + ' orders · ' + x.counts.delivered + ' delivered · ' + x.counts.onTheWay + ' on the way · ' + x.counts.waiting + ' not left</div></div>' +
+        (x.counts.failed ? '<span class="pill bad">' + x.counts.failed + ' not delivered</span>' : '') + '</div></div>';
+    });
+    return head + '<div class="page">' + tb + '<div class="fab">Updates by itself every 2 minutes</div></div>';
+  }
   var tile = function(key, n, label, cls){
     return '<div class="tile ' + cls + (state.filter === key ? ' on' : '') + '" data-a="filter" data-v="' + key + '"><b>' + n + '</b><span>' + label + '</span></div>';
   };
@@ -409,7 +427,7 @@ function settingsHTML(){
     (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '') +
     (state.note ? '<div class="okmsg">' + esc(state.note) + '</div>' : '') +
     '<div class="card row"><div style="width:46px; height:46px; border-radius:23px; background:var(--blue-bg); color:var(--blue); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px;">' +
-      esc((state.name || '?').charAt(0)) + '</div><div><div style="font-weight:700;">' + esc(state.name) + '</div><div class="note">Sales officer · ' + esc(state.phone) + '</div></div></div>' +
+      esc((state.name || '?').charAt(0)) + '</div><div><div style="font-weight:700;">' + esc(state.name) + '</div><div class="note">' + (state.role === 'asm' ? 'Area sales manager' : 'Sales officer') + ' · ' + esc(state.phone) + '</div></div></div>' +
     '<div class="card"><div style="font-weight:700; margin-bottom:10px;">Appearance</div>' +
       '<div class="seg"><button class="' + (dark ? '' : 'on') + '" data-a="theme" data-v="light">☀ Light</button>' +
       '<button class="' + (dark ? 'on' : '') + '" data-a="theme" data-v="dark">☾ Dark</button></div>' +
@@ -438,6 +456,8 @@ document.addEventListener('click', function(ev){
   if (a === 'login') return doLogin();
   if (a === 'refresh') { state.fresh = 0; return loadHome(false); }
   if (a === 'settings') { state.view = 'settings'; state.error = ''; state.note = ''; render(); return; }
+  if (a === 'so') { state.viewSo = { phone: el.getAttribute('data-v'), name: el.getAttribute('data-n') }; state.home = null; state.filter = ''; state.view = 'home'; loadHome(false); window.scrollTo(0, 0); return; }
+  if (a === 'team') { state.viewSo = null; state.home = null; state.filter = ''; loadHome(false); return; }
   if (a === 'back') { state.view = 'home'; state.error = ''; render(); if (!state.home) loadHome(false); return; }
   if (a === 'day') { state.day = el.getAttribute('data-v'); state.home = null; state.filter = ''; loadHome(false); return; }
   if (a === 'filter') { var v = el.getAttribute('data-v'); state.filter = state.filter === v ? '' : v; render(); return; }
@@ -462,7 +482,7 @@ function doLogin(){
   api('soLogin', { phone: p, pin: n }).then(function(r){
     state.busy = false;
     if (r && r.success) {
-      state.token = r.token; state.name = r.name; state.phone = r.phone; state.mustChangePin = !!r.mustChangePin;
+      state.token = r.token; state.name = r.name; state.phone = r.phone; state.role = r.role || 'so'; state.viewSo = null; state.mustChangePin = !!r.mustChangePin;
       saveSession(); state.view = 'home'; loadHome(false);
     } else { state.error = (r && r.error) || 'Could not sign in.'; render(); }
   });
@@ -484,11 +504,11 @@ function doPin(){
   var s = store(), saved = null;
   try { saved = s && JSON.parse(s.getItem('bm_so') || 'null'); } catch (e) {}
   if (saved && saved.token) {
-    state.token = saved.token; state.name = saved.name; state.phone = saved.phone;
+    state.token = saved.token; state.name = saved.name; state.phone = saved.phone; state.role = saved.role || 'so';
     state.view = 'home';
     try {
       var c = JSON.parse(localStorage.getItem('bm_so_copy') || 'null');
-      if (c && c.phone === state.phone && c.day === dayStr() && c.data && c.data.success) state.home = c.data;
+      if (state.role !== 'asm' && c && c.phone === state.phone && c.day === dayStr() && c.data && c.data.success) state.home = c.data;
     } catch (e) {}
     loadHome(false);
   } else render();
