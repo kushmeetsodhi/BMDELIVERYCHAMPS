@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM Supervisor</title>
-<script src="config.js?v=6cf2e0c409"></script>
+<script src="config.js?v=5a3265c330"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -1733,6 +1733,45 @@ function routesHTML(d){
   }).join('');
 }
 
+
+// The order the partner actually finished the stops in, against the plan.
+// A stop is flagged when it was finished while a lower-numbered stop was still open.
+// Goes by the time each stop was marked, so it shows what the partner
+// did in the app, which is normally what happened at the door.
+function doneSequence(orders){
+  var all = orders || [];
+  var done = all.filter(function(o){
+    return (o.status === 'Delivered' || o.status === 'Not Delivered') && o.markedMs;
+  }).sort(function(a, b){ return a.markedMs - b.markedMs; });
+  // Stops still to be done by anyone: marked later, or not marked yet.
+  var open = {};
+  all.forEach(function(o){
+    if (o.status === 'Pending' || ((o.status === 'Delivered' || o.status === 'Not Delivered') && o.markedMs)) open[o.sequence] = true;
+  });
+  var late = 0;
+  var chain = done.map(function(o){
+    var jumped = false;
+    Object.keys(open).forEach(function(k){ if (Number(k) < o.sequence) jumped = true; });
+    delete open[o.sequence];
+    if (jumped) late++;
+    return { seq: o.sequence, late: jumped, shop: o.partyName || o.invoiceNo, at: o.markedAt || '' };
+  });
+  return { chain: chain, late: late };
+}
+function doneSequenceHTML(orders, cls){
+  var s = doneSequence(orders);
+  if (!s.chain.length) return '';
+  var pills = s.chain.map(function(c){
+    return '<span title="' + esc(c.shop) + ' \u00b7 ' + esc(c.at) + '" style="display:inline-block;min-width:24px;text-align:center;padding:1px 6px;margin:2px 3px 2px 0;border-radius:10px;font-weight:600;font-size:12px;' +
+      (c.late ? 'background:#fde8c8;color:#8a4b00;border:1px solid #e0a040;' : 'background:rgba(127,127,127,.15);') + '">' + esc(c.seq) + '</span>';
+  }).join('');
+  var verdict = s.late
+    ? '<span style="color:#b25e00;font-weight:700;">Off sequence \u00b7 ' + s.late + ' stop' + (s.late > 1 ? 's' : '') + ' done jumped ahead of the plan</span>'
+    : '<span style="color:#1a7f37;font-weight:700;">In planned sequence</span>';
+  return '<div class="' + (cls || '') + '" style="padding:8px 12px;">' +
+    '<div style="font-size:12px;margin-bottom:2px;"><b>Done in this order</b> \u00b7 ' + verdict + '</div>' + pills + '</div>';
+}
+
 function routeHTML(){
   var d = state.routeData;
   if (!d) return '<div class="spin">Loading route…</div>';
@@ -1757,6 +1796,7 @@ function routeHTML(){
       st('Failed', counts['Not Delivered'], '', counts['Not Delivered'] ? 'bad' : '') +
     '</div>';
 
+  html += doneSequenceHTML(d.orders, 'card');
   html += '<div class="sec">' + d.orders.length + ' stops</div>';
   html += d.orders.map(function(o){
     var failed = o.status === 'Not Delivered';
