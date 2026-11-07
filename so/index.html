@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM SO</title>
-<script src="config.js?v=edc299e2b7"></script>
+<script src="config.js?v=ecddf37ba7"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -115,6 +115,13 @@
   .login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:22px; }
   .login .card{ width:100%; max-width:380px; padding:26px 20px; }
   .spin{ text-align:center; color:var(--sub); padding:40px 0; }
+  .splash{ display:flex; flex-direction:column; align-items:center; padding:64px 28px 0; text-align:center; }
+  .sp-logo{ width:64px; height:64px; border-radius:18px; background:var(--accent,#1a237e); color:#fff; font-weight:800; font-size:24px; display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .sp-title{ font-size:18px; font-weight:700; margin-bottom:18px; }
+  .sp-bar{ width:100%; max-width:320px; height:8px; border-radius:6px; background:rgba(127,127,127,.2); overflow:hidden; }
+  .sp-bar i{ display:block; height:100%; background:var(--accent,#1a237e); border-radius:6px; transition:width .12s linear; }
+  .sp-row{ width:100%; max-width:320px; display:flex; justify-content:space-between; font-size:13px; margin-top:6px; color:var(--sub); font-variant-numeric:tabular-nums; }
+  .sp-note{ margin-top:14px; font-size:13px; color:var(--sub); max-width:300px; }
   .fab{ font-size:12px; color:var(--faint); text-align:center; }
 </style>
 </head>
@@ -177,7 +184,7 @@ function saveSession(){
 }
 function logout(msg){
   if (state.token) api('soLogout', {});
-  state.token = ''; state.name = ''; state.home = null; state.order = null; state.role = ''; state.viewSo = null; state.viewAsm = null;
+  state.token = ''; state.name = ''; state.home = null; state.order = null; state.role = ''; state.viewSo = null; state.viewAsm = null; state.bundle = null;
   state.view = 'login'; state.error = msg || '';
   var s = store(); if (s) try { s.removeItem('bm_so'); } catch (e) {}
   try { localStorage.removeItem('bm_so_copy'); } catch (e) {}
@@ -219,20 +226,100 @@ function askNotify(){
 }
 
 /******************** LOADING ********************/
+function bundled(){ return state.role === 'admin' || state.role === 'asm'; }
+
+// ASMs and admins get everything in one answer; moving between ASM, SO and
+// orders then needs no waiting. The screens are worked out here from it.
+function deriveHome(){
+  var b = state.bundle; if (!b) return null;
+  var zero = function(){ return { total: 0, delivered: 0, failed: 0, onTheWay: 0, waiting: 0 }; };
+  var countOf = function(list){
+    var c = zero(); c.total = list.length;
+    list.forEach(function(o){
+      if (o.status === 'Delivered') c.delivered++; else if (o.status === 'Not delivered') c.failed++;
+      else if (o.status === 'On the way') c.onTheWay++; else c.waiting++;
+    }); return c;
+  };
+  var add = function(t, c){ Object.keys(t).forEach(function(k){ t[k] += c[k]; }); return t; };
+  var ordersOf = function(p){ return b.orders[p] || []; };
+  var soCards = function(roster){
+    var tot = zero();
+    var sos = roster.map(function(x){ var c = countOf(ordersOf(x.phone)); add(tot, c); return { phone: x.phone, name: x.name, counts: c }; });
+    sos.sort(function(a, c){ return (c.counts.failed - a.counts.failed) || (c.counts.total - a.counts.total) || a.name.localeCompare(c.name); });
+    return { sos: sos, counts: tot };
+  };
+  if (state.viewSo) {
+    var os = ordersOf(state.viewSo.phone);
+    return { success: true, day: b.day, name: state.viewSo.name, soPhone: state.viewSo.phone, orders: os, counts: countOf(os) };
+  }
+  if (state.role === 'admin' && !state.viewAsm) {
+    var tot = zero();
+    var asms = b.asms.map(function(a){ var r = soCards(a.sos); add(tot, r.counts); return { phone: a.phone, name: a.name, soCount: r.sos.length, counts: r.counts }; });
+    asms.sort(function(a, c){ return ((a.phone === 'none') - (c.phone === 'none')) || (c.counts.failed - a.counts.failed) || a.name.localeCompare(c.name); });
+    return { success: true, admin: true, day: b.day, name: b.name, asms: asms, counts: tot, orders: [] };
+  }
+  var pick = state.role === 'admin' ? state.viewAsm.phone : state.phone;
+  var asm = b.asms.filter(function(a){ return a.phone === pick; })[0] || { name: b.name, sos: [] };
+  var r2 = soCards(asm.sos);
+  return { success: true, asm: true, asmPhone: pick, day: b.day, name: asm.name, sos: r2.sos, counts: r2.counts, orders: [] };
+}
+function showHome(){ state.home = deriveHome(); if (state.view === 'home') render(); }
+
 function loadHome(quiet){
-  if (!quiet) { state.loading = !state.home; state.error = ''; render(); }
-  api('soHome', { date: dayStr(), soPhone: state.viewSo ? state.viewSo.phone : '', asmPhone: state.viewAsm ? state.viewAsm.phone : '' }).then(function(r){
-    state.loading = false;
+  if (bundled()) {
+    if (state.bundle && state.bundleDay !== dayStr()) state.bundle = null;
+    if (!quiet && !state.bundle) { state.loading = true; state.error = ''; splashStart(); render(); }
+    var day = dayStr();
+    api('soBundle', { date: day }).then(function(r){
+      state.loading = false; splashEnd(r && r.success);
+      if (r && r.success) { state.bundle = r; state.bundleDay = day; state.loadedAt = Date.now(); state.home = deriveHome(); }
+      else if (!quiet) state.error = (r && r.error) || 'Could not load.';
+      if (state.view === 'home') render();
+    });
+    return;
+  }
+  if (!quiet) { state.loading = !state.home; state.error = ''; if (state.loading) splashStart(); render(); }
+  api('soHome', { date: dayStr(), soPhone: state.viewSo ? state.viewSo.phone : '' }).then(function(r){
+    state.loading = false; splashEnd(r && r.success);
     if (r && r.success) {
-      if (!!state.viewSo !== !!r.soPhone) return;          // answer to an old request
-      if (!state.viewSo && state.role === 'admin' && !!state.viewAsm !== !!r.asmPhone) return;
       state.home = r; state.loadedAt = Date.now(); notifyNew(r);
       // Kept on the phone so the app opens on it next time, at once.
-      if (!state.viewSo && !r.asm && !r.admin) try { localStorage.setItem('bm_so_copy', JSON.stringify({ phone: state.phone, day: dayStr(), data: r })); } catch (e) {}
+      try { localStorage.setItem('bm_so_copy', JSON.stringify({ phone: state.phone, day: dayStr(), data: r })); } catch (e) {}
     }
     else if (!quiet) state.error = (r && r.error) || 'Could not load your orders.';
     if (state.view === 'home') render();
   });
+}
+
+/******************** LOADING SCREEN ********************/
+// A bar that eases towards 97% and only reaches 100% when the data arrives.
+// The usual wait is remembered on this phone, so the bar fits its connection.
+var SPLASH = { on: false, t0: 0, timer: 0 };
+function splashEst(){ try { return Math.max(1500, Number(localStorage.getItem('bm_so_est')) || 4000); } catch (e) { return 4000; } }
+function splashStart(){
+  SPLASH.on = true; SPLASH.t0 = Date.now();
+  clearInterval(SPLASH.timer);
+  SPLASH.timer = setInterval(splashTick, 100);
+}
+function splashTick(){
+  var fill = document.getElementById('spFill'); if (!fill || !SPLASH.on) return;
+  var el = Date.now() - SPLASH.t0, est = splashEst();
+  var pc = Math.min(97, 97 * (1 - Math.exp(-2.3 * el / est)));
+  fill.style.width = Math.max(3, pc) + '%';
+  document.getElementById('spPct').textContent = Math.floor(pc) + '%';
+  document.getElementById('spTime').textContent = (el / 1000).toFixed(1) + ' s';
+  if (el > est * 1.6) document.getElementById('spNote').textContent = 'Taking longer than usual, still working…';
+}
+function splashEnd(ok){
+  if (!SPLASH.on) return;
+  SPLASH.on = false; clearInterval(SPLASH.timer);
+  if (ok) { try { var took = Date.now() - SPLASH.t0; var old = Number(localStorage.getItem('bm_so_est')) || took; localStorage.setItem('bm_so_est', String(Math.round(old * 0.6 + took * 0.4))); } catch (e) {} }
+}
+function splashHTML(){
+  return '<div class="splash"><div class="sp-logo">BM</div><div class="sp-title">Getting your orders</div>' +
+    '<div class="sp-bar"><i id="spFill" style="width:3%"></i></div>' +
+    '<div class="sp-row"><span id="spPct">0%</span><span id="spTime">0.0 s</span></div>' +
+    '<div class="sp-note" id="spNote">Loading everything at once, so the next screens open instantly.</div></div>';
 }
 function openOrder(inv){
   state.view = 'order'; state.order = null; state.error = ''; state.orderFor = inv; render();
@@ -310,7 +397,7 @@ function homeHTML(){
   var body = '';
   if (state.error) body += '<div class="err">' + esc(state.error) + '</div>';
   if (state.mustChangePin) body += '<div class="card" data-a="settings" style="cursor:pointer;"><b>Set your own PIN</b><div class="note">You are using the last 4 digits of your phone. Tap to change it.</div></div>';
-  if (state.loading || !d) return head + '<div class="page">' + body + '<div class="spin">Loading your orders…</div></div>';
+  if (state.loading || !d) return (state.role === 'so' || !state.role ? head : '') + '<div class="page">' + body + splashHTML() + '</div>';
   if (state.fresh) body += '<div class="banner" data-a="fresh-ok">' + state.fresh + ' order' + (state.fresh > 1 ? 's' : '') + ' just marked not delivered</div>';
   var c = d.counts;
   if (adminTop) {
@@ -470,14 +557,14 @@ document.addEventListener('click', function(ev){
   if (!el) return;
   var a = el.getAttribute('data-a');
   if (a === 'login') return doLogin();
-  if (a === 'refresh') { state.fresh = 0; return loadHome(false); }
+  if (a === 'refresh') { state.fresh = 0; state.bundle = null; return loadHome(false); }
   if (a === 'settings') { state.view = 'settings'; state.error = ''; state.note = ''; render(); return; }
-  if (a === 'so') { state.viewSo = { phone: el.getAttribute('data-v'), name: el.getAttribute('data-n') }; state.home = null; state.filter = ''; state.view = 'home'; loadHome(false); window.scrollTo(0, 0); return; }
-  if (a === 'asm') { state.viewAsm = { phone: el.getAttribute('data-v'), name: el.getAttribute('data-n') }; state.viewSo = null; state.home = null; state.filter = ''; loadHome(false); window.scrollTo(0, 0); return; }
-  if (a === 'admintop') { state.viewAsm = null; state.viewSo = null; state.home = null; loadHome(false); return; }
-  if (a === 'team') { state.viewSo = null; state.home = null; state.filter = ''; loadHome(false); return; }
+  if (a === 'so') { state.viewSo = { phone: el.getAttribute('data-v'), name: el.getAttribute('data-n') }; state.filter = ''; state.view = 'home'; if (state.bundle) showHome(); else { state.home = null; loadHome(false); } window.scrollTo(0, 0); return; }
+  if (a === 'asm') { state.viewAsm = { phone: el.getAttribute('data-v'), name: el.getAttribute('data-n') }; state.viewSo = null; state.filter = ''; if (state.bundle) showHome(); else { state.home = null; loadHome(false); } window.scrollTo(0, 0); return; }
+  if (a === 'admintop') { state.viewAsm = null; state.viewSo = null; if (state.bundle) showHome(); else { state.home = null; loadHome(false); } return; }
+  if (a === 'team') { state.viewSo = null; state.filter = ''; if (state.bundle) showHome(); else { state.home = null; loadHome(false); } return; }
   if (a === 'back') { state.view = 'home'; state.error = ''; render(); if (!state.home) loadHome(false); return; }
-  if (a === 'day') { state.day = el.getAttribute('data-v'); state.home = null; state.filter = ''; loadHome(false); return; }
+  if (a === 'day') { state.day = el.getAttribute('data-v'); state.home = null; state.bundle = null; state.filter = ''; loadHome(false); return; }
   if (a === 'filter') { var v = el.getAttribute('data-v'); state.filter = state.filter === v ? '' : v; render(); return; }
   if (a === 'open') { state.fresh = 0; openOrder(el.getAttribute('data-v')); return; }
   if (a === 'fresh-ok') { state.fresh = 0; state.filter = 'Not delivered'; render(); return; }
@@ -500,7 +587,7 @@ function doLogin(){
   api('soLogin', { phone: p, pin: n }).then(function(r){
     state.busy = false;
     if (r && r.success) {
-      state.token = r.token; state.name = r.name; state.phone = r.phone; state.role = r.role || 'so'; state.viewSo = null; state.viewAsm = null; state.mustChangePin = !!r.mustChangePin;
+      state.token = r.token; state.name = r.name; state.phone = r.phone; state.role = r.role || 'so'; state.viewSo = null; state.viewAsm = null; state.bundle = null; state.mustChangePin = !!r.mustChangePin;
       saveSession(); state.view = 'home'; loadHome(false);
     } else { state.error = (r && r.error) || 'Could not sign in.'; render(); }
   });
