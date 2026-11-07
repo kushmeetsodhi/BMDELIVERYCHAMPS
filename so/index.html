@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BM SO</title>
-<script src="config.js?v=ecddf37ba7"></script>
+<script src="config.js?v=b2a7013414"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 
@@ -184,7 +184,7 @@ function saveSession(){
 }
 function logout(msg){
   if (state.token) api('soLogout', {});
-  state.token = ''; state.name = ''; state.home = null; state.order = null; state.role = ''; state.viewSo = null; state.viewAsm = null; state.bundle = null;
+  state.token = ''; state.name = ''; state.home = null; state.order = null; state.role = ''; state.viewSo = null; state.viewAsm = null; state.bundle = null; state.tab = '';
   state.view = 'login'; state.error = msg || '';
   var s = store(); if (s) try { s.removeItem('bm_so'); } catch (e) {}
   try { localStorage.removeItem('bm_so_copy'); } catch (e) {}
@@ -263,7 +263,7 @@ function deriveHome(){
   var r2 = soCards(asm.sos);
   return { success: true, asm: true, asmPhone: pick, day: b.day, name: asm.name, sos: r2.sos, counts: r2.counts, orders: [] };
 }
-function showHome(){ state.home = deriveHome(); if (state.view === 'home') render(); }
+function showHome(){ state.home = deriveHome(); if (state.view === 'home' && state.tab !== 'track') render(); }
 
 function loadHome(quiet){
   if (bundled()) {
@@ -274,7 +274,7 @@ function loadHome(quiet){
       state.loading = false; splashEnd(r && r.success);
       if (r && r.success) { state.bundle = r; state.bundleDay = day; state.loadedAt = Date.now(); state.home = deriveHome(); }
       else if (!quiet) state.error = (r && r.error) || 'Could not load.';
-      if (state.view === 'home') render();
+      if (state.view === 'home' && state.tab !== 'track') render();
     });
     return;
   }
@@ -287,7 +287,7 @@ function loadHome(quiet){
       try { localStorage.setItem('bm_so_copy', JSON.stringify({ phone: state.phone, day: dayStr(), data: r })); } catch (e) {}
     }
     else if (!quiet) state.error = (r && r.error) || 'Could not load your orders.';
-    if (state.view === 'home') render();
+    if (state.view === 'home' && state.tab !== 'track') render();
   });
 }
 
@@ -331,10 +331,10 @@ function openOrder(inv){
   });
 }
 setInterval(function(){
-  if (state.token && state.view === 'home' && !document.hidden) loadHome(true);
+  if (state.token && state.view === 'home' && state.tab !== 'track' && !document.hidden) loadHome(true);
 }, REFRESH_MS);
 document.addEventListener('visibilitychange', function(){
-  if (!document.hidden && state.token && state.view === 'home' && Date.now() - (state.loadedAt || 0) > 60000) loadHome(true);
+  if (!document.hidden && state.token && state.view === 'home' && state.tab !== 'track' && Date.now() - (state.loadedAt || 0) > 60000) loadHome(true);
 });
 
 /******************** RENDER ********************/
@@ -381,6 +381,20 @@ function soCheckLine(v){
     : /confirmed/i.test(v) ? '<div class="ok-line">✓ DA called you first (' + esc(v.replace(/^SO confirmed\s*/i, '')) + ')</div>' : '';
 }
 
+function trackHTML(){
+  return '<div class="page"><div class="card"><div style="font-weight:700;margin-bottom:4px;">Find an order’s history</div>' +
+    '<div class="note" style="margin:0 0 10px;">Type the SO number, for example 43316. It shows the route, the DA, every attempt, the calls and the final decision.</div>' +
+    '<div style="display:flex;gap:8px;"><input id="tr-q" type="tel" inputmode="numeric" maxlength="12" placeholder="SO number" value="' + esc(state.trackQ || '') + '" style="flex:1;" />' +
+    '<button class="btn" data-a="track" style="width:auto;padding:0 18px;">Track</button></div>' +
+    (state.trackErr ? '<div class="err" style="margin-top:12px;">' + esc(state.trackErr) + '</div>' : '') +
+    '</div></div>';
+}
+function doTrack(){
+  var q = String((document.getElementById('tr-q') || {}).value || '').replace(/\D/g, '');
+  state.trackQ = q;
+  if (q.length < 5) { state.trackErr = 'Type at least the last 5 digits of the SO number.'; render(); return; }
+  state.trackErr = ''; openOrder(q);
+}
 function homeHTML(){
   var d = state.home;
   var adminTop = state.role === 'admin' && !state.viewAsm && !state.viewSo;
@@ -392,8 +406,11 @@ function homeHTML(){
     '<div class="sub">' + (d ? (asmTop ? d.sos.length + ' SOs · ' : adminTop && d.asms ? d.asms.length + ' ASMs · ' : '') + d.counts.total + ' orders on ' + (state.day === 'today' ? 'today’s' : 'yesterday’s') + ' routes' : 'Loading…') + '</div></div>' +
     '<button class="icon-btn" data-a="refresh" aria-label="Refresh">↻</button>' +
     '<button class="icon-btn" data-a="settings" aria-label="Settings">⚙</button></div>' +
-    '<div class="days"><button class="day' + (state.day === 'today' ? ' on' : '') + '" data-a="day" data-v="today">Today</button>' +
-    '<button class="day' + (state.day === 'yesterday' ? ' on' : '') + '" data-a="day" data-v="yesterday">Yesterday</button></div></div>';
+    '<div class="days"><button class="day' + (state.tab !== 'track' ? ' on' : '') + '" data-a="tab" data-v="home">' + (state.role === 'so' ? 'My orders' : 'Teams') + '</button>' +
+    '<button class="day' + (state.tab === 'track' ? ' on' : '') + '" data-a="tab" data-v="track">🔍 Track order</button></div>' +
+    (state.tab === 'track' ? '' : '<div class="days"><button class="day' + (state.day === 'today' ? ' on' : '') + '" data-a="day" data-v="today">Today</button>' +
+    '<button class="day' + (state.day === 'yesterday' ? ' on' : '') + '" data-a="day" data-v="yesterday">Yesterday</button></div>') + '</div>';
+  if (state.tab === 'track') return head + trackHTML();
   var body = '';
   if (state.error) body += '<div class="err">' + esc(state.error) + '</div>';
   if (state.mustChangePin) body += '<div class="card" data-a="settings" style="cursor:pointer;"><b>Set your own PIN</b><div class="note">You are using the last 4 digits of your phone. Tap to change it.</div></div>';
@@ -569,12 +586,15 @@ document.addEventListener('click', function(ev){
   if (a === 'open') { state.fresh = 0; openOrder(el.getAttribute('data-v')); return; }
   if (a === 'fresh-ok') { state.fresh = 0; state.filter = 'Not delivered'; render(); return; }
   if (a === 'theme') { setTheme(el.getAttribute('data-v')); return; }
+  if (a === 'tab') { state.tab = el.getAttribute('data-v'); state.trackErr = ''; state.view = 'home'; render(); if (state.tab === 'track') { var tq = document.getElementById('tr-q'); if (tq) tq.focus(); } else if (!state.home) loadHome(false); return; }
+  if (a === 'track') { doTrack(); return; }
   if (a === 'notify') { askNotify(); return; }
   if (a === 'pin') return doPin();
   if (a === 'logout') { logout(''); return; }
 });
 document.addEventListener('keydown', function(ev){
   if (ev.key === 'Enter' && state.view === 'login') doLogin();
+  if (ev.key === 'Enter' && state.view === 'home' && state.tab === 'track' && ev.target && ev.target.id === 'tr-q') doTrack();
 });
 
 function doLogin(){
