@@ -1344,7 +1344,7 @@ function assignHTML(d){
   h += '<div class="card" style="padding:12px 14px;"><div class="row"><div class="grow">' +
     '<div class="ttl" style="font-size:14px;">' + (d.on ? 'Route choice is ON' : 'Route choice is OFF') + '</div>' +
     '<div class="fnt">' + (d.on ? 'DAs pick from 3 routes when they log in.' : 'DAs type the code from the loading sheet, as before.') + '</div></div>' +
-    (state.asConfirm || (state.roles || []).indexOf('Admin') === -1
+    (state.asConfirm
       ? ''
       : '<button class="btn sm ' + (d.on ? 'red' : '') + '" data-a="as-switch">' + (d.on ? 'Switch off' : 'Switch on') + '</button>') +
     '</div>' +
