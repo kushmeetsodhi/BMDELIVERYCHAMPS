@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BM Ageing</title>
-<script src="config.js?v=8d60b464cf"></script>
+<script src="config.js?v=fc85dc031d"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -84,6 +84,15 @@ a.lnk{color:var(--accent);cursor:pointer;text-decoration:none}
 .up .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .up input[type=file]{font-size:12px;max-width:100%}
 .up .msg{font-size:12px;min-height:18px}
+.busy{display:flex;flex-direction:column;gap:6px;color:var(--ink)}
+.busy .row1{display:flex;align-items:center;gap:8px;font-weight:600}
+.spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden;position:relative}
+.bar i{position:absolute;top:0;bottom:0;width:35%;background:var(--accent);border-radius:2px;animation:bar 1.2s ease-in-out infinite}
+@keyframes bar{0%{left:-35%}100%{left:100%}}
+.busy .el{font-size:11px;color:var(--muted);font-weight:400}
+button .spin{display:inline-block;width:12px;height:12px;vertical-align:-2px;margin-right:6px;border-color:rgba(255,255,255,.4);border-top-color:#fff}
 .up .msg.ok{color:var(--good)} .up .msg.err{color:var(--bad)}
 .up ul{margin:0;padding-left:18px;font-size:12px;color:var(--muted)}
 .hide{display:none!important}
@@ -215,7 +224,7 @@ const S = (rows, f) => rows.reduce((a, r) => a + (f(r) || 0), 0);
 
 /* ---------- load ---------- */
 function load() {
-  $('asof').textContent = 'Loading…';
+  $('asof').innerHTML = '<span class="spin" style="display:inline-block;width:12px;height:12px;vertical-align:-2px;margin-right:6px"></span>Loading data…';
   api('data').then(r => {
     if (r.success) { DATA = r.data; init(); }
     else $('app').innerHTML = '<div class="loading">Could not load data: ' + esc(r.error) + '</div>';
@@ -591,6 +600,17 @@ function sample(kind) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Column', 'How to fill']].concat(s.how).concat([[], ['Note', 'Fill rows below the header on the Data sheet. The EXAMPLE row is ignored on upload – you can delete it. Dates as DD-MM-YYYY.']])), 'How to fill');
   download(s.file, new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
 }
+// loading animation inside an upload card: spinner, moving bar and a running timer
+function busy(el, text) {
+  const t0 = Date.now();
+  el.className = 'msg busy';
+  el.innerHTML = '<div class="row1"><span class="spin"></span><span class="tx"></span></div><div class="bar"><i></i></div><div class="el">0 s</div>';
+  el.querySelector('.tx').textContent = text;
+  clearInterval(el._t); el._t = setInterval(() => { const e = el.querySelector('.el'); if (e) e.textContent = Math.round((Date.now() - t0) / 1000) + ' s – please keep this page open'; }, 1000);
+  return { set: tx => { const x = el.querySelector('.tx'); if (x) x.textContent = tx; } };
+}
+function done(el, ok, text) { clearInterval(el._t); el.className = 'msg ' + (ok ? 'ok' : 'err'); el.textContent = text; }
+function btnBusy(b, on, label) { if (on) { b._l = b.innerHTML; b.disabled = true; b.innerHTML = '<span class="spin"></span>' + label; } else { b.disabled = false; b.innerHTML = b._l || b.innerHTML; } }
 const pad2 = n => ('0' + n).slice(-2);
 function cellOut(v) {
   if (v instanceof Date) { const d = new Date(v.getTime() + 12 * 3600e3); return pad2(d.getUTCDate()) + '-' + pad2(d.getUTCMonth() + 1) + '-' + d.getUTCFullYear(); }
@@ -618,20 +638,22 @@ document.querySelectorAll('.up[data-kind]').forEach(card => {
   const kind = card.dataset.kind, msg = card.querySelector('.msg'), btn = card.querySelector('.go'), inp = card.querySelector('input[type=file]');
   card.querySelector('.sample').onclick = () => sample(kind);
   btn.onclick = async () => {
-    const f = inp.files[0]; if (!f) { msg.className = 'msg err'; msg.textContent = 'Choose a file first.'; return; }
-    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Reading ' + f.name + '…';
+    const f = inp.files[0]; if (!f) { done(msg, false, 'Choose a file first.'); return; }
+    btnBusy(btn, true, 'Uploading…');
+    const bz = busy(msg, 'Reading ' + f.name + '…');
     try {
       const d = await readFile(f);
-      msg.textContent = 'Uploading ' + d.rows.length + ' rows…';
+      bz.set('Uploading ' + d.rows.length.toLocaleString('en-IN') + ' rows to the sheet…');
       const r = await api('upload', { kind: kind, header: d.header, rows: d.rows, fileName: f.name });
-      btn.disabled = false;
-      if (r.success) { msg.className = 'msg ok'; msg.textContent = r.message + ' Dashboard reloaded.'; inp.value = ''; load(); loadLog(); }
-      else { msg.className = 'msg err'; msg.textContent = r.error; }
-    } catch (e) { btn.disabled = false; msg.className = 'msg err'; msg.textContent = e.message || String(e); }
+      btnBusy(btn, false);
+      if (r.success) { done(msg, true, '✓ ' + r.message + ' Dashboard reloaded.'); inp.value = ''; load(); loadLog(); }
+      else done(msg, false, r.error);
+    } catch (e) { btnBusy(btn, false); done(msg, false, e.message || String(e)); }
   };
 });
-$('btnSync').onclick = () => { const b = $('btnSync'); b.disabled = true; $('syncMsg').className = 'msg'; $('syncMsg').textContent = 'Syncing… (up to 1 min)';
-  api('sync').then(r => { b.disabled = false; if (r.success) { $('syncMsg').className = 'msg ok'; $('syncMsg').textContent = r.message; load(); loadLog(); } else { $('syncMsg').className = 'msg err'; $('syncMsg').textContent = 'Sync failed: ' + r.error; } }); };
+$('btnSync').onclick = () => { const b = $('btnSync'), m = $('syncMsg');
+  btnBusy(b, true, 'Syncing…'); busy(m, 'Pulling monthly sales from Sales Mix (up to 1 min)…');
+  api('sync').then(r => { btnBusy(b, false); if (r.success) { done(m, true, '✓ ' + r.message); load(); loadLog(); } else done(m, false, 'Sync failed: ' + r.error); }); };
 function loadLog() {
   api('log').then(res => { if (!res.success) return; const l = res.log; $('upLog').innerHTML = l.length ? '<table style="font-size:12px"><tbody>' + l.map(r => '<tr><td class="t">' + esc(r[0]) + '</td><td class="t">' + esc(r[1]) + '</td><td class="t" style="white-space:normal">' + esc(r[3]) + '</td></tr>').join('') + '</tbody></table>' : 'No uploads yet.'; });
 }
