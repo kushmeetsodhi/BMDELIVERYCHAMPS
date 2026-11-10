@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BM Ageing</title>
-<script src="config.js?v=8a67caf278"></script>
+<script src="config.js?v=8d60b464cf"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -87,14 +87,7 @@ a.lnk{color:var(--accent);cursor:pointer;text-decoration:none}
 .up .msg.ok{color:var(--good)} .up .msg.err{color:var(--bad)}
 .up ul{margin:0;padding-left:18px;font-size:12px;color:var(--muted)}
 .hide{display:none!important}
-.login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
-.login .card{width:100%;max-width:360px;padding:24px}
-.login h2{margin:0 0 4px;font-size:20px}
-.login label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
-.login input{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
-.login button{width:100%;margin-top:16px;padding:11px;font-size:15px}
-.login .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
-.who{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+
 @media (max-width:640px){.kpis{grid-template-columns:1fr 1fr}.kpi .v{font-size:18px}.filters label,.filters input,.filters select{min-width:0;width:100%}.filters label{flex:1 1 45%}.wrap{padding:12px 16px}.grid2{grid-template-columns:1fr}.filters input[type=search]{min-width:100%}header{padding:12px}}
 </style>
 </head>
@@ -104,18 +97,8 @@ a.lnk{color:var(--accent);cursor:pointer;text-decoration:none}
   <span class="sub" id="asof">Loading…</span>
   <span><span class="seglbl">View</span><span class="seg" id="segMode"><button data-v="ageing" class="on">Ageing</button><button data-v="expiry">Expiry</button></span></span>
   <span><span class="seglbl">Rates</span><span class="seg" id="segGst"><button data-v="x" class="on">Without GST</button><button data-v="g">With GST</button></span></span>
-  <span class="who"><span id="whoName"></span><button id="btnLogout">Sign out</button></span>
 </header>
-<div class="login hide" id="login">
-  <div class="card">
-    <h2>BM Ageing</h2>
-    <p class="hint" id="loginHint">Inventory ageing &amp; expiry. Sign in with your login name and PIN.</p>
-    <label>Login name<input id="lgName" autocomplete="username" autocapitalize="none"></label>
-    <label>PIN<input id="lgPin" type="password" inputmode="numeric" autocomplete="current-password"></label>
-    <button class="primary" id="lgGo">Sign in</button>
-    <div class="err" id="lgErr"></div>
-  </div>
-</div>
+
 <div class="wrap">
   <div class="filters">
     <label>Search item / ID<input type="search" id="fSearch" placeholder="e.g. Haldiram, 434"></label>
@@ -189,34 +172,18 @@ a.lnk{color:var(--accent);cursor:pointer;text-decoration:none}
 
 <script>
 let DATA = null, charts = {}, WIN = [], MODE = 'ageing', GST = false, TAB = 'overview', ROWS = [];
-const store = (() => { try { return window.localStorage; } catch (e) { return null; } })();
-let AUTH = (() => { try { return JSON.parse((store && store.getItem('bm_ag')) || '{}'); } catch (e) { return {}; } })();
-function saveAuth() { try { store && store.setItem('bm_ag', JSON.stringify(AUTH)); } catch (e) {} }
 function api(action, payload) {
   return new Promise(resolve => {
     if (!window.BM_EXEC_URL) { resolve({ success: false, error: 'This page has no server address set (config.js).' }); return; }
     fetch(window.BM_EXEC_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow', credentials: 'omit', cache: 'no-store',
-      body: JSON.stringify(Object.assign({ action: action, token: AUTH.token || '' }, payload || {})) })
+      body: JSON.stringify(Object.assign({ action: action }, payload || {})) })
       .then(r => r.text()).then(t => {
         let r; try { r = JSON.parse(t); } catch (e) { r = { success: false, error: 'The server sent a page instead of an answer.' }; }
-        if (r && r.expired) showLogin('Please sign in again.');
         resolve(r);
       }).catch(() => resolve({ success: false, error: 'No connection. Check your internet and try again.' }));
   });
 }
-function showLogin(msg, setup) {
-  AUTH = { loginName: AUTH.loginName || '' }; saveAuth();
-  $('login').classList.remove('hide'); $('lgErr').textContent = msg || ''; $('lgName').value = AUTH.loginName || '';
-  $('lgGo').textContent = setup ? 'Create admin login' : 'Sign in';
-  $('loginHint').textContent = setup ? 'First-time setup: choose the admin login name and PIN (4+ characters).' : 'Inventory ageing & expiry. Sign in with your login name and PIN.';
-  $('lgGo').dataset.setup = setup ? '1' : '';
-}
-function signedIn() {
-  $('login').classList.add('hide'); $('whoName').textContent = AUTH.name || '';
-  document.querySelectorAll('.up .go, .up input[type=file], #btnSync').forEach(e => e.disabled = !AUTH.upload);
-  document.querySelectorAll('.up .msg').forEach(e => { if (!AUTH.upload) { e.className = 'msg'; e.textContent = 'Your login can view only. Ask the admin to allow uploads.'; } });
-  load();
-}
+
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const BCOL = ['--b0','--b1','--b2','--b3','--b4'].map(css), UCOL = css('--bu');
 const ECOL = ['--e0','--e1','--e2','--e3','--e4','--e5','--e6'].map(css);
@@ -250,8 +217,8 @@ const S = (rows, f) => rows.reduce((a, r) => a + (f(r) || 0), 0);
 function load() {
   $('asof').textContent = 'Loading…';
   api('data').then(r => {
-    if (r.success) { DATA = r.data; if (r.user) { AUTH.name = r.user.name; AUTH.upload = r.user.upload; saveAuth(); } init(); }
-    else if (!r.expired) $('app').innerHTML = '<div class="loading">Could not load data: ' + esc(r.error) + '</div>';
+    if (r.success) { DATA = r.data; init(); }
+    else $('app').innerHTML = '<div class="loading">Could not load data: ' + esc(r.error) + '</div>';
   });
 }
 function init() {
@@ -711,20 +678,8 @@ let deb; $('fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(rend
 $('fSlow').oninput = () => { clearTimeout(deb); deb = setTimeout(render, 300); };
 $('btnReset').onclick = () => { $('fSearch').value = ''; $('fMake').value = ''; $('fGroup').value = ''; $('fCat').value = ''; $('fStuck').value = '60'; $('fExpWin').value = '30'; $('fSlow').value = '50'; $('fWin').value = '3'; $('fExcl').checked = true; render(); };
 $('btnReload').onclick = load;
-$('btnLogout').onclick = () => { api('logout'); DATA = null; showLogin(''); };
-$('lgGo').onclick = async () => {
-  const name = $('lgName').value.trim(), pin = $('lgPin').value.trim(), setup = $('lgGo').dataset.setup === '1';
-  if (!name || !pin) { $('lgErr').textContent = 'Enter your login name and PIN.'; return; }
-  $('lgGo').disabled = true; $('lgErr').textContent = '';
-  const r = await api(setup ? 'setup' : 'login', { loginName: name, pin: pin });
-  $('lgGo').disabled = false; $('lgPin').value = '';
-  if (!r.success) { $('lgErr').textContent = r.error; return; }
-  AUTH = { token: r.token, name: r.name, upload: r.upload, loginName: name }; saveAuth(); signedIn();
-};
-$('lgPin').onkeydown = e => { if (e.key === 'Enter') $('lgGo').click(); };
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
-if (AUTH.token) signedIn();
-else api('status').then(r => showLogin(r.success ? '' : r.error, r.success && r.setup));
+load();
 </script>
 </body>
 </html>

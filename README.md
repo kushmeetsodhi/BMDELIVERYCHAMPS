@@ -39,5 +39,4 @@ this: it stays in Apps Script.
 Inventory ageing & expiry dashboard: https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/ageing/
 
 Backend: `inventory-ageing/` in the private `bm-apps-script` repo (bound to the
-Inventory_Ageing_Dashboard sheet). Logins are the `Users` tab of that sheet
-(Login Name | PIN | Can Upload | Active).
+Inventory_Ageing_Dashboard sheet). No login: anyone with the link can view and upload.
