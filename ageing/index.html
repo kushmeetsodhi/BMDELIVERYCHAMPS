@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BM Ageing</title>
+<script src="config.js?v=8a67caf278"></script>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#1f5fa8" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --ink:#1b1f24; --muted:#5f6b7a; --line:#e3e6ea; --accent:#1f5fa8; --accent-soft:#e7effa;
+  --b0:#2e8b57; --b1:#8bbf5a; --b2:#e3b23c; --b3:#e07b39; --b4:#c0392b; --bu:#9aa3ad;
+  --e0:#7f1d1d; --e1:#c0392b; --e2:#e07b39; --e3:#e3b23c; --e4:#8bbf5a; --e5:#2e8b57; --e6:#1f6f43;
+  --warn:#b45309; --bad:#b91c1c; --good:#15803d;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#111418; --card:#1a1e24; --ink:#e7eaee; --muted:#9aa5b1; --line:#2b313a; --accent:#6ea8ff; --accent-soft:#1d2a3d; --bu:#6b7480;
+    --e0:#b91c1c; --warn:#f0a35e; --bad:#f87171; --good:#4ade80; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center}
+header h1{font-size:18px;margin:0}
+header .sub{color:var(--muted);font-size:12px;flex:1;min-width:200px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+.seg button{border:none;border-radius:0;background:none;padding:7px 14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--accent);color:#fff}
+.seglbl{font-size:11px;color:var(--muted);margin-right:6px}
+.wrap{padding:16px 20px;max-width:1600px;margin:0 auto}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
+.filters label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:3px}
+.filters input,.filters select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:120px}
+.filters input[type=search]{min-width:200px}
+.filters .chk{flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--ink)}
+.filters .chk input{min-width:auto}
+button{font:inherit;font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.6;cursor:wait}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .15s,box-shadow .15s;text-align:left;font:inherit;color:inherit;width:100%;display:flex;flex-direction:column;justify-content:flex-start}
+.kpi:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:22px;font-weight:600;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi .go{font-size:11px;color:var(--accent);margin-top:auto;padding-top:6px}
+.kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)} .kpi.good .v{color:var(--good)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tab{padding:9px 14px;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--muted);white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:14px}
+.grid2>*{min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h3{margin:0 0 4px;font-size:14px}
+.card .hint{font-size:12px;color:var(--muted);margin:0 0 10px}
+.chartbox{position:relative;height:300px}
+.tbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.tbar .count{color:var(--muted);font-size:12px}
+.tablewrap{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12.5px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}
+th{position:sticky;top:0;background:var(--card);z-index:2;font-weight:600;cursor:pointer;color:var(--muted);user-select:none}
+th:hover{color:var(--ink)}
+th .grp{display:block;font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+td.t,th.t{text-align:left}
+td.name{max-width:320px;overflow:hidden;text-overflow:ellipsis}
+.sticky1{position:sticky;left:0;background:var(--card);z-index:1}
+th.sticky1{z-index:3}
+tr:hover td{background:var(--accent-soft)}
+.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;margin-right:3px}
+.p-stuck,.p-expired{background:#fde2e1;color:#9b1c1c}.p-slow,.p-soon{background:#fdf0d5;color:#8a4b08}.p-zero{background:#e5e7eb;color:#374151}.p-ok{background:#dcfce7;color:#166534}.p-exp,.p-risk{background:#ede9fe;color:#5b21b6}
+@media (prefers-color-scheme: dark){.p-stuck,.p-expired{background:#4c1d1d;color:#fecaca}.p-slow,.p-soon{background:#4a3410;color:#fde68a}.p-zero{background:#374151;color:#e5e7eb}.p-ok{background:#14432a;color:#bbf7d0}.p-exp,.p-risk{background:#352a5c;color:#ddd6fe}}
+.agebar{display:flex;height:8px;width:110px;border-radius:4px;overflow:hidden;background:var(--line)}
+.agebar span{display:block;height:100%}
+.guide dt{font-weight:600;margin-top:10px}
+.guide dd{margin:2px 0 0 0;color:var(--muted)}
+.guide h4{margin:18px 0 4px;font-size:13px;color:var(--accent)}
+.loading{padding:60px;text-align:center;color:var(--muted)}
+a.lnk{color:var(--accent);cursor:pointer;text-decoration:none}
+.up{display:flex;flex-direction:column;gap:8px}
+.up .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.up input[type=file]{font-size:12px;max-width:100%}
+.up .msg{font-size:12px;min-height:18px}
+.up .msg.ok{color:var(--good)} .up .msg.err{color:var(--bad)}
+.up ul{margin:0;padding-left:18px;font-size:12px;color:var(--muted)}
+.hide{display:none!important}
+.login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.login .card{width:100%;max-width:360px;padding:24px}
+.login h2{margin:0 0 4px;font-size:20px}
+.login label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
+.login input{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.login button{width:100%;margin-top:16px;padding:11px;font-size:15px}
+.login .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
+.who{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+@media (max-width:640px){.kpis{grid-template-columns:1fr 1fr}.kpi .v{font-size:18px}.filters label,.filters input,.filters select{min-width:0;width:100%}.filters label{flex:1 1 45%}.wrap{padding:12px 16px}.grid2{grid-template-columns:1fr}.filters input[type=search]{min-width:100%}header{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Inventory Ageing</h1>
+  <span class="sub" id="asof">Loading…</span>
+  <span><span class="seglbl">View</span><span class="seg" id="segMode"><button data-v="ageing" class="on">Ageing</button><button data-v="expiry">Expiry</button></span></span>
+  <span><span class="seglbl">Rates</span><span class="seg" id="segGst"><button data-v="x" class="on">Without GST</button><button data-v="g">With GST</button></span></span>
+  <span class="who"><span id="whoName"></span><button id="btnLogout">Sign out</button></span>
+</header>
+<div class="login hide" id="login">
+  <div class="card">
+    <h2>BM Ageing</h2>
+    <p class="hint" id="loginHint">Inventory ageing &amp; expiry. Sign in with your login name and PIN.</p>
+    <label>Login name<input id="lgName" autocomplete="username" autocapitalize="none"></label>
+    <label>PIN<input id="lgPin" type="password" inputmode="numeric" autocomplete="current-password"></label>
+    <button class="primary" id="lgGo">Sign in</button>
+    <div class="err" id="lgErr"></div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="filters">
+    <label>Search item / ID<input type="search" id="fSearch" placeholder="e.g. Haldiram, 434"></label>
+    <label>Company (Make)<select id="fMake"><option value="">All companies</option></select></label>
+    <label>Group<select id="fGroup"><option value="">All groups</option></select></label>
+    <label>Category<select id="fCat"><option value="">All categories</option></select></label>
+    <label class="m-ageing">Stuck if on shelf over
+      <select id="fStuck"><option value="15">15 days</option><option value="30">30 days</option><option value="60" selected>60 days</option><option value="90">90 days</option></select></label>
+    <label class="m-expiry hide">Expiring soon = within
+      <select id="fExpWin"><option value="15">15 days</option><option value="30" selected>30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label>
+    <label>Slow mover if avg sale below
+      <input type="number" id="fSlow" value="50" min="0" step="10" style="min-width:90px"></label>
+    <label>Average sales over
+      <select id="fWin"><option value="1">Last 1 month</option><option value="2">Last 2 months</option><option value="3" selected>Last 3 months</option><option value="6">Last 6 months</option><option value="12">Last 12 months</option></select></label>
+    <label class="chk"><input type="checkbox" id="fExcl" checked> Hide test / dummy items</label>
+    <button id="btnReset">Reset</button>
+    <button id="btnReload" class="primary">Reload data</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="app"><div class="loading">Loading data from the sheet…</div></div>
+
+  <section id="p-overview" class="hide">
+    <div class="grid2">
+      <div class="card"><h3 id="h1"></h3><p class="hint" id="n1"></p><div class="chartbox"><canvas id="c1"></canvas></div></div>
+      <div class="card"><h3 id="h2"></h3><p class="hint" id="n2"></p><div class="chartbox"><canvas id="c2"></canvas></div></div>
+      <div class="card"><h3 id="h3"></h3><p class="hint" id="n3"></p><div class="chartbox"><canvas id="c3"></canvas></div></div>
+      <div class="card" id="card4"><h3 id="h4"></h3><p class="hint" id="n4"></p><div class="chartbox"><canvas id="c4"></canvas></div></div>
+    </div>
+  </section>
+  <section id="p-list" class="hide"></section>
+  <section id="p-upload" class="hide">
+    <div class="grid2">
+      <div class="card up" data-kind="stock">
+        <h3>Current inventory</h3>
+        <p class="hint">Upload today's stock (ERP "Item Report" works as-is). <b>Replaces</b> the whole Stock tab.</p>
+        <ul><li>Needs: <b>Product ID</b>, <b>Inventory in Hand</b> (pieces)</li><li>Optional: Item Name, Make, Case size</li></ul>
+        <div class="row"><button class="sample">Download sample file</button></div>
+        <div class="row"><input type="file" accept=".xlsx,.xls,.csv"><button class="primary go">Upload</button></div>
+        <div class="msg"></div>
+      </div>
+      <div class="card up" data-kind="grn">
+        <h3>GRN (stock received)</h3>
+        <p class="hint">Upload the day's GRN export. New lines are <b>added</b>; a line already in the sheet (same date, GRN no., product, batch, qty) is skipped, so uploading the same file twice is safe.</p>
+        <ul><li>Needs: <b>Unloading Date</b>, <b>Product Id</b>, <b>Bill Qty</b>, <b>Rate per Pc</b> or <b>Taxable Value</b>, <b>Expiry Date</b></li><li>Recommended: Document No., Batch, Manufacturing Date, GST Rate_Input</li></ul>
+        <div class="row"><button class="sample">Download sample file</button></div>
+        <div class="row"><input type="file" accept=".xlsx,.xls,.csv"><button class="primary go">Upload</button></div>
+        <div class="msg"></div>
+      </div>
+      <div class="card up" data-kind="sales">
+        <h3>Daily sales</h3>
+        <p class="hint">Upload pieces sold per product per day. Re-uploading a day <b>replaces</b> that day. Used for months not yet synced from Sales Mix.</p>
+        <ul><li>Needs: <b>Date</b>, <b>Product ID</b>, <b>Qty Sold (pcs)</b></li><li>Several rows for the same product and day are added together</li></ul>
+        <div class="row"><button class="sample">Download sample file</button></div>
+        <div class="row"><input type="file" accept=".xlsx,.xls,.csv"><button class="primary go">Upload</button></div>
+        <div class="msg"></div>
+      </div>
+      <div class="card up">
+        <h3>Monthly sales from Sales Mix</h3>
+        <p class="hint">Pulls pieces sold per product per month from the Sales Mix dashboard sheet (Daily_Item). Click after each new sales import there.</p>
+        <div class="row"><button class="primary" id="btnSync">Sync sales from Sales Mix</button></div>
+        <div class="msg" id="syncMsg"></div>
+        <h3 style="margin-top:10px">Recent uploads</h3>
+        <div id="upLog" class="hint">—</div>
+      </div>
+    </div>
+  </section>
+  <section id="p-guide" class="hide"><div class="card guide" id="guide"></div></section>
+</div>
+
+<script>
+let DATA = null, charts = {}, WIN = [], MODE = 'ageing', GST = false, TAB = 'overview', ROWS = [];
+const store = (() => { try { return window.localStorage; } catch (e) { return null; } })();
+let AUTH = (() => { try { return JSON.parse((store && store.getItem('bm_ag')) || '{}'); } catch (e) { return {}; } })();
+function saveAuth() { try { store && store.setItem('bm_ag', JSON.stringify(AUTH)); } catch (e) {} }
+function api(action, payload) {
+  return new Promise(resolve => {
+    if (!window.BM_EXEC_URL) { resolve({ success: false, error: 'This page has no server address set (config.js).' }); return; }
+    fetch(window.BM_EXEC_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow', credentials: 'omit', cache: 'no-store',
+      body: JSON.stringify(Object.assign({ action: action, token: AUTH.token || '' }, payload || {})) })
+      .then(r => r.text()).then(t => {
+        let r; try { r = JSON.parse(t); } catch (e) { r = { success: false, error: 'The server sent a page instead of an answer.' }; }
+        if (r && r.expired) showLogin('Please sign in again.');
+        resolve(r);
+      }).catch(() => resolve({ success: false, error: 'No connection. Check your internet and try again.' }));
+  });
+}
+function showLogin(msg, setup) {
+  AUTH = { loginName: AUTH.loginName || '' }; saveAuth();
+  $('login').classList.remove('hide'); $('lgErr').textContent = msg || ''; $('lgName').value = AUTH.loginName || '';
+  $('lgGo').textContent = setup ? 'Create admin login' : 'Sign in';
+  $('loginHint').textContent = setup ? 'First-time setup: choose the admin login name and PIN (4+ characters).' : 'Inventory ageing & expiry. Sign in with your login name and PIN.';
+  $('lgGo').dataset.setup = setup ? '1' : '';
+}
+function signedIn() {
+  $('login').classList.add('hide'); $('whoName').textContent = AUTH.name || '';
+  document.querySelectorAll('.up .go, .up input[type=file], #btnSync').forEach(e => e.disabled = !AUTH.upload);
+  document.querySelectorAll('.up .msg').forEach(e => { if (!AUTH.upload) { e.className = 'msg'; e.textContent = 'Your login can view only. Ask the admin to allow uploads.'; } });
+  load();
+}
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const BCOL = ['--b0','--b1','--b2','--b3','--b4'].map(css), UCOL = css('--bu');
+const ECOL = ['--e0','--e1','--e2','--e3','--e4','--e5','--e6'].map(css);
+const INK = css('--muted'), LINE = css('--line');
+const AB = [['0-15', 15], ['16-30', 30], ['31-60', 60], ['61-90', 90], ['90+', 1e9]];
+const EB = [['Expired', -1], ['0-15 d', 15], ['16-30 d', 30], ['31-60 d', 60], ['61-90 d', 90], ['91-180 d', 180], ['180+ d', 1e9]];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const $ = id => document.getElementById(id);
+const sortState = {}, TABLES = {};
+
+const TABS = {
+  ageing: [['overview', 'Overview'], ['all', 'All SKUs'], ['slow', 'Slow movers'], ['stuck', 'Stuck stock'], ['zero', 'Zero sales'], ['nogrn', 'No purchase record'], ['make', 'By company'], ['upload', 'Upload data'], ['guide', 'Column guide']],
+  expiry: [['overview', 'Overview'], ['soon', 'Expiring soon'], ['expired', 'Expired'], ['risk', 'At risk'], ['batches', 'Batch list'], ['noexp', 'No expiry data'], ['make', 'By company'], ['upload', 'Upload data'], ['guide', 'Column guide']]
+};
+
+/* ---------- formatting ---------- */
+const inr = n => n == null ? '' : '₹' + Math.round(n).toLocaleString('en-IN');
+const int = n => n == null ? '' : Math.round(n).toLocaleString('en-IN');
+const dec1 = n => n == null ? '' : (Math.round(n * 10) / 10).toLocaleString('en-IN');
+const short = n => { if (n == null) return ''; const a = Math.abs(n);
+  return a >= 1e7 ? '₹' + (n / 1e7).toFixed(2) + ' Cr' : a >= 1e5 ? '₹' + (n / 1e5).toFixed(1) + ' L' : a >= 1e3 ? '₹' + (n / 1e3).toFixed(1) + 'k' : '₹' + Math.round(n); };
+const pct = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '0%';
+const monLabel = m => { const [y, mo] = m.split('-'); return MON[+mo - 1] + " '" + y.slice(2); };
+const dmy = s => s ? s.split('-').reverse().join('-') : '';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uniq = a => [...new Set(a.filter(Boolean))].sort((x, y) => x.localeCompare(y));
+const gstLbl = () => GST ? 'incl. GST' : 'excl. GST';
+const S = (rows, f) => rows.reduce((a, r) => a + (f(r) || 0), 0);
+
+/* ---------- load ---------- */
+function load() {
+  $('asof').textContent = 'Loading…';
+  api('data').then(r => {
+    if (r.success) { DATA = r.data; if (r.user) { AUTH.name = r.user.name; AUTH.upload = r.user.upload; saveAuth(); } init(); }
+    else if (!r.expired) $('app').innerHTML = '<div class="loading">Could not load data: ' + esc(r.error) + '</div>';
+  });
+}
+function init() {
+  $('app').innerHTML = '';
+  $('asof').textContent = 'Stock as of ' + dmy(DATA.asOf) + ' · Sales data: ' + (DATA.months.length ? monLabel(DATA.months[0]) + ' – ' + monLabel(DATA.months[DATA.months.length - 1]) : 'none – sync or upload sales') + ' · ' + DATA.rows.length + ' SKUs in stock';
+  fillSelect('fMake', uniq(DATA.rows.map(r => r.make)));
+  fillSelect('fGroup', uniq(DATA.rows.map(r => r.group)));
+  fillSelect('fCat', uniq(DATA.rows.map(r => r.category)));
+  render();
+}
+function fillSelect(id, vals) { const s = $(id), keep = s.value; s.length = 1; vals.forEach(v => s.add(new Option(v, v))); s.value = keep; }
+
+/* ---------- filters & derived values ---------- */
+function opts() { return { q: $('fSearch').value.trim().toLowerCase(), make: $('fMake').value, group: $('fGroup').value, cat: $('fCat').value,
+  stuck: +$('fStuck').value, expWin: +$('fExpWin').value, slow: +$('fSlow').value || 0, win: +$('fWin').value || 3, excl: $('fExcl').checked }; }
+
+function derive(r, o) {
+  const c = GST ? 'cG' : 'cX', u = GST ? r.uG : r.uX;
+  r.costKey = c; r.unknownVal = r.unknownQty * u;
+  r.bq = AB.map(() => 0); r.bv = AB.map(() => 0); r.eq = EB.map(() => 0); r.ev = EB.map(() => 0);
+  let value = r.unknownVal, ageQ = 0, knownQ = 0, oldest = null, oldestDate = '', stuckVal = 0, stuckQty = 0;
+  let nearest = null, nearestDte = null, noExpVal = r.unknownVal, noExpQty = r.unknownQty, lifeW = 0, lifeV = 0, expiredVal = 0, expiredQty = 0, soonVal = 0, soonQty = 0;
+  r.layers.forEach(l => {
+    const v = l.q * l[c]; l.val = v; value += v; ageQ += l.q * l.age; knownQ += l.q;
+    if (oldest == null || l.age > oldest) { oldest = l.age; oldestDate = l.rd; }
+    const ai = AB.findIndex(b => l.age <= b[1]); r.bq[ai] += l.q; r.bv[ai] += v;
+    if (l.age > o.stuck) { stuckVal += v; stuckQty += l.q; }
+    if (l.dte == null) { noExpVal += v; noExpQty += l.q; return; }
+    const ei = l.dte < 0 ? 0 : EB.findIndex((b, i) => i > 0 && l.dte <= b[1]); r.eq[ei] += l.q; r.ev[ei] += v;
+    if (nearestDte == null || l.dte < nearestDte) { nearestDte = l.dte; nearest = l.exp; }
+    if (l.dte < 0) { expiredVal += v; expiredQty += l.q; } else if (l.dte <= o.expWin) { soonVal += v; soonQty += l.q; }
+    if (l.life > 0) { lifeW += v * Math.max(0, l.dte) / l.life; lifeV += v; }
+  });
+  Object.assign(r, { value, avgAge: knownQ ? ageQ / knownQ : null, oldestAge: oldest, oldestDate, stuckVal, stuckQty,
+    nearestExp: nearest, dte: nearestDte, noExpVal, noExpQty, expiredVal, expiredQty, soonVal, soonQty,
+    lifePct: lifeV ? lifeW / lifeV : null, costPc: r.stock ? value / r.stock : 0 });
+  // sales over the chosen months
+  const totalSold = WIN.reduce((a, i) => a + r.sold[i], 0), days = WIN.reduce((a, i) => a + DATA.monthDays[i], 0);
+  r.totalSold = totalSold; r.avgMonthly = WIN.length ? totalSold / WIN.length : 0; r.avgDaily = days ? totalSold / days : 0;
+  r.cover = r.avgDaily > 0 ? r.stock / r.avgDaily : null; r.isSlow = r.avgMonthly < o.slow;
+  // at risk: selling at the current daily rate, earliest-expiring batches first – what is still left when its batch expires
+  let sold = 0, riskQ = 0, riskV = 0;
+  r.layers.filter(l => l.dte != null).sort((a, b) => a.dte - b.dte).forEach(l => {
+    const sell = Math.min(l.q, Math.max(0, r.avgDaily * Math.max(0, l.dte) - sold)); sold += sell;
+    l.risk = l.q - sell; riskQ += l.risk; riskV += l.risk * l[c];
+  });
+  r.riskQty = riskQ; r.riskVal = riskV;
+  const t = [];
+  if (MODE === 'ageing') {
+    if (r.totalSold === 0) t.push('zero'); else if (r.isSlow) t.push('slow');
+    if (r.stuckQty > 0) t.push('stuck');
+    if (r.dte != null && r.dte <= 30) t.push('exp');
+  } else {
+    if (r.expiredQty > 0) t.push('expired');
+    if (r.soonQty > 0) t.push('soon');
+    if (r.riskQty > 0) t.push('risk');
+  }
+  r.tags = t;
+  return r;
+}
+function filtered() {
+  const o = opts();
+  return DATA.rows.filter(r => {
+    if (o.excl && r.group === 'EXCLUDE') return false;
+    if (o.make && r.make !== o.make) return false;
+    if (o.group && r.group !== o.group) return false;
+    if (o.cat && r.category !== o.cat) return false;
+    if (o.q && !(r.name.toLowerCase().includes(o.q) || String(r.id) === o.q || r.make.toLowerCase().includes(o.q) || (r.brand || '').toLowerCase().includes(o.q))) return false;
+    return true;
+  }).map(r => derive(Object.assign({}, r, { layers: r.layers.map(l => Object.assign({}, l)) }), o));
+}
+
+/* ---------- render ---------- */
+function render() {
+  if (!DATA) return;
+  const o = opts();
+  const n = Math.min(o.win, DATA.months.length); WIN = []; for (let i = DATA.months.length - n; i < DATA.months.length; i++) WIN.push(i);
+  ROWS = filtered();
+  $('title').textContent = MODE === 'ageing' ? 'Inventory Ageing' : 'Expiry Dashboard';
+  document.querySelectorAll('.m-ageing').forEach(e => e.classList.toggle('hide', MODE !== 'ageing'));
+  document.querySelectorAll('.m-expiry').forEach(e => e.classList.toggle('hide', MODE !== 'expiry'));
+  if (MODE === 'ageing') kpisAgeing(ROWS, o); else kpisExpiry(ROWS, o);
+  renderTabs(); renderActive();
+}
+function renderTabs() {
+  if (!TABS[MODE].some(t => t[0] === TAB)) TAB = 'overview';
+  $('tabs').innerHTML = TABS[MODE].map(t => '<button class="tab' + (t[0] === TAB ? ' on' : '') + '" data-t="' + t[0] + '">' + t[1] + '</button>').join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { TAB = b.dataset.t; renderTabs(); renderActive(); });
+}
+function renderActive() {
+  ['p-overview', 'p-list', 'p-upload', 'p-guide'].forEach(id => $(id).classList.add('hide'));
+  const o = opts();
+  if (TAB === 'overview') { $('p-overview').classList.remove('hide'); MODE === 'ageing' ? chartsAgeing(ROWS, o) : chartsExpiry(ROWS, o); return; }
+  if (TAB === 'upload') { $('p-upload').classList.remove('hide'); loadLog(); return; }
+  if (TAB === 'guide') { $('p-guide').classList.remove('hide'); buildGuide(); return; }
+  $('p-list').classList.remove('hide');
+  if (TAB === 'make') return renderMakeTable(ROWS, o);
+  if (TAB === 'batches') return renderBatches(ROWS, o);
+  const L = {
+    all: [ROWS, 'All SKUs in stock', 'value', skuColsAgeing],
+    slow: [ROWS.filter(r => r.isSlow), 'Slow movers – average sale below ' + o.slow + ' pcs/month (includes zero-sale items)', 'value', skuColsAgeing],
+    stuck: [ROWS.filter(r => r.stuckVal > 0), 'Stuck stock – stock on shelf for more than ' + o.stuck + ' days', 'stuckVal', skuColsAgeing],
+    zero: [ROWS.filter(r => r.totalSold === 0), 'Zero sales – no piece sold in the last ' + WIN.length + ' month(s)', 'value', skuColsAgeing],
+    nogrn: [ROWS.filter(r => r.unknownQty > 0), 'No purchase record – stock not covered by any GRN, so its age is unknown', 'unknownVal', skuColsAgeing],
+    soon: [ROWS.filter(r => r.soonQty > 0 || r.expiredQty > 0), 'Expiring soon – batches expiring within ' + o.expWin + ' days (and already expired)', 'dte', skuColsExpiry, 1],
+    expired: [ROWS.filter(r => r.expiredQty > 0), 'Expired – stock whose batch expiry date has passed', 'expiredVal', skuColsExpiry],
+    risk: [ROWS.filter(r => r.riskQty > 0), 'At risk – stock that will not sell before it expires at the current selling rate', 'riskVal', skuColsExpiry],
+    noexp: [ROWS.filter(r => r.noExpQty > 0), 'No expiry data – stock with no GRN expiry date (or no GRN at all)', 'noExpVal', skuColsExpiry]
+  };
+  const x = L[TAB]; renderSkuTable(TAB, x[0], x[1], x[2], x[3](o), x[4] || -1);
+}
+
+/* ---------- KPI cards ---------- */
+function kpiHtml(k) {
+  $('kpis').innerHTML = k.map(x => '<button class="kpi ' + x[3] + '" data-t="' + x[4] + '" data-s="' + x[5] + '" data-d="' + (x[6] || -1) + '"><div class="l">' + x[0] + '</div><div class="v">' + x[1] + '</div><div class="s">' + x[2] + '</div><div class="go">View products →</div></button>').join('');
+  $('kpis').querySelectorAll('.kpi').forEach(b => b.onclick = () => openList(b.dataset.t, b.dataset.s, +b.dataset.d));
+}
+function kpisAgeing(rows, o) {
+  const val = S(rows, r => r.value), knownV = S(rows, r => r.value - r.unknownVal);
+  const wAge = knownV ? S(rows, r => (r.avgAge || 0) * (r.value - r.unknownVal)) / knownV : 0;
+  const stuck = S(rows, r => r.stuckVal), slow = rows.filter(r => r.isSlow), zero = rows.filter(r => r.totalSold === 0);
+  const slowV = S(slow, r => r.value), zeroV = S(zero, r => r.value), unk = S(rows, r => r.unknownVal);
+  kpiHtml([
+    ['Inventory value (' + gstLbl() + ')', short(val), int(S(rows, r => r.stock)) + ' pcs · ' + rows.length + ' SKUs', '', 'all', 'value'],
+    ['Avg days on shelf', dec1(wAge) + ' days', 'Value-weighted average age of stock', '', 'all', 'oldestAge'],
+    ['Stuck > ' + o.stuck + ' days', short(stuck), rows.filter(r => r.stuckVal > 0).length + ' SKUs · ' + pct(stuck, val) + ' of value', 'bad', 'stuck', 'stuckVal'],
+    ['Slow movers (< ' + o.slow + ' pcs/mo)', short(slowV), slow.length + ' SKUs · ' + pct(slowV, val) + ' of value', 'warn', 'slow', 'value'],
+    ['Zero sales', short(zeroV), zero.length + ' SKUs with no sale in last ' + WIN.length + ' month(s)', 'warn', 'zero', 'value'],
+    ['No purchase record', short(unk), rows.filter(r => r.unknownQty > 0).length + ' SKUs with stock not covered by a GRN', '', 'nogrn', 'unknownVal']
+  ]);
+}
+function kpisExpiry(rows, o) {
+  const val = S(rows, r => r.value), expd = S(rows, r => r.expiredVal), soon = S(rows, r => r.soonVal), risk = S(rows, r => r.riskVal), noexp = S(rows, r => r.noExpVal);
+  const lv = S(rows, r => r.lifePct != null ? r.value - r.noExpVal : 0), lw = S(rows, r => r.lifePct != null ? r.lifePct * (r.value - r.noExpVal) : 0);
+  const n = f => rows.filter(f).length;
+  kpiHtml([
+    ['Inventory value (' + gstLbl() + ')', short(val), pct(val - noexp, val) + ' of value has an expiry date', '', 'batches', 'dte', 1],
+    ['Expired', short(expd), n(r => r.expiredQty > 0) + ' SKUs · ' + pct(expd, val) + ' of value', 'bad', 'expired', 'expiredVal'],
+    ['Expiring in ≤ ' + o.expWin + ' days', short(soon), n(r => r.soonQty > 0) + ' SKUs · ' + pct(soon, val) + ' of value', 'warn', 'soon', 'dte', 1],
+    ['At risk (won\'t sell in time)', short(risk), n(r => r.riskQty > 0) + ' SKUs at current selling rate', 'bad', 'risk', 'riskVal'],
+    ['Avg shelf life left', lv ? (lw / lv * 100).toFixed(0) + '%' : '—', 'Value-weighted, of each batch\'s total shelf life', lv && lw / lv < 0.4 ? 'warn' : 'good', 'batches', 'lifePct', 1],
+    ['No expiry data', short(noexp), n(r => r.noExpQty > 0) + ' SKUs – no expiry date on GRN', '', 'noexp', 'noExpVal']
+  ]);
+}
+
+/* ---------- charts ---------- */
+function chart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  cfg.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { labels: { color: INK, boxWidth: 12 } } } }, cfg.options || {});
+  charts[id] = new Chart($(id), cfg);
+}
+const axis = (money, extra) => Object.assign({ ticks: money ? { color: INK, callback: v => short(v) } : { color: INK }, grid: { color: LINE } }, extra || {});
+const head = (i, h, n) => { $('h' + i).textContent = h; $('n' + i).textContent = n; };
+const cut = t => { t = t.replace(/\s*-\s*MRP.*$/i, ''); return t.length > 26 ? t.slice(0, 25) + '…' : t; };
+function barSimple(id, labels, data, colors, tipTitle) {
+  chart(id, { type: 'bar', data: { labels, datasets: [{ data, backgroundColor: colors }] },
+    options: { plugins: { legend: { display: false }, tooltip: { callbacks: { title: tipTitle, label: c => inr(c.raw) } } }, scales: { y: axis(true), x: axis(false, { grid: { display: false } }) } } });
+}
+function barTop(id, top, key, color, tip) {
+  chart(id, { type: 'bar', data: { labels: top.map(r => cut(r.name)), datasets: [{ data: top.map(r => r[key]), backgroundColor: color }] },
+    options: { indexAxis: 'y', layout: { padding: { left: 6 } }, onClick: (e, els) => { if (els.length) openProduct(top[els[0].index].id); },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: c => top[c[0].dataIndex].name, label: c => tip(top[c.dataIndex]) } } },
+      scales: { x: axis(true), y: axis(false, { grid: { display: false } }) } } });
+}
+function stackedGroups(id, rows, labels, colors, valF) {
+  const groups = uniq(rows.map(r => r.group)); const gT = g => S(rows.filter(r => r.group === g), r => r.value);
+  groups.sort((a, b) => gT(b) - gT(a));
+  chart(id, { type: 'bar', data: { labels: groups, datasets: labels.map((lb, i) => ({ label: lb, backgroundColor: colors[i], data: groups.map(g => S(rows.filter(r => r.group === g), r => valF(r, i))) })) },
+    options: { indexAxis: 'y', plugins: { tooltip: { callbacks: { label: c => c.dataset.label + ': ' + inr(c.raw) } } }, scales: { x: axis(true, { stacked: true }), y: axis(false, { stacked: true, grid: { display: false } }) } } });
+}
+function chartsAgeing(rows, o) {
+  $('card4').classList.add('hide');
+  head(1, 'Inventory value by age', 'How long current stock has been on the shelf (FIFO, from GRN unloading date). Grey = no purchase record. Values ' + gstLbl() + '.');
+  barSimple('c1', AB.map(b => b[0] + ' days').concat(['Unknown']), AB.map((_, i) => S(rows, r => r.bv[i])).concat([S(rows, r => r.unknownVal)]), BCOL.concat([UCOL]));
+  head(2, 'Value by group and age', 'Where the money is sitting, split by age bucket.');
+  stackedGroups('c2', rows, AB.map(b => b[0] + ' d').concat(['Unknown']), BCOL.concat([UCOL]), (r, i) => i < AB.length ? r.bv[i] : r.unknownVal);
+  head(3, 'Top 10 products by stuck value', 'Most money in stock older than ' + o.stuck + ' days. Click a bar to see that product.');
+  barTop('c3', rows.filter(r => r.stuckVal > 0).sort((a, b) => b.stuckVal - a.stuckVal).slice(0, 10), 'stuckVal', BCOL[4], r => inr(r.stuckVal) + ' stuck · ' + (r.oldestAge || 0) + ' days on shelf');
+}
+function chartsExpiry(rows, o) {
+  $('card4').classList.remove('hide');
+  head(1, 'Inventory value by time to expiry', 'Batch expiry dates from GRN (FIFO). Values ' + gstLbl() + '. Grey = no expiry date.');
+  barSimple('c1', EB.map(b => b[0]).concat(['No date']), EB.map((_, i) => S(rows, r => r.ev[i])).concat([S(rows, r => r.noExpVal)]), ECOL.concat([UCOL]));
+  head(2, 'Value expiring in the next 12 weeks', 'Stock value whose batch expires in each week, starting today. Red = inside the "Expiring soon" window.');
+  const wk = Array(12).fill(0); rows.forEach(r => r.layers.forEach(l => { if (l.dte != null && l.dte >= 0 && l.dte < 84) wk[Math.floor(l.dte / 7)] += l.val; }));
+  const base = new Date(DATA.asOf + 'T00:00:00');
+  const wl = wk.map((_, i) => { const d = new Date(base.getTime() + i * 7 * 864e5); return d.getDate() + ' ' + MON[d.getMonth()]; });
+  barSimple('c2', wl, wk, wk.map((_, i) => i * 7 < o.expWin ? ECOL[1] : ECOL[3]), c => 'Week starting ' + c[0].label);
+  head(3, 'Value by group and time to expiry', 'Which groups hold short-dated stock.');
+  stackedGroups('c3', rows, EB.map(b => b[0]).concat(['No date']), ECOL.concat([UCOL]), (r, i) => i < EB.length ? r.ev[i] : r.noExpVal);
+  head(4, 'Top 10 products at risk', 'Stock value that won\'t sell before expiry at the current rate. Click a bar to see its batches.');
+  barTop('c4', rows.filter(r => r.riskVal > 0).sort((a, b) => b.riskVal - a.riskVal).slice(0, 10), 'riskVal', ECOL[1], r => inr(r.riskVal) + ' at risk · ' + int(r.riskQty) + ' pcs · nearest expiry in ' + r.dte + ' d');
+}
+
+/* ---------- tables ---------- */
+const PILLS = { zero: 'No sale', slow: 'Slow', stuck: 'Stuck', exp: 'Expiry ≤30d', expired: 'Expired', soon: 'Expiring soon', risk: 'At risk' };
+function baseCols() {
+  return [
+    { k: 'id', l: 'Product ID', g: 'Item', t: 1 },
+    { k: 'name', l: 'Item name', g: 'Item', t: 1, cls: 'name sticky1' },
+    { k: 'make', l: 'Company (Make)', g: 'Item', t: 1 },
+    { k: 'group', l: 'Group', g: 'Item', t: 1 },
+    { k: 'tags', l: 'Status', g: 'Item', t: 1, f: r => r.tags.map(t => '<span class="pill p-' + t + '">' + PILLS[t] + '</span>').join('') || '<span class="pill p-ok">OK</span>', csv: r => r.tags.map(t => PILLS[t]).join(' | ') || 'OK', sv: r => r.tags.length },
+    { k: 'stock', l: 'Stock (pcs)', g: 'Inventory', f: r => int(r.stock) },
+    { k: 'cases', l: 'Stock (cases)', g: 'Inventory', f: r => r.caseSize ? dec1(r.stock / r.caseSize) : '', v: r => r.caseSize ? r.stock / r.caseSize : 0 },
+    { k: 'value', l: 'Stock value', g: 'Inventory', f: r => inr(r.value) }
+  ];
+}
+function salesCols() {
+  return WIN.map(i => ({ k: 'm' + i, l: monLabel(DATA.months[i]), g: 'Pcs sold', f: r => int(r.sold[i]), v: r => r.sold[i] })).concat([
+    { k: 'totalSold', l: 'Total sold', g: 'Pcs sold', f: r => int(r.totalSold) },
+    { k: 'avgMonthly', l: 'Avg sale / month', g: 'Pcs sold', f: r => dec1(r.avgMonthly) },
+    { k: 'avgDaily', l: 'Avg sale / day', g: 'Pcs sold', f: r => dec1(r.avgDaily) },
+    { k: 'cover', l: 'Days of cover', g: 'Pcs sold', f: r => r.cover == null ? '∞' : int(r.cover), v: r => r.cover == null ? 1e9 : r.cover }
+  ]);
+}
+function detailCols() {
+  return [
+    { k: 'costPc', l: 'Cost / pc (' + (GST ? 'incl' : 'excl') + ' GST)', g: 'Details', f: r => '₹' + (r.costPc || 0).toFixed(2) },
+    { k: 'oldestDate', l: 'Oldest stock received', g: 'Details', t: 1, f: r => dmy(r.oldestDate) },
+    { k: 'lastDate', l: 'Last received', g: 'Details', t: 1, f: r => dmy(r.lastDate) },
+    { k: 'brand', l: 'Brand', g: 'Details', t: 1 },
+    { k: 'category', l: 'Category', g: 'Details', t: 1 }
+  ];
+}
+function skuColsAgeing(o) {
+  const c = baseCols().concat([
+    { k: 'stuckVal', l: 'Stuck value (> ' + o.stuck + 'd)', g: 'Inventory', f: r => inr(r.stuckVal) },
+    { k: 'oldestAge', l: 'Days on shelf (oldest)', g: 'Shelf age', f: r => r.oldestAge == null ? '—' : int(r.oldestAge) },
+    { k: 'avgAge', l: 'Avg age (days)', g: 'Shelf age', f: r => r.avgAge == null ? '—' : dec1(r.avgAge) },
+    { k: 'agebar', l: 'Age mix', g: 'Shelf age', t: 1, f: ageBar, csv: () => '', sv: r => r.oldestAge || 0 }
+  ]);
+  AB.forEach((b, i) => c.push({ k: 'bv' + i, l: b[0] + ' d ₹', g: 'Value by age', f: r => inr(r.bv[i]), v: r => r.bv[i] }));
+  c.push({ k: 'unknownVal', l: 'Unknown age ₹', g: 'Value by age', f: r => inr(r.unknownVal) });
+  return c.concat(salesCols(), [
+    { k: 'nearestExp', l: 'Nearest expiry', g: 'Expiry', t: 1, f: r => dmy(r.nearestExp), v: r => r.dte == null ? 1e9 : r.dte },
+    { k: 'dte', l: 'Days to expiry', g: 'Expiry', f: r => r.dte == null ? '—' : int(r.dte), v: r => r.dte == null ? 1e9 : r.dte }
+  ], detailCols());
+}
+function skuColsExpiry(o) {
+  const c = baseCols().concat([
+    { k: 'nearestExp', l: 'Nearest expiry', g: 'Expiry', t: 1, f: r => dmy(r.nearestExp), v: r => r.dte == null ? 1e9 : r.dte },
+    { k: 'dte', l: 'Days to expiry', g: 'Expiry', f: r => r.dte == null ? '—' : int(r.dte), v: r => r.dte == null ? 1e9 : r.dte },
+    { k: 'lifePct', l: 'Shelf life left', g: 'Expiry', f: r => r.lifePct == null ? '—' : (r.lifePct * 100).toFixed(0) + '%', v: r => r.lifePct == null ? 9 : r.lifePct },
+    { k: 'expiredVal', l: 'Expired ₹', g: 'Expiry', f: r => inr(r.expiredVal) },
+    { k: 'soonVal', l: 'Expiring ≤' + o.expWin + 'd ₹', g: 'Expiry', f: r => inr(r.soonVal) },
+    { k: 'riskQty', l: 'At risk (pcs)', g: 'At risk', f: r => int(r.riskQty) },
+    { k: 'riskVal', l: 'At risk ₹', g: 'At risk', f: r => inr(r.riskVal) }
+  ]);
+  EB.forEach((b, i) => c.push({ k: 'ev' + i, l: b[0] + ' ₹', g: 'Value by time to expiry', f: r => inr(r.ev[i]), v: r => r.ev[i] }));
+  c.push({ k: 'noExpVal', l: 'No expiry date ₹', g: 'Value by time to expiry', f: r => inr(r.noExpVal) });
+  return c.concat(salesCols(), detailCols());
+}
+function ageBar(r) {
+  const tot = r.value || 1;
+  return '<div class="agebar" title="' + AB.map((b, i) => b[0] + 'd: ' + inr(r.bv[i])).join(' · ') + ' · Unknown: ' + inr(r.unknownVal) + '">' +
+    r.bv.map((v, i) => '<span style="width:' + (v / tot * 100) + '%;background:' + BCOL[i] + '"></span>').join('') +
+    '<span style="width:' + (r.unknownVal / tot * 100) + '%;background:' + UCOL + '"></span></div>';
+}
+function sortRows(id, rows, cols, defKey, defDir) {
+  const s = sortState[id] || (sortState[id] = { k: defKey, d: defDir || -1 });
+  const col = cols.find(c => c.k === s.k) || cols[0];
+  const get = col.sv || col.v || (r => r[col.k]);
+  return rows.slice().sort((a, b) => { const x = get(a), y = get(b);
+    if (typeof x === 'string' || typeof y === 'string') return String(x || '').localeCompare(String(y || '')) * s.d;
+    return ((x == null ? -1e15 : x) - (y == null ? -1e15 : y)) * s.d; });
+}
+function tableHtml(id, title, rows, cols, defKey, totals, defDir) {
+  rows = sortRows(id, rows, cols, defKey, defDir); const s = sortState[id];
+  let h = '<div class="tbar"><div><b>' + esc(title) + '</b> <span class="count">' + rows.length + ' rows · values ' + gstLbl() + '</span></div><button onclick="csv(\'' + id + '\')">Download CSV</button></div><div class="tablewrap"><table><thead><tr>';
+  cols.forEach(c => { h += '<th class="' + (c.t ? 't ' : '') + (c.cls && c.cls.includes('sticky1') ? 'sticky1' : '') + '" onclick="sortBy(\'' + id + '\',\'' + c.k + '\')"><span class="grp">' + (c.g || '') + '</span>' + c.l + (s.k === c.k ? (s.d < 0 ? ' ▾' : ' ▴') : '') + '</th>'; });
+  h += '</tr></thead><tbody>';
+  if (totals) h += '<tr style="font-weight:600">' + cols.map(c => '<td class="' + (c.t ? 't ' : '') + (c.cls || '') + '">' + (totals[c.k] != null ? totals[c.k] : '') + '</td>').join('') + '</tr>';
+  rows.forEach(r => { h += '<tr>' + cols.map(c => '<td class="' + (c.t ? 't ' : '') + (c.cls || '') + '"' + (c.k === 'name' ? ' title="' + esc(r.name) + '"' : '') + '>' + (c.f ? c.f(r) : esc(r[c.k])) + '</td>').join('') + '</tr>'; });
+  return h + '</tbody></table></div>';
+}
+function renderSkuTable(id, rows, title, defKey, cols, defDir) {
+  const T = f => rows.reduce((a, r) => a + (f(r) || 0), 0);
+  const tot = { name: 'TOTAL (' + rows.length + ' SKUs)' };
+  ['stock', 'totalSold', 'riskQty'].forEach(k => tot[k] = int(T(r => r[k])));
+  ['value', 'stuckVal', 'unknownVal', 'expiredVal', 'soonVal', 'riskVal', 'noExpVal'].forEach(k => tot[k] = inr(T(r => r[k])));
+  AB.forEach((_, i) => tot['bv' + i] = inr(T(r => r.bv[i])));
+  EB.forEach((_, i) => tot['ev' + i] = inr(T(r => r.ev[i])));
+  WIN.forEach(i => tot['m' + i] = int(T(r => r.sold[i])));
+  TABLES[id] = { rows, cols, defKey, defDir, render: () => renderSkuTable(id, rows, title, defKey, cols, defDir) };
+  $('p-list').innerHTML = tableHtml(id, title, rows, cols, defKey, tot, defDir);
+}
+function renderBatches(rows, o) {
+  const list = [];
+  rows.forEach(r => r.layers.forEach(l => list.push({ id: r.id, name: r.name, make: r.make, group: r.group, batch: l.batch, rd: l.rd, exp: l.exp, dte: l.dte,
+    lifePct: (l.life > 0 && l.dte != null) ? Math.max(0, l.dte) / l.life : null, q: l.q, val: l.val, risk: l.risk || 0, riskVal: (l.risk || 0) * l[r.costKey],
+    avgDaily: r.avgDaily, daysToSell: r.avgDaily > 0 ? l.q / r.avgDaily : null })));
+  const cols = [
+    { k: 'id', l: 'Product ID', t: 1 }, { k: 'name', l: 'Item name', t: 1, cls: 'name sticky1' }, { k: 'make', l: 'Company', t: 1 }, { k: 'group', l: 'Group', t: 1 },
+    { k: 'batch', l: 'Batch', t: 1 }, { k: 'rd', l: 'Received', t: 1, f: x => dmy(x.rd) }, { k: 'exp', l: 'Expiry date', t: 1, f: x => dmy(x.exp), v: x => x.dte == null ? 1e9 : x.dte },
+    { k: 'dte', l: 'Days to expiry', f: x => x.dte == null ? '—' : int(x.dte), v: x => x.dte == null ? 1e9 : x.dte },
+    { k: 'lifePct', l: 'Shelf life left', f: x => x.lifePct == null ? '—' : (x.lifePct * 100).toFixed(0) + '%', v: x => x.lifePct == null ? 9 : x.lifePct },
+    { k: 'q', l: 'Qty in stock (pcs)', f: x => int(x.q) }, { k: 'val', l: 'Value', f: x => inr(x.val) },
+    { k: 'avgDaily', l: 'Avg sale / day', f: x => dec1(x.avgDaily) },
+    { k: 'daysToSell', l: 'Days to sell this batch', f: x => x.daysToSell == null ? '∞' : int(x.daysToSell), v: x => x.daysToSell == null ? 1e9 : x.daysToSell },
+    { k: 'risk', l: 'At risk (pcs)', f: x => int(x.risk) }, { k: 'riskVal', l: 'At risk ₹', f: x => inr(x.riskVal) }
+  ];
+  const tot = { name: 'TOTAL (' + list.length + ' batches)', q: int(S(list, x => x.q)), val: inr(S(list, x => x.val)), risk: int(S(list, x => x.risk)), riskVal: inr(S(list, x => x.riskVal)) };
+  TABLES.batches = { rows: list, cols, defKey: 'dte', defDir: 1, render: () => renderBatches(rows, o) };
+  $('p-list').innerHTML = tableHtml('batches', 'Batch list – every GRN batch that makes up current stock (FIFO)', list, cols, 'dte', tot, 1);
+}
+function renderMakeTable(rows, o) {
+  const m = {};
+  rows.forEach(r => {
+    const x = m[r.make] || (m[r.make] = { make: r.make, skus: 0, stock: 0, value: 0, stuckVal: 0, slowVal: 0, zeroVal: 0, unknownVal: 0, ageW: 0, knownV: 0, expiredVal: 0, soonVal: 0, riskVal: 0, noExpVal: 0, sold: DATA.months.map(() => 0), totalSold: 0 });
+    x.skus++; x.stock += r.stock; x.value += r.value; x.stuckVal += r.stuckVal; x.unknownVal += r.unknownVal;
+    x.expiredVal += r.expiredVal; x.soonVal += r.soonVal; x.riskVal += r.riskVal; x.noExpVal += r.noExpVal;
+    if (r.isSlow) x.slowVal += r.value; if (r.totalSold === 0) x.zeroVal += r.value;
+    const kv = r.value - r.unknownVal; x.ageW += (r.avgAge || 0) * kv; x.knownV += kv;
+    r.sold.forEach((q, i) => x.sold[i] += q); x.totalSold += r.totalSold;
+  });
+  const list = Object.values(m).map(x => Object.assign(x, { avgAge: x.knownV ? x.ageW / x.knownV : null, avgMonthly: WIN.length ? x.totalSold / WIN.length : 0 }));
+  let cols = [
+    { k: 'make', l: 'Company (Make)', t: 1, cls: 'sticky1', f: x => '<a class="lnk" onclick="pickMake(this.dataset.m)" data-m="' + esc(x.make) + '">' + esc(x.make) + '</a>', csv: x => x.make },
+    { k: 'skus', l: 'SKUs in stock', f: x => int(x.skus) }, { k: 'stock', l: 'Stock (pcs)', f: x => int(x.stock) }, { k: 'value', l: 'Stock value', f: x => inr(x.value) }
+  ];
+  if (MODE === 'ageing') cols = cols.concat([
+    { k: 'avgAge', l: 'Avg days on shelf', f: x => x.avgAge == null ? '—' : dec1(x.avgAge) },
+    { k: 'stuckVal', l: 'Stuck value (> ' + o.stuck + 'd)', f: x => inr(x.stuckVal) },
+    { k: 'stuckPct', l: 'Stuck %', f: x => pct(x.stuckVal, x.value), v: x => x.value ? x.stuckVal / x.value : 0 },
+    { k: 'slowVal', l: 'Slow-mover value', f: x => inr(x.slowVal) }, { k: 'zeroVal', l: 'Zero-sale value', f: x => inr(x.zeroVal) }, { k: 'unknownVal', l: 'No-GRN value', f: x => inr(x.unknownVal) }
+  ]);
+  else cols = cols.concat([
+    { k: 'expiredVal', l: 'Expired ₹', f: x => inr(x.expiredVal) }, { k: 'soonVal', l: 'Expiring ≤' + o.expWin + 'd ₹', f: x => inr(x.soonVal) },
+    { k: 'riskVal', l: 'At risk ₹', f: x => inr(x.riskVal) }, { k: 'riskPct', l: 'At risk %', f: x => pct(x.riskVal, x.value), v: x => x.value ? x.riskVal / x.value : 0 },
+    { k: 'noExpVal', l: 'No expiry data ₹', f: x => inr(x.noExpVal) }
+  ]);
+  WIN.forEach(i => cols.push({ k: 'm' + i, l: 'Sold ' + monLabel(DATA.months[i]), f: x => int(x.sold[i]), v: x => x.sold[i] }));
+  cols.push({ k: 'totalSold', l: 'Total sold (pcs)', f: x => int(x.totalSold) }, { k: 'avgMonthly', l: 'Avg sale / month (pcs)', f: x => int(x.avgMonthly) });
+  const key = MODE === 'ageing' ? 'value' : 'riskVal';
+  TABLES.make = { rows: list, cols, defKey: key, render: () => renderMakeTable(rows, o) };
+  $('p-list').innerHTML = tableHtml('make', 'Companies – click a name to see its SKUs', list, cols, key);
+}
+function sortBy(id, k) { const s = sortState[id]; if (s.k === k) s.d *= -1; else { s.k = k; s.d = -1; } TABLES[id].render(); }
+function openList(tab, sortKey, dir) {
+  if (sortKey) sortState[tab] = { k: sortKey, d: dir || -1 };
+  TAB = tab; renderTabs(); renderActive(); $('tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function openProduct(pid) { $('fSearch').value = String(pid); render(); MODE === 'ageing' ? openList('all', 'value', -1) : openList('batches', 'dte', 1); }
+function pickMake(m) { $('fMake').value = m; render(); MODE === 'ageing' ? openList('all', 'value', -1) : openList('soon', 'dte', 1); }
+function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500); }
+function csv(id) {
+  const t = TABLES[id], rows = sortRows(id, t.rows, t.cols, t.defKey, t.defDir);
+  const strip = s => String(s == null ? '' : s).replace(/<[^>]*>/g, '').replace(/[₹,]/g, '');
+  const lines = [t.cols.map(c => (c.g ? c.g + ' - ' : '') + c.l)].concat(rows.map(r => t.cols.map(c => c.csv ? c.csv(r) : strip(c.f ? c.f(r) : r[c.k]))));
+  download(id + '_' + DATA.asOf + '.csv', new Blob(['﻿' + lines.map(l => l.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')], { type: 'text/csv' }));
+}
+
+/* ---------- upload ---------- */
+const SAMPLES = {
+  stock: { file: 'Sample_Current_Inventory.xlsx', head: ['Product ID', 'Item Name', 'Make', 'Inventory in Hand', 'Case size'],
+    ex: [434, 'EXAMPLE – delete this row (Haldiram Aloo Bhujia - MRP 10 Rs.)', 'Haldiram Snacks Pvt. Ltd.', 24526, 300],
+    how: [['Product ID', 'Required. ERP product ID.'], ['Item Name', 'Optional – names come from the Item Master tab.'], ['Make', 'Optional.'], ['Inventory in Hand', 'Required. Pieces in stock right now (not cases).'], ['Case size', 'Optional. Pieces per case.']] },
+  grn: { file: 'Sample_GRN.xlsx', head: ['Unloading Date', 'Document No.', 'Vendor AC', 'Product Id', 'Item Name', 'Batch', 'Manufacturing Date', 'Expiry Date', 'Bill Qty', 'Rate per Pc', 'Taxable Value', 'GST Rate_Input'],
+    ex: ['10-11-2026', 'PR/999', 'B.K.C. AGENCIES', 434, 'EXAMPLE – delete this row', 'DAFH21', '21-10-2026', '18-02-2027', 3000, 7.93, 22668.6, 5],
+    how: [['Unloading Date', 'Required. Day the stock reached the warehouse, DD-MM-YYYY. Ageing counts from this date.'], ['Document No.', 'GRN / PR number.'], ['Vendor AC', 'Supplier.'], ['Product Id', 'Required.'], ['Batch', 'Batch code printed on the pack.'], ['Manufacturing Date', 'DD-MM-YYYY. Used for shelf life left %.'], ['Expiry Date', 'Required. DD-MM-YYYY.'], ['Bill Qty', 'Required. Pieces received (after shortage/rejection).'], ['Rate per Pc', 'Purchase rate per piece INCLUDING GST.'], ['Taxable Value', 'Line value EXCLUDING GST. Give this or Rate per Pc (both is best).'], ['GST Rate_Input', 'GST % (e.g. 5, 12, 18, 40).']] },
+  sales: { file: 'Sample_Daily_Sales.xlsx', head: ['Date', 'Product ID', 'Qty Sold (pcs)', 'Item Name (optional)'],
+    ex: ['10-11-2026', 434, 1850, 'EXAMPLE – delete this row'],
+    how: [['Date', 'Required. Sale / invoice date, DD-MM-YYYY.'], ['Product ID', 'Required.'], ['Qty Sold (pcs)', 'Required. Pieces sold that day. Several rows for the same product and day are added up.'], ['Item Name (optional)', 'Only for your reference.']] }
+};
+function sample(kind) {
+  const s = SAMPLES[kind], wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([s.head, s.ex]), 'Data');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Column', 'How to fill']].concat(s.how).concat([[], ['Note', 'Fill rows below the header on the Data sheet. The EXAMPLE row is ignored on upload – you can delete it. Dates as DD-MM-YYYY.']])), 'How to fill');
+  download(s.file, new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+}
+const pad2 = n => ('0' + n).slice(-2);
+function cellOut(v) {
+  if (v instanceof Date) { const d = new Date(v.getTime() + 12 * 3600e3); return pad2(d.getUTCDate()) + '-' + pad2(d.getUTCMonth() + 1) + '-' + d.getUTCFullYear(); }
+  if (typeof v === 'string') return v.trim();
+  return v == null ? '' : v;
+}
+function readFile(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+        const hi = aoa.findIndex(r => r.filter(c => String(c).trim() !== '').length >= 2);
+        if (hi < 0) throw new Error('The file looks empty.');
+        const header = aoa[hi].map(c => String(c).trim());
+        res({ header, rows: aoa.slice(hi + 1).map(r => header.map((_, i) => cellOut(r[i]))) });
+      } catch (err) { rej(err); }
+    };
+    fr.onerror = () => rej(new Error('Could not read the file.'));
+    fr.readAsArrayBuffer(file);
+  });
+}
+document.querySelectorAll('.up[data-kind]').forEach(card => {
+  const kind = card.dataset.kind, msg = card.querySelector('.msg'), btn = card.querySelector('.go'), inp = card.querySelector('input[type=file]');
+  card.querySelector('.sample').onclick = () => sample(kind);
+  btn.onclick = async () => {
+    const f = inp.files[0]; if (!f) { msg.className = 'msg err'; msg.textContent = 'Choose a file first.'; return; }
+    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Reading ' + f.name + '…';
+    try {
+      const d = await readFile(f);
+      msg.textContent = 'Uploading ' + d.rows.length + ' rows…';
+      const r = await api('upload', { kind: kind, header: d.header, rows: d.rows, fileName: f.name });
+      btn.disabled = false;
+      if (r.success) { msg.className = 'msg ok'; msg.textContent = r.message + ' Dashboard reloaded.'; inp.value = ''; load(); loadLog(); }
+      else { msg.className = 'msg err'; msg.textContent = r.error; }
+    } catch (e) { btn.disabled = false; msg.className = 'msg err'; msg.textContent = e.message || String(e); }
+  };
+});
+$('btnSync').onclick = () => { const b = $('btnSync'); b.disabled = true; $('syncMsg').className = 'msg'; $('syncMsg').textContent = 'Syncing… (up to 1 min)';
+  api('sync').then(r => { b.disabled = false; if (r.success) { $('syncMsg').className = 'msg ok'; $('syncMsg').textContent = r.message; load(); loadLog(); } else { $('syncMsg').className = 'msg err'; $('syncMsg').textContent = 'Sync failed: ' + r.error; } }); };
+function loadLog() {
+  api('log').then(res => { if (!res.success) return; const l = res.log; $('upLog').innerHTML = l.length ? '<table style="font-size:12px"><tbody>' + l.map(r => '<tr><td class="t">' + esc(r[0]) + '</td><td class="t">' + esc(r[1]) + '</td><td class="t" style="white-space:normal">' + esc(r[3]) + '</td></tr>').join('') + '</tbody></table>' : 'No uploads yet.'; });
+}
+
+/* ---------- guide ---------- */
+function buildGuide() {
+  const common = [
+    ['Rates: Without GST / With GST', 'Switch at the top. Without GST = GRN Taxable Value ÷ Bill Qty. With GST = GRN Rate per Pc (which includes GST). Items with no GRN use the Item Master landing price (with GST), or landing price ÷ (1 + tax%) without GST.'],
+    ['Stock (pcs) / Stock (cases)', 'Inventory in hand from the Stock tab, in pieces. Cases = pieces ÷ case size.'],
+    ['Stock value', 'Stock (pcs) × purchase cost of the GRN batches it came from.'],
+    ['How stock is matched to GRN batches (FIFO)', 'We assume the oldest stock was sold first, so current stock came from the most recent GRNs. Starting from the newest GRN, received quantities are added until they cover current stock. Each portion keeps its GRN unloading date, batch, expiry date and cost.'],
+    ['Pcs sold per month / Total sold / Avg sale per month / per day', 'From the Sales tab (synced from Sales Mix) and daily sales uploads, for the months chosen in "Average sales over". A running month counts only up to today.'],
+    ['Days of cover', 'Stock ÷ average daily sale. ∞ = no sales.'],
+    ['Company (Make) / Group / Category', 'Make and Category from the Item Master (promo tags like Deals are ignored). Group comes from the Category_Map tab. Items with "test" in the name or category Dummy are hidden by default.']
+  ];
+  const ageing = [
+    ['Stuck value', 'Stock value received more than the "Stuck if on shelf over" days ago.'],
+    ['Days on shelf (oldest) / Avg age', 'Age of the oldest piece still in stock, and the quantity-weighted average age.'],
+    ['Value by age buckets', 'Stock value by days since it was received (0-15, 16-30, 31-60, 61-90, 90+).'],
+    ['Unknown age ₹ / No purchase record', 'Stock not covered by any GRN (older than the GRN data, opening stock, or a missing entry).'],
+    ['Status tags', 'Stuck · Slow (avg monthly sale below the setting) · No sale · Expiry ≤30d.']
+  ];
+  const expiry = [
+    ['Nearest expiry / Days to expiry', 'Earliest expiry date among the batches that make up current stock.'],
+    ['Shelf life left', '(Expiry date − today) ÷ (expiry date − manufacturing date), value-weighted across batches.'],
+    ['Expired ₹', 'Stock whose batch expiry date has already passed (by FIFO – check the rack; it may already be sold or written off).'],
+    ['Expiring ≤ N days ₹', 'Stock whose batch expires within the "Expiring soon" setting.'],
+    ['At risk (pcs / ₹)', 'Selling at the current average daily rate, earliest-expiring batches first: the quantity still on the shelf when its batch expires.'],
+    ['Days to sell this batch', 'Batch quantity ÷ average daily sale. If this is more than days to expiry, the batch is at risk.'],
+    ['Value by time to expiry', 'Expired, 0-15, 16-30, 31-60, 61-90, 91-180, 180+ days, and No date (no expiry on GRN or no GRN).'],
+    ['Status tags', 'Expired · Expiring soon · At risk.']
+  ];
+  const dl = a => '<dl>' + a.map(x => '<dt>' + x[0] + '</dt><dd>' + x[1] + '</dd>').join('') + '</dl>';
+  $('guide').innerHTML = '<h3>Column guide</h3>' + dl(common) + '<h4>Ageing view</h4>' + dl(ageing) + '<h4>Expiry view</h4>' + dl(expiry) +
+    '<h4>Uploads</h4>' + dl([['Current inventory', 'Replaces the Stock tab.'], ['GRN', 'Adds new lines; duplicates (same date, GRN no., product, batch, qty) are skipped.'], ['Daily sales', 'Saved in Sales_Daily; re-uploading a date replaces it. Months already synced from Sales Mix use the Sales Mix numbers instead.']]);
+}
+
+/* ---------- events ---------- */
+function seg(id, cb) { $(id).querySelectorAll('button').forEach(b => b.onclick = () => { $(id).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); cb(b.dataset.v); }); }
+seg('segMode', v => { MODE = v; TAB = 'overview'; render(); });
+seg('segGst', v => { GST = v === 'g'; render(); });
+let deb; $('fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(render, 250); };
+['fMake', 'fGroup', 'fCat', 'fStuck', 'fExpWin', 'fWin', 'fExcl'].forEach(id => $(id).onchange = render);
+$('fSlow').oninput = () => { clearTimeout(deb); deb = setTimeout(render, 300); };
+$('btnReset').onclick = () => { $('fSearch').value = ''; $('fMake').value = ''; $('fGroup').value = ''; $('fCat').value = ''; $('fStuck').value = '60'; $('fExpWin').value = '30'; $('fSlow').value = '50'; $('fWin').value = '3'; $('fExcl').checked = true; render(); };
+$('btnReload').onclick = load;
+$('btnLogout').onclick = () => { api('logout'); DATA = null; showLogin(''); };
+$('lgGo').onclick = async () => {
+  const name = $('lgName').value.trim(), pin = $('lgPin').value.trim(), setup = $('lgGo').dataset.setup === '1';
+  if (!name || !pin) { $('lgErr').textContent = 'Enter your login name and PIN.'; return; }
+  $('lgGo').disabled = true; $('lgErr').textContent = '';
+  const r = await api(setup ? 'setup' : 'login', { loginName: name, pin: pin });
+  $('lgGo').disabled = false; $('lgPin').value = '';
+  if (!r.success) { $('lgErr').textContent = r.error; return; }
+  AUTH = { token: r.token, name: r.name, upload: r.upload, loginName: name }; saveAuth(); signedIn();
+};
+$('lgPin').onkeydown = e => { if (e.key === 'Enter') $('lgGo').click(); };
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if (AUTH.token) signedIn();
+else api('status').then(r => showLogin(r.success ? '' : r.error, r.success && r.setup));
+</script>
+</body>
+</html>

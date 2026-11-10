@@ -33,3 +33,11 @@ pick the release up on their next open.
 
 The backend (sheets, Control Room, accounts) is untouched by any of
 this: it stays in Apps Script.
+
+## BM Ageing (`ageing/`)
+
+Inventory ageing & expiry dashboard: https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/ageing/
+
+Backend: `inventory-ageing/` in the private `bm-apps-script` repo (bound to the
+Inventory_Ageing_Dashboard sheet). Logins are the `Users` tab of that sheet
+(Login Name | PIN | Can Upload | Active).
