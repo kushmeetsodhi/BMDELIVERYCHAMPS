@@ -48,5 +48,5 @@ https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/warehouse/
 
 Backend: `warehouse/` in the private `bm-apps-script` repo. Its web app link goes in
 `warehouse/config.js` (printed by the "Create Warehouse project" action there).
-Reading is open to anyone with the link; first-time setup and loading a slotting
-plan need the admin PIN chosen at setup.
+No login or PIN. The backend makes its database Sheet and loads the slotting
+plan by itself on first use.

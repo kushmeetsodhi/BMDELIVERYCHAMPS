@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BM Warehouse</title>
-<script src="config.js?v=303d57547c"></script>
+<script src="config.js?v=5523d166a4"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -180,7 +180,7 @@ document.getElementById('back').onclick = back;
 // or a product ID.
 function openCode(raw) {
   var c = String(raw || '').trim().toUpperCase().replace(/\s+/g, '').replace(/^BM[:-]/, '');
-  if (!IDX) { S.msg = { k: 'err', t: 'The slotting plan is not loaded yet. Open Settings.' }; render(); return; }
+  if (!IDX) { S.msg = { k: 'err', t: 'The rack plan is still loading. Try again in a moment.' }; render(); return; }
   var m;
   if ((m = c.match(/^R(\d{1,2})-?B(\d{1,2})$/))) return openBay('R' + pad2(+m[1]) + '-B' + pad2(+m[2]));
   if ((m = c.match(/^R(\d{1,2})-?B(\d{1,2})-?L(\d)-?P(\d)(?:-?S(\d)(?:-(\d))?)?$/))) {
@@ -266,7 +266,7 @@ var VIEWS = {}, AFTER = {};
 
 VIEWS.home = function () {
   var h = '';
-  if (!S.data) h += '<div class="msg info">No slotting plan loaded yet. Open <b>Settings</b> to set the app up.</div>';
+  if (!S.data) h += '<div class="msg info">Loading the rack plan… The first time can take up to a minute while the database is set up.</div>';
   h += '<div class="card"><div class="row"><input id="code" placeholder="Type or scan a code: R04-B01, R04-B01-L0-P1 …" autocapitalize="characters" autocomplete="off"><button class="primary" id="gocode">Go</button></div>' +
        '<p class="hint" style="margin:8px 0 0">A handheld scanner types into this box by itself.</p></div>';
   h += '<div class="tiles">' +
@@ -274,7 +274,7 @@ VIEWS.home = function () {
     '<button class="tile" data-go="find"><span class="ico">🔎</span><b>Find product</b><span>Where it is picked and stored</span></button>' +
     '<button class="tile" data-go="browse"><span class="ico">▦</span><b>Browse racks</b><span>Row by row, bay by bay</span></button>' +
     '<button class="tile" data-go="labels"><span class="ico">🏷</span><b>Print labels</b><span>QR labels on A4 sticker sheets</span></button>' +
-    '<button class="tile" data-go="settings"><span class="ico">⚙</span><b>Settings</b><span>Setup, plan, database</span></button>' +
+    '<button class="tile" data-go="settings"><span class="ico">⚙</span><b>Settings</b><span>Status, database, refresh</span></button>' +
     '</div>';
   return h;
 };
@@ -354,7 +354,7 @@ VIEWS.product = function (A) {
 AFTER.product = bindProductLinks;
 
 VIEWS.find = function () {
-  if (!IDX) return '<div class="msg info">Load the slotting plan first (Settings).</div>';
+  if (!IDX) return '<div class="msg info">The rack plan is still loading. Try again in a moment, or check Settings.</div>';
   return '<div class="card"><input id="q" placeholder="Product name or ID, e.g. bhujia" value="' + esc(S.q) + '" autocomplete="off"></div><div class="list" id="res"></div>';
 };
 AFTER.find = function () {
@@ -373,7 +373,7 @@ AFTER.find = function () {
 };
 
 VIEWS.browse = function () {
-  if (!IDX) return '<div class="msg info">Load the slotting plan first (Settings).</div>';
+  if (!IDX) return '<div class="msg info">The rack plan is still loading. Try again in a moment, or check Settings.</div>';
   var h = '<div class="chips">';
   for (var r = 1; r <= 10; r++) h += '<button class="chip' + (S.browseRow === r ? ' on' : '') + '" data-row="' + r + '">R' + pad2(r) + '</button>';
   h += '</div><div class="list">';
@@ -442,7 +442,7 @@ function sheetsHtml(items, forPrint) {
 }
 
 VIEWS.labels = function () {
-  if (!IDX) return '<div class="msg info">Load the slotting plan first (Settings).</div>';
+  if (!IDX) return '<div class="msg info">The rack plan is still loading. Try again in a moment, or check Settings.</div>';
   var L = S.lab, h = '<div class="card"><h2>What to print</h2><div class="list">';
   Object.keys(LTYPES).forEach(function (k) { h += '<label class="item" style="display:flex;gap:10px;align-items:center"><input type="radio" name="lt" value="' + k + '"' + (L.type === k ? ' checked' : '') + ' style="width:auto"> <span>' + LTYPES[k] + '</span></label>'; });
   h += '</div></div><div class="card"><h2>Rows</h2><div class="chips">';
@@ -487,43 +487,14 @@ VIEWS.settings = function () {
   var st = S.status, h = '';
   if (!st) return '<div class="card"><p class="hint">Checking the server…</p></div>';
   if (!st.success) return '<div class="msg err">' + esc(st.error) + '</div>';
-  h += '<div class="card"><h2>Status</h2><dl class="kv"><dt>Database</dt><dd>' + (st.setup ? (st.dbUrl ? '<a href="' + esc(st.dbUrl) + '" target="_blank" rel="noopener">BM Warehouse DB</a>' : 'set up') : 'not set up yet') + '</dd>' +
-    '<dt>Plan loaded</dt><dd>' + esc(st.planLoaded || 'none') + '</dd><dt>Plan in app</dt><dd>' + esc(st.planInFile) + '</dd></dl>' +
-    (st.dbError ? '<div class="msg err" style="margin-top:10px">' + esc(st.dbError) + '</div>' : '') + '</div>';
-  if (!st.setup) {
-    h += '<div class="card"><h2>First-time setup</h2><p class="hint">Creates the BM Warehouse database Sheet in the app owner\'s Google Drive. Choose an admin PIN (4–8 digits): it is needed to load a plan and, later, to change settings.</p>' +
-      '<div class="row"><input id="pin1" type="password" inputmode="numeric" placeholder="Admin PIN"><input id="pin2" type="password" inputmode="numeric" placeholder="Repeat PIN"></div>' +
-      '<div style="margin-top:10px"><button class="primary" id="dosetup">Create database</button></div></div>';
-  } else if (st.planLoaded !== st.planInFile) {
-    h += '<div class="card"><h2>Load slotting plan</h2><p class="hint">Copies <b>' + esc(st.planInFile) + '</b> into the database: all 768 rack positions, the mixed-pallet sections and each product\'s pick spot and home reserve.' +
-      (st.planLoaded ? ' It replaces the plan loaded now.' : '') + ' This button goes away once the plan is loaded.</p>' +
-      '<div class="row"><input id="pinp" type="password" inputmode="numeric" placeholder="Admin PIN"><button class="primary" id="doload">Load plan</button></div></div>';
-  }
-  h += '<div class="card"><h2>Data on this phone</h2><p class="hint">The plan is kept on the phone so lookups work without signal. Refresh after a new plan is loaded.</p><button id="refresh">Refresh data</button></div>';
+  h += '<div class="card"><h2>Status</h2><dl class="kv"><dt>Database</dt><dd>' + (st.dbUrl ? '<a href="' + esc(st.dbUrl) + '" target="_blank" rel="noopener">BM Warehouse DB</a>' : (st.setup ? 'set up' : 'not set up')) + '</dd>' +
+    '<dt>Slotting plan</dt><dd>' + esc(st.planLoaded || 'none') + '</dd></dl>' +
+    (st.dbError ? '<div class="msg err" style="margin-top:10px">' + esc(st.dbError) + '</div>' : '') +
+    '<p class="hint" style="margin:10px 0 0">The database and plan are set up by themselves. A new plan is picked up automatically when it is published.</p></div>';
+  h += '<div class="card"><h2>Data on this phone</h2><p class="hint">The plan is kept on the phone so lookups work without signal. Refresh after a new plan is published.</p><button id="refresh">Refresh data</button></div>';
   return h;
 };
 AFTER.settings = function () {
-  var s1 = document.getElementById('dosetup');
-  if (s1) s1.onclick = function () {
-    var a = document.getElementById('pin1').value.trim(), b = document.getElementById('pin2').value.trim();
-    if (a !== b) { S.msg = { k: 'err', t: 'The two PINs do not match.' }; render(); return; }
-    s1.disabled = true; s1.textContent = 'Creating…';
-    api('setup', { pin: a }).then(function (r) { S.msg = r.success ? { k: 'ok', t: r.message + ' Now load the slotting plan.' } : { k: 'err', t: r.error }; refreshStatus(); });
-  };
-  var s2 = document.getElementById('doload');
-  if (s2) s2.onclick = function () {
-    var pin = document.getElementById('pinp').value.trim();
-    s2.disabled = true; s2.textContent = 'Loading…';
-    var call = function (confirm) {
-      api('loadPlan', { pin: pin, confirm: confirm }).then(function (r) {
-        if (!r.success && r.needConfirm) { if (window.confirm(r.error + '\n\nLoad it?')) return call(true); s2.disabled = false; s2.textContent = 'Load plan'; return; }
-        S.msg = r.success ? { k: 'ok', t: r.message } : { k: 'err', t: r.error };
-        if (r.success) loadData(true);
-        refreshStatus();
-      });
-    };
-    call(false);
-  };
   var rf = document.getElementById('refresh');
   if (rf) rf.onclick = function () { rf.disabled = true; rf.textContent = 'Refreshing…'; loadData(true).then(function () { S.msg = { k: 'ok', t: 'Data refreshed.' }; render(); }); };
 };
