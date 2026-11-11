@@ -40,3 +40,13 @@ Inventory ageing & expiry dashboard: https://kushmeetsodhi.github.io/BMDELIVERYC
 
 Backend: `inventory-ageing/` in the private `bm-apps-script` repo (bound to the
 Inventory_Ageing_Dashboard sheet). No login: anyone with the link can view and upload.
+
+## BM Warehouse (`warehouse/`)
+
+Warehouse beta: rack locations, QR labels on A4 sticker sheets, scan-to-lookup.
+https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/warehouse/
+
+Backend: `warehouse/` in the private `bm-apps-script` repo. Its web app link goes in
+`warehouse/config.js` (printed by the "Create Warehouse project" action there).
+Reading is open to anyone with the link; first-time setup and loading a slotting
+plan need the admin PIN chosen at setup.

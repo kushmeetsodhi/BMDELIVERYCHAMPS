@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BM Warehouse</title>
+<script src="config.js?v=303d57547c"></script>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#1f5fa8" />
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --ink:#1b1f24; --muted:#5f6b7a; --line:#e3e6ea; --accent:#1f5fa8; --accent-soft:#e7effa;
+  --bad:#b91c1c; --good:#15803d; --warn:#b45309;
+  --z-bev:#9DC3E6; --z-chips:#F8CB7F; --z-bis:#A9D18E; --z-nf:#C9B8E0; --z-none:#d9dde2;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#111418; --card:#1a1e24; --ink:#e7eaee; --muted:#9aa5b1; --line:#2b313a; --accent:#6ea8ff; --accent-soft:#1d2a3d;
+    --bad:#f87171; --good:#4ade80; --warn:#f0a35e; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 "Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;flex:1}
+header .ver{font-size:11px;color:var(--muted);text-align:right}
+.back{border:none;background:none;font-size:22px;line-height:1;padding:2px 6px;color:var(--accent);cursor:pointer}
+main{padding:14px 16px 40px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 6px}
+.hint{font-size:13px;color:var(--muted);margin:0 0 10px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-height:104px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.tile b{font-size:16px}.tile span{font-size:12.5px;color:var(--muted)}
+.tile .ico{font-size:24px}
+.tile.big{grid-column:1/-1;background:var(--accent);border-color:var(--accent);color:#fff}
+.tile.big span{color:#e6eefb}
+button{font:inherit;font-size:14px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.55;cursor:wait}
+input,select{font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);width:100%}
+.row{display:flex;gap:8px;align-items:center}
+.row>input{flex:1}
+.msg{padding:10px 12px;border-radius:9px;margin:0 0 12px;font-size:14px}
+.msg.err{background:#fde8e8;color:#8a1c1c}.msg.ok{background:#e5f5ea;color:#14532d}.msg.info{background:var(--accent-soft);color:var(--ink)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .msg.err{background:#3b1717;color:#fecaca}:root:not([data-theme="light"]) .msg.ok{background:#12301e;color:#bbf7d0}}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;color:inherit;cursor:pointer}
+.item .t{font-weight:600}.item .s{font-size:12.5px;color:var(--muted)}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.3px}
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--ink);margin:2px 4px 2px 0}
+.zone{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+/* bay grid */
+.bay{display:grid;grid-template-columns:44px 1fr 1fr;gap:6px;align-items:stretch}
+.bay .lv{font-size:12px;color:var(--muted);display:flex;flex-direction:column;justify-content:center}
+.bay .hd{font-size:12px;color:var(--muted);text-align:center}
+.cell{border:1px solid var(--line);border-radius:9px;padding:8px;min-height:64px;background:var(--bg);text-align:left;font:inherit;color:inherit;cursor:pointer;font-size:12.5px;line-height:1.3}
+.cell .u{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.cell.pick{border-left:5px solid var(--good)}.cell.mixed{border-left:5px solid var(--warn)}.cell.res{border-left:5px solid var(--accent)}
+.cell.on{outline:2px solid var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-size:13px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+/* scanner */
+#scan{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column}
+#scan video{flex:1;width:100%;object-fit:cover}
+#scan .frame{position:absolute;left:50%;top:42%;width:64vmin;height:64vmin;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+#scan .bar{position:absolute;left:0;right:0;bottom:0;padding:16px;display:flex;gap:10px;justify-content:center;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+#scan .txt{position:absolute;top:16px;left:0;right:0;text-align:center;color:#fff;font-size:14px;padding:0 20px}
+/* labels */
+.lab-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lab-opts label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:4px}
+#preview{overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:10px;background:#fff;max-height:420px}
+#preview .sheet{transform-origin:top left}
+#print{display:none}
+.sheet{width:210mm;height:297mm;position:relative;background:#fff;color:#000;overflow:hidden;page-break-after:always;break-after:page}
+.lbl{position:absolute;overflow:hidden;display:flex;align-items:center;gap:2mm;font-family:Arial,Helvetica,sans-serif;color:#000}
+.lbl.outline{outline:0.2mm dashed #999}
+.lbl .strip{align-self:stretch;width:3mm;flex:none}
+.lbl svg{flex:none;display:block}
+.lbl .tx{min-width:0;display:flex;flex-direction:column;justify-content:center;line-height:1.05}
+.lbl .big{font-weight:800;letter-spacing:.2mm;white-space:nowrap}
+.lbl .sub{color:#333;white-space:nowrap}
+.lbl .lad{display:grid;grid-template-columns:auto auto auto;gap:.4mm 2mm;margin-top:1.2mm;color:#222}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff}
+  header,main,#scan{display:none!important}
+  #print{display:block}
+}
+</style>
+</head>
+<body>
+<header>
+  <button class="back" id="back" aria-label="Back" style="visibility:hidden">‹</button>
+  <h1 id="title">BM Warehouse</h1>
+  <div class="ver" id="ver"></div>
+</header>
+<main id="app"></main>
+<div id="print"></div>
+
+<script>
+/* ================= state & server ================= */
+var S = { view: 'home', stack: [], data: null, msg: null, busy: false, status: null,
+          lab: { type: 'bay', per: 8, rows: [1,2,3,4,5,6,7,8,9,10], margin: 5, outline: true },
+          browseRow: 4, q: '' };
+var IDX = null;    // built lookup tables
+var ZCOL = { 'Beverages & Water': 'var(--z-bev)', 'Chips & Namkeen': 'var(--z-chips)', 'Biscuits & Confectionery': 'var(--z-bis)', 'Non-food & Other food': 'var(--z-nf)' };
+var ZHEX = { 'Beverages & Water': '#9DC3E6', 'Chips & Namkeen': '#F8CB7F', 'Biscuits & Confectionery': '#A9D18E', 'Non-food & Other food': '#C9B8E0' };
+var LEVEL_H = { 0: 'Floor (pick)', 1: '1.8 m', 2: '3.6 m', 3: '5.25 m' };
+
+function api(action, payload) {
+  return new Promise(function (resolve) {
+    if (!window.BM_EXEC_URL) { resolve({ success: false, error: 'This page has no server address set yet (warehouse/config.js).' }); return; }
+    fetch(window.BM_EXEC_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow', credentials: 'omit', cache: 'no-store',
+      body: JSON.stringify(Object.assign({ action: action }, payload || {})) })
+      .then(function (r) { return r.text(); }).then(function (t) {
+        var r; try { r = JSON.parse(t); } catch (e) { r = { success: false, error: 'The server sent a page instead of an answer. Has the owner opened the web app link once and pressed Allow?' }; }
+        resolve(r);
+      }).catch(function () { resolve({ success: false, error: 'No connection. Check your internet and try again.' }); });
+  });
+}
+
+function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem('bmwh_' + k) || 'null'); localStorage.setItem('bmwh_' + k, JSON.stringify(v)); } catch (e) { return null; } }
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function short(n) { n = String(n || ''); var m = n.match(/MRP\s*([\d.]+)/i); var b = n.split(/\s*-\s*MRP|MRP/i)[0].replace(/[\s,-]+$/, ''); return (b.length > 34 ? b.slice(0, 33) + '…' : b) + (m ? ' ₹' + m[1] : ''); }
+
+/* ================= data ================= */
+function buildIndex(d) {
+  function rows(t) { var c = t.cols; return t.rows.map(function (r) { var o = {}; c.forEach(function (k, i) { o[k] = r[i]; }); return o; }); }
+  var I = { loc: {}, bay: {}, slot: {}, slotsByPos: {}, sku: {}, skus: [], rows: {} };
+  rows(d.loc).forEach(function (r) {
+    var o = { code: r['Code'], row: +r['Row'], bay: +r['Bay'], level: +r['Level'], pos: +r['Position'], aisle: r['Aisle'], zone: r['Zone'], use: r['Use'], pid: r['Product ID'], walk: +r['Walk (m)'] };
+    I.loc[o.code] = o;
+    var bk = 'R' + pad2(o.row) + '-B' + pad2(o.bay);
+    (I.bay[bk] = I.bay[bk] || []).push(o);
+    (I.rows[o.row] = I.rows[o.row] || {})[o.bay] = bk;
+  });
+  rows(d.slot).forEach(function (r) {
+    var o = { code: r['Code'], pos: r['Pallet position'], pid: r['Product ID'], type: r['Type'] };
+    I.slot[o.code] = o; (I.slotsByPos[o.pos] = I.slotsByPos[o.pos] || []).push(o);
+  });
+  rows(d.sku).forEach(function (r) {
+    var o = { id: r['Product ID'], name: r['Item name'], group: r['Group'], zone: r['Zone'], type: r['Pick type'], n: +r['Pick spots'],
+              pick: r['Pick location(s)'] ? r['Pick location(s)'].split(/,\s*/) : [], res: r['Home reserve'] ? r['Home reserve'].split(/,\s*/) : [],
+              opd: +r['Orders/day'], abc: r['ABC'], resN: +r['Reserve pallets'] };
+    o.key = (o.name + ' ' + o.id).toLowerCase();
+    I.sku[o.id] = o; I.skus.push(o);
+  });
+  return I;
+}
+
+function loadData(force) {
+  var cached = store('data');
+  if (cached && !force) { S.data = cached; IDX = buildIndex(cached); render(); }
+  return api('data').then(function (r) {
+    if (!r.success) { if (!S.data) S.msg = { k: 'err', t: r.error }; render(); return; }
+    if (r.empty) { S.data = null; IDX = null; store('data', null); render(); return; }
+    S.data = r; IDX = buildIndex(r); store('data', r); render();
+  });
+}
+
+/* ================= navigation ================= */
+var TITLES = { home: 'BM Warehouse', find: 'Find product', browse: 'Browse racks', labels: 'Print labels', settings: 'Settings', bay: 'Bay', product: 'Product', notfound: 'Not found' };
+function go(view, args, replace) {
+  if (!replace) S.stack.push({ view: S.view, args: S.args });
+  S.view = view; S.args = args || {}; S.msg = null; render(); window.scrollTo(0, 0);
+}
+function back() { var p = S.stack.pop(); if (!p) { S.view = 'home'; S.args = {}; } else { S.view = p.view; S.args = p.args; } S.msg = null; render(); }
+document.getElementById('back').onclick = back;
+
+/* ================= codes ================= */
+// Accepts what a label scan or a hardware scanner types: a bay (R04-B01),
+// a position (R04-B01-L0-P1), a mixed-pallet section (…-S2 or …-S2-3)
+// or a product ID.
+function openCode(raw) {
+  var c = String(raw || '').trim().toUpperCase().replace(/\s+/g, '').replace(/^BM[:-]/, '');
+  if (!IDX) { S.msg = { k: 'err', t: 'The slotting plan is not loaded yet. Open Settings.' }; render(); return; }
+  var m;
+  if ((m = c.match(/^R(\d{1,2})-?B(\d{1,2})$/))) return openBay('R' + pad2(+m[1]) + '-B' + pad2(+m[2]));
+  if ((m = c.match(/^R(\d{1,2})-?B(\d{1,2})-?L(\d)-?P(\d)(?:-?S(\d)(?:-(\d))?)?$/))) {
+    var pos = 'R' + pad2(+m[1]) + '-B' + pad2(+m[2]) + '-L' + m[3] + '-P' + m[4];
+    var sec = m[5] ? pos + '-S' + m[5] + (m[6] ? '-' + m[6] : '') : '';
+    return openBay(pos.slice(0, 7), pos, sec);
+  }
+  if (IDX.sku[c]) return go('product', { id: c });
+  var hits = IDX.skus.filter(function (s) { return s.key.indexOf(c.toLowerCase()) > -1; });
+  if (hits.length === 1) return go('product', { id: hits[0].id });
+  go('notfound', { code: c });
+}
+function openBay(bay, pos, sec) {
+  if (!IDX.bay[bay]) return go('notfound', { code: bay });
+  go('bay', { bay: bay, pos: pos || '', sec: sec || '' });
+}
+
+/* ================= scanner ================= */
+var SC = { stream: null, timer: null, det: null };
+function loadJsQR() {
+  return new Promise(function (res, rej) {
+    if (window.jsQR) return res();
+    var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload = function () { res(); }; s.onerror = function () { rej(new Error('The QR reader could not load. Check the internet.')); };
+    document.head.appendChild(s);
+  });
+}
+function openScanner() {
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { S.msg = { k: 'err', t: 'This phone does not allow the camera here. Type the code instead.' }; render(); return; }
+  var el = document.createElement('div'); el.id = 'scan';
+  el.innerHTML = '<video id="sv" autoplay playsinline muted></video><div class="frame"></div><div class="txt" id="st">Point at a rack or pallet QR label</div>' +
+    '<div class="bar"><button id="sx">Close</button></div>';
+  document.body.appendChild(el);
+  document.getElementById('sx').onclick = closeScanner;
+  var useNative = 'BarcodeDetector' in window;
+  var ready = useNative ? Promise.resolve() : loadJsQR();
+  if (useNative) { try { SC.det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { useNative = false; ready = loadJsQR(); } }
+  ready.then(function () {
+    return navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  }).then(function (stream) {
+    if (!document.getElementById('scan')) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+    SC.stream = stream; var v = document.getElementById('sv'); v.srcObject = stream;
+    var p = v.play && v.play(); if (p && p.catch) p.catch(function () {});
+    var cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+    var busy = false;
+    SC.timer = setInterval(function () {
+      if (busy || !v.videoWidth) return; busy = true;
+      if (useNative && SC.det) {
+        SC.det.detect(v).then(function (codes) { busy = false; if (codes && codes[0]) found(codes[0].rawValue); }).catch(function () { busy = false; });
+      } else {
+        var w = 640, h = Math.round(v.videoHeight * 640 / v.videoWidth); cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
+        var q = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+        busy = false; if (q && q.data) found(q.data);
+      }
+    }, 180);
+  }).catch(function (err) {
+    closeScanner();
+    var n = err && err.name;
+    S.msg = { k: 'err', t: n === 'NotAllowedError' ? 'The camera is blocked. In Chrome tap the lock icon next to the address → Permissions → Camera → Allow.' : (err.message || 'The camera could not start.') + ' Type the code instead.' };
+    render();
+  });
+  function found(code) { if (navigator.vibrate) navigator.vibrate(60); closeScanner(); openCode(code); }
+}
+function closeScanner() {
+  if (SC.timer) clearInterval(SC.timer); SC.timer = null;
+  if (SC.stream) SC.stream.getTracks().forEach(function (t) { t.stop(); }); SC.stream = null;
+  var el = document.getElementById('scan'); if (el) el.remove();
+}
+
+/* ================= views ================= */
+function render() {
+  var v = S.view, A = S.args || {};
+  document.getElementById('back').style.visibility = v === 'home' ? 'hidden' : 'visible';
+  document.getElementById('title').textContent = v === 'bay' ? 'Bay ' + A.bay : TITLES[v] || 'BM Warehouse';
+  document.getElementById('ver').innerHTML = S.data ? 'Plan ' + esc(String(S.data.version).split(' ·')[0]) : '';
+  var h = S.msg ? '<div class="msg ' + S.msg.k + '">' + esc(S.msg.t) + '</div>' : '';
+  h += (VIEWS[v] || VIEWS.home)(A);
+  document.getElementById('app').innerHTML = h;
+  (AFTER[v] || function () {})(A);
+}
+
+var VIEWS = {}, AFTER = {};
+
+VIEWS.home = function () {
+  var h = '';
+  if (!S.data) h += '<div class="msg info">No slotting plan loaded yet. Open <b>Settings</b> to set the app up.</div>';
+  h += '<div class="card"><div class="row"><input id="code" placeholder="Type or scan a code: R04-B01, R04-B01-L0-P1 …" autocapitalize="characters" autocomplete="off"><button class="primary" id="gocode">Go</button></div>' +
+       '<p class="hint" style="margin:8px 0 0">A handheld scanner types into this box by itself.</p></div>';
+  h += '<div class="tiles">' +
+    '<button class="tile big" data-go="scan"><span class="ico">⌖</span><b>Scan a label</b><span>Rack, bay or pallet QR: see what belongs there</span></button>' +
+    '<button class="tile" data-go="find"><span class="ico">🔎</span><b>Find product</b><span>Where it is picked and stored</span></button>' +
+    '<button class="tile" data-go="browse"><span class="ico">▦</span><b>Browse racks</b><span>Row by row, bay by bay</span></button>' +
+    '<button class="tile" data-go="labels"><span class="ico">🏷</span><b>Print labels</b><span>QR labels on A4 sticker sheets</span></button>' +
+    '<button class="tile" data-go="settings"><span class="ico">⚙</span><b>Settings</b><span>Setup, plan, database</span></button>' +
+    '</div>';
+  return h;
+};
+AFTER.home = function () {
+  var i = document.getElementById('code');
+  i.addEventListener('keydown', function (e) { if (e.key === 'Enter') openCode(i.value); });
+  document.getElementById('gocode').onclick = function () { openCode(i.value); };
+  document.querySelectorAll('[data-go]').forEach(function (b) {
+    b.onclick = function () { var g = b.getAttribute('data-go'); if (g === 'scan') openScanner(); else go(g); };
+  });
+};
+
+VIEWS.notfound = function (A) {
+  return '<div class="card"><h2>Nothing found for <span class="code">' + esc(A.code) + '</span></h2><p class="hint">Check the code, or search by product name in Find product.</p><button class="primary" id="nf">Find product</button></div>';
+};
+AFTER.notfound = function (A) { document.getElementById('nf').onclick = function () { S.q = A.code; go('find', {}, true); }; };
+
+function useClass(u) { return /own pallet/.test(u) ? 'pick' : /mixed/.test(u) ? 'mixed' : /Reserve: home/.test(u) ? 'res' : ''; }
+function cellText(l) {
+  if (/mixed/.test(l.use)) { var n = (IDX.slotsByPos[l.code] || []).length; return '<div class="u">Mixed pallet</div>' + n + ' products'; }
+  if (l.pid && IDX.sku[l.pid]) return '<div class="u">' + esc(l.use.replace('Pick: ', '').replace('Reserve: ', 'reserve · ')) + '</div>' + esc(short(IDX.sku[l.pid].name));
+  return '<div class="u">' + esc(l.use.replace('Reserve: free', 'Free reserve')) + '</div>';
+}
+
+VIEWS.bay = function (A) {
+  var locs = IDX.bay[A.bay], z = locs[0].zone;
+  var h = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><span class="zone" style="background:' + ZCOL[z] + '"></span>' + esc(z) +
+    '</div><div class="hint" style="margin:0">Aisle ' + esc(locs[0].aisle) + ' · ' + Math.round(locs[0].walk) + ' m from ' + (z === 'Beverages & Water' ? 'staging' : 'packing') + '</div></div></div>';
+  h += '<div class="card"><div class="bay"><div></div><div class="hd">P1 · front</div><div class="hd">P2 · back</div>';
+  [3, 2, 1, 0].forEach(function (lv) {
+    h += '<div class="lv"><b>L' + lv + '</b>' + LEVEL_H[lv] + '</div>';
+    [1, 2].forEach(function (p) {
+      var l = locs.filter(function (x) { return x.level === lv && x.pos === p; })[0];
+      if (!l) { h += '<div></div>'; return; }
+      h += '<button class="cell ' + useClass(l.use) + (A.pos === l.code ? ' on' : '') + '" data-pos="' + l.code + '">' + cellText(l) + '</button>';
+    });
+  });
+  h += '</div><p class="hint" style="margin:10px 0 0">Tap a position for details.</p></div>';
+  h += '<div id="posd">' + (A.pos ? posDetail(A.pos, A.sec) : '') + '</div>';
+  return h;
+};
+AFTER.bay = function (A) {
+  document.querySelectorAll('[data-pos]').forEach(function (b) {
+    b.onclick = function () { A.pos = b.getAttribute('data-pos'); A.sec = ''; render(); var d = document.getElementById('posd'); if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  });
+  bindProductLinks();
+};
+function posDetail(code, sec) {
+  var l = IDX.loc[code], h = '<div class="card"><h2><span class="code">' + esc(code) + '</span></h2><dl class="kv"><dt>Level</dt><dd>L' + l.level + ' · ' + LEVEL_H[l.level] + '</dd><dt>Use</dt><dd>' + esc(l.use) + '</dd>';
+  if (l.pid && IDX.sku[l.pid]) h += '<dt>Product</dt><dd><a href="#" data-pid="' + esc(l.pid) + '">' + esc(IDX.sku[l.pid].name) + '</a></dd>';
+  h += '</dl>';
+  var secs = IDX.slotsByPos[code] || [];
+  if (secs.length) {
+    h += '<h2 style="margin-top:12px">Sections on this pallet</h2><p class="hint">S1–S4 are quarters of the pallet; S2-1, S2-2 … are smaller parts of a section.</p><div class="list">';
+    secs.forEach(function (s) {
+      var k = IDX.sku[s.pid];
+      h += '<button class="item" data-pid="' + esc(s.pid) + '"' + (sec === s.code ? ' style="outline:2px solid var(--accent)"' : '') + '><div class="t"><span class="code">' + esc(s.code.slice(code.length + 1)) + '</span> · ' + esc(k ? short(k.name) : s.pid) + '</div><div class="s">' + esc(s.type) + (k ? ' · ' + k.opd + ' orders/day' : '') + '</div></button>';
+    });
+    h += '</div>';
+  }
+  return h + '</div>';
+}
+function bindProductLinks() {
+  document.querySelectorAll('[data-pid]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); go('product', { id: a.getAttribute('data-pid') }); }; });
+  document.querySelectorAll('[data-loc]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); openCode(a.getAttribute('data-loc')); }; });
+}
+
+VIEWS.product = function (A) {
+  var k = IDX.sku[A.id]; if (!k) return '<div class="card">Product not in the plan.</div>';
+  var h = '<div class="card"><h2>' + esc(k.name) + '</h2><p class="hint"><span class="zone" style="background:' + ZCOL[k.zone] + '"></span>' + esc(k.zone) + ' · ID ' + esc(k.id) + '</p>' +
+    '<dl class="kv"><dt>Orders/day</dt><dd>' + k.opd + ' (class ' + esc(k.abc) + ')</dd><dt>Pick spot</dt><dd>' + esc(k.type) + (k.n > 1 ? ' × ' + k.n : '') + '</dd><dt>Reserve</dt><dd>' + (k.resN ? k.resN + ' pallets (7 days)' : 'all stock fits in the pick spot') + '</dd></dl></div>';
+  h += '<div class="card"><h2>Pick here</h2><div class="list">' + k.pick.map(function (c) { return '<button class="item" data-loc="' + esc(c) + '"><span class="code">' + esc(c) + '</span><div class="s">Floor · ' + (/P1/.test(c) ? 'front' : 'back') + ' of bay</div></button>'; }).join('') + '</div></div>';
+  var res = k.res.slice().sort(function (a, b) { return a.charAt(9) - b.charAt(9) || (a < b ? -1 : 1); });
+  if (res.length) h += '<div class="card"><h2>Home reserve (put extra pallets here first, lowest level first)</h2><div class="list">' + res.map(function (c) { var lv = +c.charAt(9); return '<button class="item" data-loc="' + esc(c) + '"><span class="code">' + esc(c) + '</span><div class="s">L' + lv + ' · ' + LEVEL_H[lv] + '</div></button>'; }).join('') + '</div></div>';
+  return h;
+};
+AFTER.product = bindProductLinks;
+
+VIEWS.find = function () {
+  if (!IDX) return '<div class="msg info">Load the slotting plan first (Settings).</div>';
+  return '<div class="card"><input id="q" placeholder="Product name or ID, e.g. bhujia" value="' + esc(S.q) + '" autocomplete="off"></div><div class="list" id="res"></div>';
+};
+AFTER.find = function () {
+  var q = document.getElementById('q'); if (!q) return;
+  function run() {
+    S.q = q.value; var t = q.value.trim().toLowerCase(), out = '';
+    var words = t.split(/\s+/).filter(Boolean);
+    var hits = !words.length ? IDX.skus.slice(0, 25) : IDX.skus.filter(function (s) { return words.every(function (w) { return s.key.indexOf(w) > -1; }); }).slice(0, 60);
+    hits.forEach(function (s) {
+      out += '<button class="item" data-pid="' + esc(s.id) + '"><div class="t">' + esc(short(s.name)) + '</div><div class="s"><span class="zone" style="background:' + ZCOL[s.zone] + '"></span><span class="code">' + esc(s.pick[0] || '') + '</span>' + (s.pick.length > 1 ? ' +' + (s.pick.length - 1) : '') + ' · ' + s.opd + ' orders/day</div></button>';
+    });
+    document.getElementById('res').innerHTML = out || '<p class="hint">No product matches.</p>';
+    bindProductLinks();
+  }
+  q.addEventListener('input', run); run(); if (!S.q) q.focus();
+};
+
+VIEWS.browse = function () {
+  if (!IDX) return '<div class="msg info">Load the slotting plan first (Settings).</div>';
+  var h = '<div class="chips">';
+  for (var r = 1; r <= 10; r++) h += '<button class="chip' + (S.browseRow === r ? ' on' : '') + '" data-row="' + r + '">R' + pad2(r) + '</button>';
+  h += '</div><div class="list">';
+  var bays = IDX.rows[S.browseRow] || {};
+  Object.keys(bays).map(Number).sort(function (a, b) { return a - b; }).forEach(function (b) {
+    var key = bays[b], fl = IDX.bay[key].filter(function (l) { return l.level === 0; }).sort(function (x, y) { return x.pos - y.pos; });
+    var txt = fl.map(function (l) { return /mixed/.test(l.use) ? 'Mixed pallet (' + (IDX.slotsByPos[l.code] || []).length + ')' : l.pid && IDX.sku[l.pid] ? short(IDX.sku[l.pid].name) : 'free'; }).join('  |  ');
+    h += '<button class="item" data-loc="' + key + '"><div class="t"><span class="zone" style="background:' + ZCOL[fl[0].zone] + '"></span><span class="code">' + key + '</span></div><div class="s">' + esc(txt) + '</div></button>';
+  });
+  return h + '</div><p class="hint">Bay 1 is at the front aisle, nearest packing and staging.</p>';
+};
+AFTER.browse = function () {
+  document.querySelectorAll('[data-row]').forEach(function (b) { b.onclick = function () { S.browseRow = +b.getAttribute('data-row'); render(); }; });
+  bindProductLinks();
+};
+
+/* ================= labels ================= */
+var LAYOUTS = { 1: [1, 1], 2: [1, 2], 4: [2, 2], 6: [2, 3], 8: [2, 4], 12: [3, 4], 16: [4, 4], 21: [3, 7], 24: [3, 8] };
+var LTYPES = { bay: 'Bay labels: one per bay, at eye level (scan, then tap the level)', floor: 'Floor position labels: L0 P1 / P2 (pick spots)', section: 'Mixed-pallet section labels (S1–S4 and smaller parts)' };
+
+function labelItems() {
+  var L = S.lab, items = [];
+  if (!IDX) return items;
+  var rows = L.rows.slice().sort(function (a, b) { return a - b; });
+  rows.forEach(function (r) {
+    var bays = IDX.rows[r] || {};
+    Object.keys(bays).map(Number).sort(function (a, b) { return a - b; }).forEach(function (b) {
+      var key = bays[b], locs = IDX.bay[key], z = locs[0].zone;
+      if (L.type === 'bay') items.push({ code: key, big: 'R' + pad2(r) + '-B' + pad2(b), mid: '', sub: z, zone: z, ladder: true });
+      else if (L.type === 'floor') locs.filter(function (l) { return l.level === 0; }).sort(function (x, y) { return x.pos - y.pos; }).forEach(function (l) {
+        items.push({ code: l.code, big: key, mid: 'L0 · P' + l.pos, sub: 'Floor pick · ' + (l.pos === 1 ? 'front' : 'back'), zone: z });
+      });
+      else locs.filter(function (l) { return l.level === 0; }).sort(function (x, y) { return x.pos - y.pos; }).forEach(function (l) {
+        (IDX.slotsByPos[l.code] || []).forEach(function (s) { items.push({ code: s.code, big: key, mid: 'P' + l.pos + ' · ' + s.code.slice(l.code.length + 1), sub: 'Mixed pallet section', zone: z }); });
+      });
+    });
+  });
+  return items;
+}
+
+function qrSvg(text, sizeMm) {
+  var q = qrcode(0, 'M'); q.addData(text); q.make();
+  var n = q.getModuleCount(), m = 2, t = n + m * 2, d = '';
+  for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += 'M' + (c + m) + ' ' + (r + m) + 'h1v1h-1z';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + t + ' ' + t + '" width="' + sizeMm + 'mm" height="' + sizeMm + 'mm" shape-rendering="crispEdges"><rect width="' + t + '" height="' + t + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+}
+
+function sheetsHtml(items, forPrint) {
+  var L = S.lab, g = LAYOUTS[L.per], cols = g[0], rows = g[1], m = +L.margin || 0;
+  var W = (210 - 2 * m) / cols, H = (297 - 2 * m) / rows, per = cols * rows, out = '';
+  var qs = Math.min(H - 4, W * 0.48);
+  // Text sized to the space beside the QR: 7 characters ("R04-B01") must fit on one line.
+  var big = Math.max(2.8, Math.min(H * 0.24, (W - qs - 7) / 4.6)), mid = big * 0.62, sub = Math.max(1.8, big * 0.36);
+  for (var p = 0; p < items.length; p += per) {
+    out += '<div class="sheet">';
+    items.slice(p, p + per).forEach(function (it, i) {
+      var c = i % cols, r = Math.floor(i / cols);
+      var lad = it.ladder && H > 40 ? '<div class="lad" style="font-size:' + (sub * 0.9).toFixed(2) + 'mm"><b>L3</b><span>5.25 m</span><span>reserve</span><b>L2</b><span>3.6 m</span><span>reserve</span><b>L1</b><span>1.8 m</span><span>reserve</span><b>L0</b><span>floor</span><span>pick</span></div>' : '';
+      out += '<div class="lbl' + (L.outline ? ' outline' : '') + '" style="left:' + (m + c * W).toFixed(2) + 'mm;top:' + (m + r * H).toFixed(2) + 'mm;width:' + W.toFixed(2) + 'mm;height:' + H.toFixed(2) + 'mm;padding:2mm 2mm 2mm 0">' +
+        '<div class="strip" style="background:' + (ZHEX[it.zone] || '#ccc') + '"></div>' + qrSvg(it.code, qs.toFixed(1)) +
+        '<div class="tx"><div class="big" style="font-size:' + big.toFixed(2) + 'mm">' + esc(it.big) + '</div>' + (it.mid ? '<div class="big" style="font-size:' + mid.toFixed(2) + 'mm">' + esc(it.mid) + '</div>' : '') + '<div class="sub" style="font-size:' + sub.toFixed(2) + 'mm">' + esc(it.sub) + '</div>' + lad + '</div></div>';
+    });
+    out += '</div>';
+  }
+  return out;
+}
+
+VIEWS.labels = function () {
+  if (!IDX) return '<div class="msg info">Load the slotting plan first (Settings).</div>';
+  var L = S.lab, h = '<div class="card"><h2>What to print</h2><div class="list">';
+  Object.keys(LTYPES).forEach(function (k) { h += '<label class="item" style="display:flex;gap:10px;align-items:center"><input type="radio" name="lt" value="' + k + '"' + (L.type === k ? ' checked' : '') + ' style="width:auto"> <span>' + LTYPES[k] + '</span></label>'; });
+  h += '</div></div><div class="card"><h2>Rows</h2><div class="chips">';
+  for (var r = 1; r <= 10; r++) h += '<button class="chip' + (L.rows.indexOf(r) > -1 ? ' on' : '') + '" data-lr="' + r + '">R' + pad2(r) + '</button>';
+  h += '<button class="chip" id="lall">All</button><button class="chip" id="lnone">None</button></div>';
+  h += '<div class="lab-opts"><label>Labels per A4 sheet<select id="lper">' + Object.keys(LAYOUTS).map(function (k) { var g = LAYOUTS[k]; return '<option value="' + k + '"' + (+k === L.per ? ' selected' : '') + '>' + k + ' (' + g[0] + ' × ' + g[1] + ')</option>'; }).join('') + '</select></label>' +
+    '<label>Sheet margin (mm)<input id="lmar" type="number" min="0" max="20" step="0.5" value="' + L.margin + '"></label></div>' +
+    '<label class="row" style="margin-top:10px;font-size:13px"><input type="checkbox" id="lout" style="width:auto"' + (L.outline ? ' checked' : '') + '> Dashed cut lines (turn off for pre-cut sticker sheets)</label></div>';
+  var items = labelItems(), sheets = Math.ceil(items.length / L.per);
+  h += '<div class="card"><h2>' + items.length + ' labels · ' + sheets + ' A4 sheet' + (sheets === 1 ? '' : 's') + '</h2>' +
+    '<p class="hint">Print one page on plain paper first and hold it against a sticker sheet to check it lines up. Print at 100% / "Actual size", not "Fit to page".</p>' +
+    '<div class="row" style="margin-bottom:10px"><button class="primary" id="lprint"' + (items.length ? '' : ' disabled') + '>Print</button></div><div id="preview"></div></div>';
+  return h;
+};
+AFTER.labels = function () {
+  var L = S.lab;
+  document.querySelectorAll('input[name=lt]').forEach(function (r) { r.onchange = function () { L.type = r.value; store('lab', L); render(); }; });
+  document.querySelectorAll('[data-lr]').forEach(function (b) { b.onclick = function () { var r = +b.getAttribute('data-lr'), i = L.rows.indexOf(r); if (i > -1) L.rows.splice(i, 1); else L.rows.push(r); store('lab', L); render(); }; });
+  var all = document.getElementById('lall'); if (all) all.onclick = function () { L.rows = [1,2,3,4,5,6,7,8,9,10]; store('lab', L); render(); };
+  var none = document.getElementById('lnone'); if (none) none.onclick = function () { L.rows = []; store('lab', L); render(); };
+  var per = document.getElementById('lper'); if (per) per.onchange = function () { L.per = +per.value; store('lab', L); render(); };
+  var mar = document.getElementById('lmar'); if (mar) mar.onchange = function () { L.margin = Math.max(0, Math.min(20, +mar.value || 0)); store('lab', L); render(); };
+  var out = document.getElementById('lout'); if (out) out.onchange = function () { L.outline = out.checked; store('lab', L); render(); };
+  var pv = document.getElementById('preview');
+  if (pv && window.qrcode) {
+    var items = labelItems().slice(0, L.per);
+    pv.innerHTML = items.length ? sheetsHtml(items) : '<p class="hint">Pick at least one row.</p>';
+    var sh = pv.querySelector('.sheet');
+    if (sh) { var scale = Math.min(1, (pv.clientWidth - 20) / sh.offsetWidth); sh.style.transform = 'scale(' + scale + ')'; pv.style.height = (sh.offsetHeight * scale + 22) + 'px'; }
+  } else if (pv) pv.innerHTML = '<p class="hint">The QR maker could not load. Check the internet and reopen this page.</p>';
+  var pb = document.getElementById('lprint');
+  if (pb) pb.onclick = function () {
+    if (!window.qrcode) return;
+    document.getElementById('print').innerHTML = sheetsHtml(labelItems(), true);
+    setTimeout(function () { window.print(); }, 50);
+  };
+};
+window.addEventListener('afterprint', function () { document.getElementById('print').innerHTML = ''; });
+
+/* ================= settings ================= */
+VIEWS.settings = function () {
+  var st = S.status, h = '';
+  if (!st) return '<div class="card"><p class="hint">Checking the server…</p></div>';
+  if (!st.success) return '<div class="msg err">' + esc(st.error) + '</div>';
+  h += '<div class="card"><h2>Status</h2><dl class="kv"><dt>Database</dt><dd>' + (st.setup ? (st.dbUrl ? '<a href="' + esc(st.dbUrl) + '" target="_blank" rel="noopener">BM Warehouse DB</a>' : 'set up') : 'not set up yet') + '</dd>' +
+    '<dt>Plan loaded</dt><dd>' + esc(st.planLoaded || 'none') + '</dd><dt>Plan in app</dt><dd>' + esc(st.planInFile) + '</dd></dl>' +
+    (st.dbError ? '<div class="msg err" style="margin-top:10px">' + esc(st.dbError) + '</div>' : '') + '</div>';
+  if (!st.setup) {
+    h += '<div class="card"><h2>First-time setup</h2><p class="hint">Creates the BM Warehouse database Sheet in the app owner\'s Google Drive. Choose an admin PIN (4–8 digits): it is needed to load a plan and, later, to change settings.</p>' +
+      '<div class="row"><input id="pin1" type="password" inputmode="numeric" placeholder="Admin PIN"><input id="pin2" type="password" inputmode="numeric" placeholder="Repeat PIN"></div>' +
+      '<div style="margin-top:10px"><button class="primary" id="dosetup">Create database</button></div></div>';
+  } else if (st.planLoaded !== st.planInFile) {
+    h += '<div class="card"><h2>Load slotting plan</h2><p class="hint">Copies <b>' + esc(st.planInFile) + '</b> into the database: all 768 rack positions, the mixed-pallet sections and each product\'s pick spot and home reserve.' +
+      (st.planLoaded ? ' It replaces the plan loaded now.' : '') + ' This button goes away once the plan is loaded.</p>' +
+      '<div class="row"><input id="pinp" type="password" inputmode="numeric" placeholder="Admin PIN"><button class="primary" id="doload">Load plan</button></div></div>';
+  }
+  h += '<div class="card"><h2>Data on this phone</h2><p class="hint">The plan is kept on the phone so lookups work without signal. Refresh after a new plan is loaded.</p><button id="refresh">Refresh data</button></div>';
+  return h;
+};
+AFTER.settings = function () {
+  var s1 = document.getElementById('dosetup');
+  if (s1) s1.onclick = function () {
+    var a = document.getElementById('pin1').value.trim(), b = document.getElementById('pin2').value.trim();
+    if (a !== b) { S.msg = { k: 'err', t: 'The two PINs do not match.' }; render(); return; }
+    s1.disabled = true; s1.textContent = 'Creating…';
+    api('setup', { pin: a }).then(function (r) { S.msg = r.success ? { k: 'ok', t: r.message + ' Now load the slotting plan.' } : { k: 'err', t: r.error }; refreshStatus(); });
+  };
+  var s2 = document.getElementById('doload');
+  if (s2) s2.onclick = function () {
+    var pin = document.getElementById('pinp').value.trim();
+    s2.disabled = true; s2.textContent = 'Loading…';
+    var call = function (confirm) {
+      api('loadPlan', { pin: pin, confirm: confirm }).then(function (r) {
+        if (!r.success && r.needConfirm) { if (window.confirm(r.error + '\n\nLoad it?')) return call(true); s2.disabled = false; s2.textContent = 'Load plan'; return; }
+        S.msg = r.success ? { k: 'ok', t: r.message } : { k: 'err', t: r.error };
+        if (r.success) loadData(true);
+        refreshStatus();
+      });
+    };
+    call(false);
+  };
+  var rf = document.getElementById('refresh');
+  if (rf) rf.onclick = function () { rf.disabled = true; rf.textContent = 'Refreshing…'; loadData(true).then(function () { S.msg = { k: 'ok', t: 'Data refreshed.' }; render(); }); };
+};
+function refreshStatus() { return api('status').then(function (r) { S.status = r; if (S.view === 'settings') render(); }); }
+var _go = go;
+go = function (view, args, replace) { if (view === 'settings') { S.status = null; refreshStatus(); } _go(view, args, replace); };
+
+/* ================= start ================= */
+(function () {
+  var lab = store('lab'); if (lab && lab.type) S.lab = Object.assign(S.lab, lab);
+  render();
+  loadData(false);
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
+</body>
+</html>
