@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BM Ageing</title>
-<script src="config.js?v=5f8250ca8e"></script>
+<script src="config.js?v=58dac095ff"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -232,8 +232,24 @@ const S = (rows, f) => rows.reduce((a, r) => a + (f(r) || 0), 0);
 function load() {
   $('asof').innerHTML = '<span class="spin" style="display:inline-block;width:12px;height:12px;vertical-align:-2px;margin-right:6px"></span>Loading data…';
   api('data').then(r => {
-    if (r.success) { DATA = r.data; init(); }
+    if (r.success) { DATA = r.data; init(); autoSync(r.lastSync); }
     else $('app').innerHTML = '<div class="loading">Could not load data: ' + esc(r.error) + '</div>';
+  });
+}
+// Pull sales (pieces, revenue) and margins from Sales Mix automatically when the last sync is missing or over 12 hours old
+let SYNCING = false;
+function autoSync(last) {
+  if (SYNCING || (last && Date.now() - last < 12 * 3600e3)) return;
+  SYNCING = true;
+  const note = document.createElement('div'); note.id = 'syncNote';
+  note.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:40;max-width:340px';
+  note.innerHTML = '<div class="card busy" style="box-shadow:0 4px 16px rgba(0,0,0,.15)"><div class="row1"><span class="spin"></span><span>Updating sales &amp; margins from Sales Mix…</span></div><div class="bar"><i></i></div><div class="el">Takes up to a minute. You can keep using the dashboard.</div></div>';
+  document.body.appendChild(note);
+  api('sync').then(r => {
+    SYNCING = false;
+    note.innerHTML = '<div class="card" style="box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:13px;color:' + (r.success ? 'var(--good)' : 'var(--bad)') + '">' + esc(r.success ? '✓ ' + r.message : 'Sales sync failed: ' + r.error) + '</div>';
+    setTimeout(() => note.remove(), r.success ? 6000 : 15000);
+    if (r.success) load();
   });
 }
 function init() {
