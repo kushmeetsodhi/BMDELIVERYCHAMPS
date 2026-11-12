@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BM Ageing</title>
-<script src="config.js?v=fc85dc031d"></script>
+<script src="config.js?v=5f8250ca8e"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -71,8 +71,8 @@ td.name{max-width:320px;overflow:hidden;text-overflow:ellipsis}
 th.sticky1{z-index:3}
 tr:hover td{background:var(--accent-soft)}
 .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;margin-right:3px}
-.p-stuck,.p-expired{background:#fde2e1;color:#9b1c1c}.p-slow,.p-soon{background:#fdf0d5;color:#8a4b08}.p-zero{background:#e5e7eb;color:#374151}.p-ok{background:#dcfce7;color:#166534}.p-exp,.p-risk{background:#ede9fe;color:#5b21b6}
-@media (prefers-color-scheme: dark){.p-stuck,.p-expired{background:#4c1d1d;color:#fecaca}.p-slow,.p-soon{background:#4a3410;color:#fde68a}.p-zero{background:#374151;color:#e5e7eb}.p-ok{background:#14432a;color:#bbf7d0}.p-exp,.p-risk{background:#352a5c;color:#ddd6fe}}
+.p-stuck,.p-expired{background:#fde2e1;color:#9b1c1c}.p-slow,.p-soon{background:#fdf0d5;color:#8a4b08}.p-zero{background:#e5e7eb;color:#374151}.p-ok{background:#dcfce7;color:#166534}.p-exp,.p-risk{background:#ede9fe;color:#5b21b6}.p-fast{background:#dbeafe;color:#1e40af}.p-low{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+@media (prefers-color-scheme: dark){.p-stuck,.p-expired{background:#4c1d1d;color:#fecaca}.p-slow,.p-soon{background:#4a3410;color:#fde68a}.p-zero{background:#374151;color:#e5e7eb}.p-ok{background:#14432a;color:#bbf7d0}.p-exp,.p-risk{background:#352a5c;color:#ddd6fe}.p-fast{background:#1e3a5f;color:#bfdbfe}.p-low{background:#4c1d1d;color:#fecaca;border-color:#7f1d1d}}
 .agebar{display:flex;height:8px;width:110px;border-radius:4px;overflow:hidden;background:var(--line)}
 .agebar span{display:block;height:100%}
 .guide dt{font-weight:600;margin-top:10px}
@@ -118,6 +118,12 @@ button .spin{display:inline-block;width:12px;height:12px;vertical-align:-2px;mar
       <select id="fStuck"><option value="15">15 days</option><option value="30">30 days</option><option value="60" selected>60 days</option><option value="90">90 days</option></select></label>
     <label class="m-expiry hide">Expiring soon = within
       <select id="fExpWin"><option value="15">15 days</option><option value="30" selected>30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label>
+    <label class="m-ageing">Fast movers by
+      <select id="fFastBy"><option value="pcs">Pieces sold</option><option value="rev">Revenue</option><option value="mar">Margin ₹</option></select></label>
+    <label class="m-ageing">Fast = top
+      <select id="fFastPct"><option value="10">10% of SKUs</option><option value="20" selected>20% of SKUs</option><option value="30">30% of SKUs</option></select></label>
+    <label class="m-ageing">Low stock if cover below
+      <select id="fLow"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="10">10 days</option><option value="15">15 days</option></select></label>
     <label>Slow mover if avg sale below
       <input type="number" id="fSlow" value="50" min="0" step="10" style="min-width:90px"></label>
     <label>Average sales over
@@ -161,14 +167,14 @@ button .spin{display:inline-block;width:12px;height:12px;vertical-align:-2px;mar
       <div class="card up" data-kind="sales">
         <h3>Daily sales</h3>
         <p class="hint">Upload pieces sold per product per day. Re-uploading a day <b>replaces</b> that day. Used for months not yet synced from Sales Mix.</p>
-        <ul><li>Needs: <b>Date</b>, <b>Product ID</b>, <b>Qty Sold (pcs)</b></li><li>Several rows for the same product and day are added together</li></ul>
+        <ul><li>Needs: <b>Date</b>, <b>Product ID</b>, <b>Qty Sold (pcs)</b>; optional <b>Revenue</b></li><li>Several rows for the same product and day are added together</li></ul>
         <div class="row"><button class="sample">Download sample file</button></div>
         <div class="row"><input type="file" accept=".xlsx,.xls,.csv"><button class="primary go">Upload</button></div>
         <div class="msg"></div>
       </div>
       <div class="card up">
         <h3>Monthly sales from Sales Mix</h3>
-        <p class="hint">Pulls pieces sold per product per month from the Sales Mix dashboard sheet (Daily_Item). Click after each new sales import there.</p>
+        <p class="hint">Pulls pieces sold and revenue per product per month (Daily_Item) and margin % (Margins) from the Sales Mix dashboard sheet. Click after each new sales import there.</p>
         <div class="row"><button class="primary" id="btnSync">Sync sales from Sales Mix</button></div>
         <div class="msg" id="syncMsg"></div>
         <h3 style="margin-top:10px">Recent uploads</h3>
@@ -180,7 +186,7 @@ button .spin{display:inline-block;width:12px;height:12px;vertical-align:-2px;mar
 </div>
 
 <script>
-let DATA = null, charts = {}, WIN = [], MODE = 'ageing', GST = false, TAB = 'overview', ROWS = [];
+let FAST = { ids: new Set(), share: 0, cut: 0 }, DATA = null, charts = {}, WIN = [], MODE = 'ageing', GST = false, TAB = 'overview', ROWS = [];
 function api(action, payload) {
   return new Promise(resolve => {
     if (!window.BM_EXEC_URL) { resolve({ success: false, error: 'This page has no server address set (config.js).' }); return; }
@@ -204,7 +210,7 @@ const $ = id => document.getElementById(id);
 const sortState = {}, TABLES = {};
 
 const TABS = {
-  ageing: [['overview', 'Overview'], ['all', 'All SKUs'], ['slow', 'Slow movers'], ['stuck', 'Stuck stock'], ['zero', 'Zero sales'], ['nogrn', 'No purchase record'], ['make', 'By company'], ['upload', 'Upload data'], ['guide', 'Column guide']],
+  ageing: [['overview', 'Overview'], ['all', 'All SKUs'], ['fast', 'Fast movers'], ['slow', 'Slow movers'], ['stuck', 'Stuck stock'], ['zero', 'Zero sales'], ['nogrn', 'No purchase record'], ['make', 'By company'], ['upload', 'Upload data'], ['guide', 'Column guide']],
   expiry: [['overview', 'Overview'], ['soon', 'Expiring soon'], ['expired', 'Expired'], ['risk', 'At risk'], ['batches', 'Batch list'], ['noexp', 'No expiry data'], ['make', 'By company'], ['upload', 'Upload data'], ['guide', 'Column guide']]
 };
 
@@ -242,7 +248,7 @@ function fillSelect(id, vals) { const s = $(id), keep = s.value; s.length = 1; v
 
 /* ---------- filters & derived values ---------- */
 function opts() { return { q: $('fSearch').value.trim().toLowerCase(), make: $('fMake').value, group: $('fGroup').value, cat: $('fCat').value,
-  stuck: +$('fStuck').value, expWin: +$('fExpWin').value, slow: +$('fSlow').value || 0, win: +$('fWin').value || 3, excl: $('fExcl').checked }; }
+  fastBy: $('fFastBy').value, fastPct: +$('fFastPct').value, low: +$('fLow').value, stuck: +$('fStuck').value, expWin: +$('fExpWin').value, slow: +$('fSlow').value || 0, win: +$('fWin').value || 3, excl: $('fExcl').checked }; }
 
 function derive(r, o) {
   const c = GST ? 'cG' : 'cX', u = GST ? r.uG : r.uX;
@@ -268,6 +274,12 @@ function derive(r, o) {
   const totalSold = WIN.reduce((a, i) => a + r.sold[i], 0), days = WIN.reduce((a, i) => a + DATA.monthDays[i], 0);
   r.totalSold = totalSold; r.avgMonthly = WIN.length ? totalSold / WIN.length : 0; r.avgDaily = days ? totalSold / days : 0;
   r.cover = r.avgDaily > 0 ? r.stock / r.avgDaily : null; r.isSlow = r.avgMonthly < o.slow;
+  r.revW = WIN.reduce((a, i) => a + (r.rev ? r.rev[i] : 0), 0);
+  r.marW = r.marginPct != null ? r.revW * r.marginPct / 100 : null;
+  r.fastM = fastMetric(r, o.fastBy);
+  r.isFast = FAST.ids.has(r.id);
+  r.lowStock = r.isFast && r.cover != null && r.cover < o.low;
+  r.oldStock = r.isFast && r.stuckQty > 0;
   // at risk: selling at the current daily rate, earliest-expiring batches first – what is still left when its batch expires
   let sold = 0, riskQ = 0, riskV = 0;
   r.layers.filter(l => l.dte != null).sort((a, b) => a.dte - b.dte).forEach(l => {
@@ -277,6 +289,8 @@ function derive(r, o) {
   r.riskQty = riskQ; r.riskVal = riskV;
   const t = [];
   if (MODE === 'ageing') {
+    if (r.isFast) t.push('fast');
+    if (r.lowStock) t.push('low');
     if (r.totalSold === 0) t.push('zero'); else if (r.isSlow) t.push('slow');
     if (r.stuckQty > 0) t.push('stuck');
     if (r.dte != null && r.dte <= 30) t.push('exp');
@@ -287,6 +301,18 @@ function derive(r, o) {
   }
   r.tags = t;
   return r;
+}
+// metric used to rank fast movers over the chosen months: pieces, revenue (₹) or margin (₹ = revenue × margin %)
+function fastMetric(r, by) {
+  let v = 0;
+  WIN.forEach(i => { v += by === 'pcs' ? r.sold[i] : by === 'rev' ? (r.rev ? r.rev[i] : 0) : (r.rev && r.marginPct != null ? r.rev[i] * r.marginPct / 100 : 0); });
+  return v;
+}
+function computeFast(o) {
+  const pool = DATA.rows.filter(r => !(o.excl && r.group === 'EXCLUDE')).map(r => ({ id: r.id, m: fastMetric(r, o.fastBy) }));
+  const tot = pool.reduce((a, x) => a + x.m, 0);
+  const ranked = pool.filter(x => x.m > 0).sort((a, b) => b.m - a.m).slice(0, Math.ceil(pool.length * o.fastPct / 100));
+  FAST = { ids: new Set(ranked.map(x => x.id)), share: tot ? ranked.reduce((a, x) => a + x.m, 0) / tot : 0, cut: ranked.length ? ranked[ranked.length - 1].m : 0, none: tot === 0 };
 }
 function filtered() {
   const o = opts();
@@ -305,6 +331,7 @@ function render() {
   if (!DATA) return;
   const o = opts();
   const n = Math.min(o.win, DATA.months.length); WIN = []; for (let i = DATA.months.length - n; i < DATA.months.length; i++) WIN.push(i);
+  computeFast(o);
   ROWS = filtered();
   $('title').textContent = MODE === 'ageing' ? 'Inventory Ageing' : 'Expiry Dashboard';
   document.querySelectorAll('.m-ageing').forEach(e => e.classList.toggle('hide', MODE !== 'ageing'));
@@ -328,6 +355,7 @@ function renderActive() {
   if (TAB === 'batches') return renderBatches(ROWS, o);
   const L = {
     all: [ROWS, 'All SKUs in stock', 'value', skuColsAgeing],
+    fast: [ROWS.filter(r => r.isFast), 'Fast movers – top ' + o.fastPct + '% of SKUs by ' + FBY[o.fastBy] + ' (last ' + WIN.length + ' month(s)). Low stock = under ' + o.low + ' days of cover', 'fastM', skuColsAgeing],
     slow: [ROWS.filter(r => r.isSlow), 'Slow movers – average sale below ' + o.slow + ' pcs/month (includes zero-sale items)', 'value', skuColsAgeing],
     stuck: [ROWS.filter(r => r.stuckVal > 0), 'Stuck stock – stock on shelf for more than ' + o.stuck + ' days', 'stuckVal', skuColsAgeing],
     zero: [ROWS.filter(r => r.totalSold === 0), 'Zero sales – no piece sold in the last ' + WIN.length + ' month(s)', 'value', skuColsAgeing],
@@ -354,6 +382,9 @@ function kpisAgeing(rows, o) {
     ['Inventory value (' + gstLbl() + ')', short(val), int(S(rows, r => r.stock)) + ' pcs · ' + rows.length + ' SKUs', '', 'all', 'value'],
     ['Avg days on shelf', dec1(wAge) + ' days', 'Value-weighted average age of stock', '', 'all', 'oldestAge'],
     ['Stuck > ' + o.stuck + ' days', short(stuck), rows.filter(r => r.stuckVal > 0).length + ' SKUs · ' + pct(stuck, val) + ' of value', 'bad', 'stuck', 'stuckVal'],
+    ['Fast movers (top ' + o.fastPct + '% by ' + FBY[o.fastBy] + ')', FAST.none ? '—' : short(S(rows.filter(r => r.isFast), r => r.value)),
+      FAST.none ? (o.fastBy === 'pcs' ? 'No sales data yet' : 'No ' + FBY[o.fastBy] + ' data yet – click Sync sales on Upload data') :
+      rows.filter(r => r.isFast).length + ' SKUs · ' + (FAST.share * 100).toFixed(0) + '% of ' + FBY[o.fastBy] + ' · ' + rows.filter(r => r.lowStock).length + ' low stock', 'good', 'fast', 'fastM'],
     ['Slow movers (< ' + o.slow + ' pcs/mo)', short(slowV), slow.length + ' SKUs · ' + pct(slowV, val) + ' of value', 'warn', 'slow', 'value'],
     ['Zero sales', short(zeroV), zero.length + ' SKUs with no sale in last ' + WIN.length + ' month(s)', 'warn', 'zero', 'value'],
     ['No purchase record', short(unk), rows.filter(r => r.unknownQty > 0).length + ' SKUs with stock not covered by a GRN', '', 'nogrn', 'unknownVal']
@@ -424,7 +455,8 @@ function chartsExpiry(rows, o) {
 }
 
 /* ---------- tables ---------- */
-const PILLS = { zero: 'No sale', slow: 'Slow', stuck: 'Stuck', exp: 'Expiry ≤30d', expired: 'Expired', soon: 'Expiring soon', risk: 'At risk' };
+const FBY = { pcs: 'pieces sold', rev: 'revenue', mar: 'margin ₹' };
+const PILLS = { fast: 'Fast', low: 'Low stock', zero: 'No sale', slow: 'Slow', stuck: 'Stuck', exp: 'Expiry ≤30d', expired: 'Expired', soon: 'Expiring soon', risk: 'At risk' };
 function baseCols() {
   return [
     { k: 'id', l: 'Product ID', g: 'Item', t: 1 },
@@ -441,6 +473,9 @@ function salesCols() {
   return WIN.map(i => ({ k: 'm' + i, l: monLabel(DATA.months[i]), g: 'Pcs sold', f: r => int(r.sold[i]), v: r => r.sold[i] })).concat([
     { k: 'totalSold', l: 'Total sold', g: 'Pcs sold', f: r => int(r.totalSold) },
     { k: 'avgMonthly', l: 'Avg sale / month', g: 'Pcs sold', f: r => dec1(r.avgMonthly) },
+    { k: 'revW', l: 'Revenue', g: 'Sales ₹', f: r => inr(r.revW) },
+    { k: 'marginPct', l: 'Margin %', g: 'Sales ₹', f: r => r.marginPct == null ? '—' : (+r.marginPct).toFixed(1) + '%', v: r => r.marginPct == null ? -1 : +r.marginPct },
+    { k: 'marW', l: 'Margin ₹', g: 'Sales ₹', f: r => r.marW == null ? '—' : inr(r.marW), v: r => r.marW == null ? -1 : r.marW },
     { k: 'avgDaily', l: 'Avg sale / day', g: 'Pcs sold', f: r => dec1(r.avgDaily) },
     { k: 'cover', l: 'Days of cover', g: 'Pcs sold', f: r => r.cover == null ? '∞' : int(r.cover), v: r => r.cover == null ? 1e9 : r.cover }
   ]);
@@ -456,6 +491,8 @@ function detailCols() {
 }
 function skuColsAgeing(o) {
   const c = baseCols().concat([
+    { k: 'fastM', l: 'Sales by ' + FBY[o.fastBy], g: 'Fast-mover rank', f: r => o.fastBy === 'pcs' ? int(r.fastM) : inr(r.fastM) },
+    { k: 'cover2', l: 'Days of cover', g: 'Fast-mover rank', f: r => r.cover == null ? '∞' : int(r.cover), v: r => r.cover == null ? 1e9 : r.cover },
     { k: 'stuckVal', l: 'Stuck value (> ' + o.stuck + 'd)', g: 'Inventory', f: r => inr(r.stuckVal) },
     { k: 'oldestAge', l: 'Days on shelf (oldest)', g: 'Shelf age', f: r => r.oldestAge == null ? '—' : int(r.oldestAge) },
     { k: 'avgAge', l: 'Avg age (days)', g: 'Shelf age', f: r => r.avgAge == null ? '—' : dec1(r.avgAge) },
@@ -490,8 +527,8 @@ function ageBar(r) {
 }
 function sortRows(id, rows, cols, defKey, defDir) {
   const s = sortState[id] || (sortState[id] = { k: defKey, d: defDir || -1 });
-  const col = cols.find(c => c.k === s.k) || cols[0];
-  const get = col.sv || col.v || (r => r[col.k]);
+  const col = cols.find(c => c.k === s.k);
+  const get = col ? (col.sv || col.v || (r => r[col.k])) : (r => r[s.k]);
   return rows.slice().sort((a, b) => { const x = get(a), y = get(b);
     if (typeof x === 'string' || typeof y === 'string') return String(x || '').localeCompare(String(y || '')) * s.d;
     return ((x == null ? -1e15 : x) - (y == null ? -1e15 : y)) * s.d; });
@@ -509,6 +546,8 @@ function renderSkuTable(id, rows, title, defKey, cols, defDir) {
   const T = f => rows.reduce((a, r) => a + (f(r) || 0), 0);
   const tot = { name: 'TOTAL (' + rows.length + ' SKUs)' };
   ['stock', 'totalSold', 'riskQty'].forEach(k => tot[k] = int(T(r => r[k])));
+  ['revW', 'marW'].forEach(k => tot[k] = inr(T(r => r[k])));
+  tot.fastM = opts().fastBy === 'pcs' ? int(T(r => r.fastM)) : inr(T(r => r.fastM));
   ['value', 'stuckVal', 'unknownVal', 'expiredVal', 'soonVal', 'riskVal', 'noExpVal'].forEach(k => tot[k] = inr(T(r => r[k])));
   AB.forEach((_, i) => tot['bv' + i] = inr(T(r => r.bv[i])));
   EB.forEach((_, i) => tot['ev' + i] = inr(T(r => r.ev[i])));
@@ -538,10 +577,11 @@ function renderBatches(rows, o) {
 function renderMakeTable(rows, o) {
   const m = {};
   rows.forEach(r => {
-    const x = m[r.make] || (m[r.make] = { make: r.make, skus: 0, stock: 0, value: 0, stuckVal: 0, slowVal: 0, zeroVal: 0, unknownVal: 0, ageW: 0, knownV: 0, expiredVal: 0, soonVal: 0, riskVal: 0, noExpVal: 0, sold: DATA.months.map(() => 0), totalSold: 0 });
+    const x = m[r.make] || (m[r.make] = { fastN: 0, fastVal: 0, lowN: 0, revW: 0, marW: 0, make: r.make, skus: 0, stock: 0, value: 0, stuckVal: 0, slowVal: 0, zeroVal: 0, unknownVal: 0, ageW: 0, knownV: 0, expiredVal: 0, soonVal: 0, riskVal: 0, noExpVal: 0, sold: DATA.months.map(() => 0), totalSold: 0 });
     x.skus++; x.stock += r.stock; x.value += r.value; x.stuckVal += r.stuckVal; x.unknownVal += r.unknownVal;
     x.expiredVal += r.expiredVal; x.soonVal += r.soonVal; x.riskVal += r.riskVal; x.noExpVal += r.noExpVal;
     if (r.isSlow) x.slowVal += r.value; if (r.totalSold === 0) x.zeroVal += r.value;
+    if (r.isFast) { x.fastN++; x.fastVal += r.value; } if (r.lowStock) x.lowN++; x.revW += r.revW; x.marW += r.marW || 0;
     const kv = r.value - r.unknownVal; x.ageW += (r.avgAge || 0) * kv; x.knownV += kv;
     r.sold.forEach((q, i) => x.sold[i] += q); x.totalSold += r.totalSold;
   });
@@ -551,6 +591,8 @@ function renderMakeTable(rows, o) {
     { k: 'skus', l: 'SKUs in stock', f: x => int(x.skus) }, { k: 'stock', l: 'Stock (pcs)', f: x => int(x.stock) }, { k: 'value', l: 'Stock value', f: x => inr(x.value) }
   ];
   if (MODE === 'ageing') cols = cols.concat([
+    { k: 'fastN', l: 'Fast-mover SKUs', f: x => int(x.fastN) }, { k: 'fastVal', l: 'Fast-mover stock ₹', f: x => inr(x.fastVal) }, { k: 'lowN', l: 'Fast & low stock', f: x => int(x.lowN) },
+    { k: 'revW', l: 'Revenue', f: x => inr(x.revW) }, { k: 'marW', l: 'Margin ₹', f: x => inr(x.marW) },
     { k: 'avgAge', l: 'Avg days on shelf', f: x => x.avgAge == null ? '—' : dec1(x.avgAge) },
     { k: 'stuckVal', l: 'Stuck value (> ' + o.stuck + 'd)', f: x => inr(x.stuckVal) },
     { k: 'stuckPct', l: 'Stuck %', f: x => pct(x.stuckVal, x.value), v: x => x.value ? x.stuckVal / x.value : 0 },
@@ -590,9 +632,9 @@ const SAMPLES = {
   grn: { file: 'Sample_GRN.xlsx', head: ['Unloading Date', 'Document No.', 'Vendor AC', 'Product Id', 'Item Name', 'Batch', 'Manufacturing Date', 'Expiry Date', 'Bill Qty', 'Rate per Pc', 'Taxable Value', 'GST Rate_Input'],
     ex: ['10-11-2026', 'PR/999', 'B.K.C. AGENCIES', 434, 'EXAMPLE – delete this row', 'DAFH21', '21-10-2026', '18-02-2027', 3000, 7.93, 22668.6, 5],
     how: [['Unloading Date', 'Required. Day the stock reached the warehouse, DD-MM-YYYY. Ageing counts from this date.'], ['Document No.', 'GRN / PR number.'], ['Vendor AC', 'Supplier.'], ['Product Id', 'Required.'], ['Batch', 'Batch code printed on the pack.'], ['Manufacturing Date', 'DD-MM-YYYY. Used for shelf life left %.'], ['Expiry Date', 'Required. DD-MM-YYYY.'], ['Bill Qty', 'Required. Pieces received (after shortage/rejection).'], ['Rate per Pc', 'Purchase rate per piece INCLUDING GST.'], ['Taxable Value', 'Line value EXCLUDING GST. Give this or Rate per Pc (both is best).'], ['GST Rate_Input', 'GST % (e.g. 5, 12, 18, 40).']] },
-  sales: { file: 'Sample_Daily_Sales.xlsx', head: ['Date', 'Product ID', 'Qty Sold (pcs)', 'Item Name (optional)'],
-    ex: ['10-11-2026', 434, 1850, 'EXAMPLE – delete this row'],
-    how: [['Date', 'Required. Sale / invoice date, DD-MM-YYYY.'], ['Product ID', 'Required.'], ['Qty Sold (pcs)', 'Required. Pieces sold that day. Several rows for the same product and day are added up.'], ['Item Name (optional)', 'Only for your reference.']] }
+  sales: { file: 'Sample_Daily_Sales.xlsx', head: ['Date', 'Product ID', 'Qty Sold (pcs)', 'Revenue', 'Item Name (optional)'],
+    ex: ['10-11-2026', 434, 1850, 16465, 'EXAMPLE – delete this row'],
+    how: [['Date', 'Required. Sale / invoice date, DD-MM-YYYY.'], ['Product ID', 'Required.'], ['Qty Sold (pcs)', 'Required. Pieces sold that day. Several rows for the same product and day are added up.'], ['Revenue', 'Optional. Sales value (₹) for that product and day. If left blank, pieces × selling price from the Margins tab is used.'], ['Item Name (optional)', 'Only for your reference.']] }
 };
 function sample(kind) {
   const s = SAMPLES[kind], wb = XLSX.utils.book_new();
@@ -670,11 +712,14 @@ function buildGuide() {
     ['Company (Make) / Group / Category', 'Make and Category from the Item Master (promo tags like Deals are ignored). Group comes from the Category_Map tab. Items with "test" in the name or category Dummy are hidden by default.']
   ];
   const ageing = [
+    ['Fast movers', 'The top 10 / 20 / 30% of in-stock SKUs over the chosen months, ranked by what you pick in "Fast movers by": pieces sold, revenue, or margin ₹ (revenue × margin %). Revenue comes from Sales Mix (Daily_Item) and daily sales uploads; margin % from the Sales Mix Margins tab – both brought in by Sync sales.'],
+    ['Low stock (fast movers)', 'A fast mover with fewer days of cover than the "Low stock if cover below" setting – it may run out before the next order.'],
+    ['Revenue / Margin % / Margin ₹', 'Sales value over the chosen months; margin % from Sales Mix; margin ₹ = revenue × margin %.'],
     ['Stuck value', 'Stock value received more than the "Stuck if on shelf over" days ago.'],
     ['Days on shelf (oldest) / Avg age', 'Age of the oldest piece still in stock, and the quantity-weighted average age.'],
     ['Value by age buckets', 'Stock value by days since it was received (0-15, 16-30, 31-60, 61-90, 90+).'],
     ['Unknown age ₹ / No purchase record', 'Stock not covered by any GRN (older than the GRN data, opening stock, or a missing entry).'],
-    ['Status tags', 'Stuck · Slow (avg monthly sale below the setting) · No sale · Expiry ≤30d.']
+    ['Status tags', 'Fast · Low stock · Stuck · Slow (avg monthly sale below the setting) · No sale · Expiry ≤30d.']
   ];
   const expiry = [
     ['Nearest expiry / Days to expiry', 'Earliest expiry date among the batches that make up current stock.'],
@@ -696,9 +741,9 @@ function seg(id, cb) { $(id).querySelectorAll('button').forEach(b => b.onclick =
 seg('segMode', v => { MODE = v; TAB = 'overview'; render(); });
 seg('segGst', v => { GST = v === 'g'; render(); });
 let deb; $('fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(render, 250); };
-['fMake', 'fGroup', 'fCat', 'fStuck', 'fExpWin', 'fWin', 'fExcl'].forEach(id => $(id).onchange = render);
+['fMake', 'fGroup', 'fCat', 'fStuck', 'fExpWin', 'fWin', 'fExcl', 'fFastBy', 'fFastPct', 'fLow'].forEach(id => $(id).onchange = render);
 $('fSlow').oninput = () => { clearTimeout(deb); deb = setTimeout(render, 300); };
-$('btnReset').onclick = () => { $('fSearch').value = ''; $('fMake').value = ''; $('fGroup').value = ''; $('fCat').value = ''; $('fStuck').value = '60'; $('fExpWin').value = '30'; $('fSlow').value = '50'; $('fWin').value = '3'; $('fExcl').checked = true; render(); };
+$('btnReset').onclick = () => { $('fSearch').value = ''; $('fMake').value = ''; $('fGroup').value = ''; $('fCat').value = ''; $('fStuck').value = '60'; $('fExpWin').value = '30'; $('fSlow').value = '50'; $('fWin').value = '3'; $('fExcl').checked = true; $('fFastBy').value = 'pcs'; $('fFastPct').value = '20'; $('fLow').value = '7'; render(); };
 $('btnReload').onclick = load;
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 load();
