@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BM Ageing</title>
-<script src="config.js?v=58dac095ff"></script>
+<script src="config.js?v=8e54655058"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -174,7 +174,7 @@ button .spin{display:inline-block;width:12px;height:12px;vertical-align:-2px;mar
       </div>
       <div class="card up">
         <h3>Monthly sales from Sales Mix</h3>
-        <p class="hint">Pulls pieces sold and revenue per product per month (Daily_Item) and margin % (Margins) from the Sales Mix dashboard sheet. Click after each new sales import there.</p>
+        <p class="hint">Pulls pieces sold and revenue per product per month (Daily_Item) and margin % (Margins) from the Sales Mix dashboard sheet. Runs by itself once a day; click to sync now. Click after each new sales import there.</p>
         <div class="row"><button class="primary" id="btnSync">Sync sales from Sales Mix</button></div>
         <div class="msg" id="syncMsg"></div>
         <h3 style="margin-top:10px">Recent uploads</h3>
@@ -236,11 +236,14 @@ function load() {
     else $('app').innerHTML = '<div class="loading">Could not load data: ' + esc(r.error) + '</div>';
   });
 }
-// Pull sales (pieces, revenue) and margins from Sales Mix automatically when the last sync is missing or over 12 hours old
-let SYNCING = false;
+// Pull sales (pieces, revenue) and margins from Sales Mix automatically once a day (first open of the day, India time).
+// Tried at most once per visit, so a failed or slow sync never repeats on its own.
+let SYNCING = false, AUTO_TRIED = false;
+const istDay = t => new Date(t + 5.5 * 3600e3).toISOString().slice(0, 10);
 function autoSync(last) {
-  if (SYNCING || (last && Date.now() - last < 12 * 3600e3)) return;
-  SYNCING = true;
+  if (SYNCING || AUTO_TRIED) return;
+  if (last && istDay(last) === istDay(Date.now())) return;
+  AUTO_TRIED = true; SYNCING = true;
   const note = document.createElement('div'); note.id = 'syncNote';
   note.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:40;max-width:340px';
   note.innerHTML = '<div class="card busy" style="box-shadow:0 4px 16px rgba(0,0,0,.15)"><div class="row1"><span class="spin"></span><span>Updating sales &amp; margins from Sales Mix…</span></div><div class="bar"><i></i></div><div class="el">Takes up to a minute. You can keep using the dashboard.</div></div>';

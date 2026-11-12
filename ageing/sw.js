@@ -2,7 +2,7 @@
 // The version changes on every build, which is how phones pick up a
 // new release: the new worker installs, clears the old cache, and the
 // next open runs the new code.
-var VERSION = '58dac095ff';
+var VERSION = '8e54655058';
 var PREFIX = 'bm-ag-';
 var CACHE = PREFIX + VERSION;
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest',
