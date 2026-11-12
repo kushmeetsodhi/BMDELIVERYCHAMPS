@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BM Ageing</title>
-<script src="config.js?v=8e54655058"></script>
+<script src="config.js?v=c20faeab1e"></script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1f5fa8" />
@@ -331,7 +331,14 @@ function computeFast(o) {
   const pool = DATA.rows.filter(r => !(o.excl && r.group === 'EXCLUDE')).map(r => ({ id: r.id, m: fastMetric(r, o.fastBy) }));
   const tot = pool.reduce((a, x) => a + x.m, 0);
   const ranked = pool.filter(x => x.m > 0).sort((a, b) => b.m - a.m).slice(0, Math.ceil(pool.length * o.fastPct / 100));
-  FAST = { ids: new Set(ranked.map(x => x.id)), share: tot ? ranked.reduce((a, x) => a + x.m, 0) / tot : 0, cut: ranked.length ? ranked[ranked.length - 1].m : 0, none: tot === 0 };
+  // rank of every SKU by each basis, so the list can show all three side by side
+  const rank = {}, n = Math.ceil(pool.length * o.fastPct / 100);
+  ['pcs', 'rev', 'mar'].forEach(by => {
+    rank[by] = {};
+    DATA.rows.filter(r => !(o.excl && r.group === 'EXCLUDE')).map(r => ({ id: r.id, m: fastMetric(r, by) })).filter(x => x.m > 0)
+      .sort((a, b) => b.m - a.m).forEach((x, i) => { rank[by][x.id] = i + 1; });
+  });
+  FAST = { ids: new Set(ranked.map(x => x.id)), share: tot ? ranked.reduce((a, x) => a + x.m, 0) / tot : 0, cut: ranked.length ? ranked[ranked.length - 1].m : 0, none: tot === 0, rank: rank, n: n };
 }
 function filtered() {
   const o = opts();
@@ -511,6 +518,10 @@ function detailCols() {
 function skuColsAgeing(o) {
   const c = baseCols().concat([
     { k: 'fastM', l: 'Sales by ' + FBY[o.fastBy], g: 'Fast-mover rank', f: r => o.fastBy === 'pcs' ? int(r.fastM) : inr(r.fastM) },
+    { k: 'rkP', l: 'Rank by pieces', g: 'Fast-mover rank', f: r => rankCell(r, 'pcs'), v: r => FAST.rank.pcs[r.id] || 1e9 },
+    { k: 'rkR', l: 'Rank by revenue', g: 'Fast-mover rank', f: r => rankCell(r, 'rev'), v: r => FAST.rank.rev[r.id] || 1e9 },
+    { k: 'rkM', l: 'Rank by margin', g: 'Fast-mover rank', f: r => rankCell(r, 'mar'), v: r => FAST.rank.mar[r.id] || 1e9 },
+    { k: 'fastIn', l: 'Fast by', g: 'Fast-mover rank', t: 1, f: fastIn, csv: fastIn, sv: r => ['pcs', 'rev', 'mar'].filter(b => (FAST.rank[b][r.id] || 1e9) <= FAST.n).length },
     { k: 'cover2', l: 'Days of cover', g: 'Fast-mover rank', f: r => r.cover == null ? '∞' : int(r.cover), v: r => r.cover == null ? 1e9 : r.cover },
     { k: 'stuckVal', l: 'Stuck value (> ' + o.stuck + 'd)', g: 'Inventory', f: r => inr(r.stuckVal) },
     { k: 'oldestAge', l: 'Days on shelf (oldest)', g: 'Shelf age', f: r => r.oldestAge == null ? '—' : int(r.oldestAge) },
@@ -537,6 +548,18 @@ function skuColsExpiry(o) {
   EB.forEach((b, i) => c.push({ k: 'ev' + i, l: b[0] + ' ₹', g: 'Value by time to expiry', f: r => inr(r.ev[i]), v: r => r.ev[i] }));
   c.push({ k: 'noExpVal', l: 'No expiry date ₹', g: 'Value by time to expiry', f: r => inr(r.noExpVal) });
   return c.concat(salesCols(), detailCols());
+}
+// rank number; bold green when inside the fast cut-off for that basis
+function rankCell(r, by) {
+  const k = FAST.rank && FAST.rank[by] ? FAST.rank[by][r.id] : null;
+  if (!k) return '—';
+  return k <= FAST.n ? '<b style="color:var(--good)">#' + k + '</b>' : '#' + k;
+}
+function fastIn(r) {
+  const b = ['pcs', 'rev', 'mar'].filter(x => (FAST.rank[x][r.id] || 1e9) <= FAST.n);
+  if (b.length === 3) return 'All three';
+  if (!b.length) return '—';
+  return b.map(x => ({ pcs: 'Pieces', rev: 'Revenue', mar: 'Margin' })[x]).join(' + ') + ' only';
 }
 function ageBar(r) {
   const tot = r.value || 1;
@@ -732,6 +755,7 @@ function buildGuide() {
   ];
   const ageing = [
     ['Fast movers', 'The top 10 / 20 / 30% of in-stock SKUs over the chosen months, ranked by what you pick in "Fast movers by": pieces sold, revenue, or margin ₹ (revenue × margin %). Revenue comes from Sales Mix (Daily_Item) and daily sales uploads; margin % from the Sales Mix Margins tab – both brought in by Sync sales.'],
+    ['Rank by pieces / revenue / margin, Fast by', 'Each SKU\'s position on all three bases at once (green = inside the top %). "Fast by" says on which bases it is a fast mover, e.g. "Pieces only" for cheap high-volume items that are not top for revenue or margin.'],
     ['Low stock (fast movers)', 'A fast mover with fewer days of cover than the "Low stock if cover below" setting – it may run out before the next order.'],
     ['Revenue / Margin % / Margin ₹', 'Sales value over the chosen months; margin % from Sales Mix; margin ₹ = revenue × margin %.'],
     ['Stuck value', 'Stock value received more than the "Stuck if on shelf over" days ago.'],
