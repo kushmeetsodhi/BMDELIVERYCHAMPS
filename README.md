@@ -50,3 +50,13 @@ Backend: `warehouse/` in the private `bm-apps-script` repo. Its web app link goe
 `warehouse/config.js` (printed by the "Create Warehouse project" action there).
 No login or PIN. The backend makes its database Sheet and loads the slotting
 plan by itself on first use.
+
+## BM Picking demo (`picking/`)
+
+Demo of the picking staff app: https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/picking/
+
+Runs on its own with 12 mock orders (`picking/demo-data.js`, made from the slotting
+plan and Sep–Oct sales); nothing is sent anywhere. Flow: log in → order alert →
+pick list in walking order → scan each spot's QR → picked / short → bag count →
+scan a staging line. Beverages are flagged to go straight to staging.
+QR labels to scan: https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/picking/#qr

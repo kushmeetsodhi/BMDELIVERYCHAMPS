@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BM Picking</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#0f766e" />
+<script src="demo-data.js?v=bcd45ab6f5"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{
+  --bg:#f4f6f7; --card:#fff; --ink:#172026; --muted:#5e6b75; --line:#e1e6ea; --accent:#0f766e; --accent-soft:#e3f3f1;
+  --bad:#c0262d; --bad-soft:#fde8e8; --good:#15803d; --good-soft:#e5f5ea; --warn:#b45309; --warn-soft:#fdf0dc;
+  --z-bev:#9DC3E6; --z-chips:#F8CB7F; --z-bis:#A9D18E; --z-nf:#C9B8E0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0f1417; --card:#182024; --ink:#e6ecef; --muted:#97a6b0; --line:#28343a; --accent:#34c3b3; --accent-soft:#163a37;
+    --bad:#f87171; --bad-soft:#3a1717; --good:#4ade80; --good-soft:#12301e; --warn:#f0a35e; --warn-soft:#3a2a12; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 "Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .who{font-size:12px;color:var(--muted);text-align:right}
+.demo{background:var(--warn-soft);color:var(--ink);font-size:12.5px;padding:6px 16px;text-align:center;border-bottom:1px solid var(--line)}
+main{padding:14px 16px 110px;max-width:640px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 6px}
+.hint{font-size:13px;color:var(--muted);margin:0 0 10px}
+button{font:inherit;font-size:15px;padding:11px 16px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.danger{background:var(--bad-soft);border-color:transparent;color:var(--bad);font-weight:600}
+button.block{display:block;width:100%}
+button:disabled{opacity:.5}
+input{font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.msg{padding:11px 13px;border-radius:11px;margin:0 0 12px;font-size:14.5px}
+.msg.err{background:var(--bad-soft);color:var(--bad);font-weight:600}.msg.ok{background:var(--good-soft);color:var(--good)}.msg.info{background:var(--accent-soft)}
+.shake{animation:sh .35s}
+@keyframes sh{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.names{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.names button{padding:16px 10px;font-weight:600}
+.alert{border:2px solid var(--accent);background:var(--accent-soft);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(15,118,110,.18)}}
+.big{font-size:22px;font-weight:700;margin:2px 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0}
+.progress{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 2px}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+/* pick card */
+.loc{display:flex;align-items:stretch;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin-bottom:12px;background:var(--card)}
+.loc .zs{width:10px;flex:none}
+.loc .lb{padding:12px 14px;flex:1}
+.loc .code1{font:800 34px/1.05 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px}
+.loc .code2{font:700 20px/1.2 ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
+.loc .where{font-size:12.5px;color:var(--muted);margin-top:4px}
+.prod{font-size:18px;font-weight:600;margin:0 0 6px}
+.qty{display:flex;align-items:baseline;gap:8px}.qty b{font-size:40px;line-height:1}.qty span{color:var(--muted);font-size:14px}
+.step{display:flex;align-items:center;gap:10px;justify-content:center;margin:10px 0}
+.step button{width:56px;height:56px;font-size:26px;padding:0;border-radius:14px}
+.step output{font-size:34px;font-weight:700;min-width:90px;text-align:center}
+.bev{background:var(--z-bev);color:#0b2a44;border-radius:11px;padding:9px 12px;font-size:13.5px;font-weight:600;margin-bottom:12px}
+.lines{display:flex;flex-direction:column;gap:6px}
+.ln{display:flex;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);font-size:13.5px}
+.ln .st{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none;border:2px solid var(--line)}
+.ln.done .st{background:var(--good);border-color:var(--good);color:#fff}.ln.short .st{background:var(--warn);border-color:var(--warn);color:#fff}
+.ln.cur{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.ln .c{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;font-size:12.5px}
+.ln .n{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:9px 13px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));z-index:6}
+.dock .in{max-width:640px;margin:0 auto;display:flex;gap:8px}
+.dock .in>*{flex:1}
+.sheetmodal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:flex-end}
+.sheetmodal .pane{background:var(--card);width:100%;max-width:640px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:85vh;overflow:auto}
+.photos{display:flex;gap:8px;flex-wrap:wrap}.photos img{width:72px;height:72px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+/* scanner */
+#scan{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column}
+#scan video{flex:1;width:100%;object-fit:cover}
+#scan .frame{position:absolute;left:50%;top:42%;width:64vmin;height:64vmin;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+#scan .bar{position:absolute;left:0;right:0;bottom:0;padding:16px;display:flex;gap:10px;justify-content:center;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+#scan .txt{position:absolute;top:16px;left:0;right:0;text-align:center;color:#fff;font-size:15px;padding:0 20px}
+/* QR sheet */
+#print{display:none}
+.a4{width:210mm;height:297mm;position:relative;background:#fff;color:#000;overflow:hidden;page-break-after:always;break-after:page;font-family:Arial,Helvetica,sans-serif}
+.a4 h3{position:absolute;left:8mm;top:3mm;margin:0;font-size:3.6mm}
+.ql{position:absolute;display:flex;align-items:center;gap:2mm;padding:1.5mm;outline:.2mm dashed #aaa;overflow:hidden}
+.ql .zs{align-self:stretch;width:2.5mm;flex:none}
+.ql .t{min-width:0;line-height:1.1}
+.ql .c1{font-weight:800;font-size:4.6mm;white-space:nowrap}
+.ql .c2{font-weight:700;font-size:3.2mm;white-space:nowrap}
+.ql .c3{font-size:2.3mm;color:#333;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#qrprev{overflow:auto;background:#fff;border:1px dashed var(--line);border-radius:10px;padding:8px}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff}
+  header,main,.demo,.dock,#scan,.sheetmodal{display:none!important}
+  #print{display:block}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">BM Picking</h1>
+  <div class="who" id="who"></div>
+</header>
+<div class="demo">Demo: mock orders, nothing goes to the ERP. <a href="#" id="reset">Reset demo</a></div>
+<main id="app"></main>
+<div class="dock" id="dock" style="display:none"><div class="in" id="dockin"></div></div>
+<div id="print"></div>
+
+<script>
+/* ====================== data & state ====================== */
+var D = window.BM_DEMO || { orders: [], wrong: [], staging: [] };
+var PICKERS = ['Ramesh', 'Suresh', 'Vikram', 'Sunil', 'Arjun', 'Deepak', 'Manoj', 'Rahul'];
+var ZCOL = { 'Beverages & Water': 'var(--z-bev)', 'Chips & Namkeen': 'var(--z-chips)', 'Biscuits & Confectionery': 'var(--z-bis)', 'Non-food & Other food': 'var(--z-nf)' };
+var ZHEX = { 'Beverages & Water': '#9DC3E6', 'Chips & Namkeen': '#F8CB7F', 'Biscuits & Confectionery': '#A9D18E', 'Non-food & Other food': '#C9B8E0' };
+var REASONS = ['Not on the spot', 'Less stock than ordered', 'Damaged', 'Expired / near expiry'];
+
+// Every location in the demo, so a wrong scan can say what is really there.
+var WHERE = {};
+D.orders.forEach(function (o) { o.lines.forEach(function (l) { WHERE[l.loc] = l.name; }); });
+D.wrong.forEach(function (w) { WHERE[w.loc] = w.name; });
+
+var S = load() || fresh();
+function fresh() { return { picker: '', view: 'login', next: 0, cur: null, done: [], stagePos: {}, offered: null }; }
+function save() { try { localStorage.setItem('bmpick_demo', JSON.stringify(S)); } catch (e) {} }
+function load() { try { return JSON.parse(localStorage.getItem('bmpick_demo') || 'null'); } catch (e) { return null; } }
+var UI = { msg: null, shake: false, qty: null, photos: [] };
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function splitLoc(c) { var p = c.split('-'); return { a: p[0] + '-' + p[1], b: p.slice(2).join(' · ') }; }
+function mmss(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+function packHint(l) {
+  var u = l.zone === 'Chips & Namkeen' && l.case <= 24 ? ['ladi', 'ladis'] : ['case', 'cases'];
+  if (l.case > 1 && l.qty % l.case === 0) return (l.qty / l.case) + ' ' + (l.qty / l.case === 1 ? u[0] : u[1]) + ' of ' + l.case;
+  if (l.qty >= 12 && l.qty % 12 === 0 && !l.bev) return (l.qty / 12) + ' × 12 (ladi / dozen)';
+  return 'pieces';
+}
+function beep(ok) {
+  try {
+    var A = window.__ac || (window.__ac = new (window.AudioContext || window.webkitAudioContext)());
+    var o = A.createOscillator(), g = A.createGain(); o.connect(g); g.connect(A.destination);
+    o.frequency.value = ok ? 880 : 220; o.type = ok ? 'sine' : 'square'; g.gain.value = .12;
+    o.start(); o.stop(A.currentTime + (ok ? .12 : .35));
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(ok ? 60 : [120, 60, 120]);
+}
+
+/* ====================== order flow ====================== */
+function offerNext() {
+  if (S.cur || S.offered != null) return;
+  if (S.next >= D.orders.length) return;
+  S.offered = S.next; save(); render(); beep(true);
+}
+function accept() {
+  var o = D.orders[S.offered];
+  S.cur = { idx: S.offered, i: 0, phase: 'pick', start: Date.now(), scanned: false,
+            lines: o.lines.map(function () { return { st: 'todo', picked: 0, reason: '' }; }), bags: 0, seal: '', photos: 0 };
+  S.offered = null; S.next++; UI.msg = null; UI.qty = null; save(); render();
+}
+function order() { return S.cur ? D.orders[S.cur.idx] : null; }
+function curLine() { var o = order(); return o && o.lines[S.cur.i]; }
+function advance() {
+  var c = S.cur, o = order();
+  var nxt = -1;
+  for (var k = 0; k < o.lines.length; k++) if (c.lines[k].st === 'todo') { nxt = k; break; }
+  if (nxt === -1) { c.phase = 'pack'; c.bags = Math.max(1, Math.ceil(o.lines.filter(function (l) { return !l.bev; }).length / 5)); }
+  else { c.i = nxt; c.scanned = false; }
+  UI.qty = null; save(); render(); window.scrollTo(0, 0);
+}
+
+// What a scan means right now.
+function onScan(raw) {
+  var code = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!code) return;
+  var c = S.cur;
+  if (c && c.phase === 'pick') {
+    var l = curLine();
+    if (code === l.loc) { c.scanned = true; UI.msg = { k: 'ok', t: 'Right spot. Pick ' + l.qty + ' and confirm.' }; beep(true); save(); render(); return; }
+    beep(false); UI.shake = true;
+    if (l.loc.indexOf(code + '-') === 0) UI.msg = { k: 'err', t: 'That is the bay label. Scan the label on the pallet' + (/-S\d/.test(l.loc) ? ' section' : '') + ': ' + l.loc };
+    else UI.msg = { k: 'err', t: 'Wrong spot: ' + code + (WHERE[code] ? ' holds ' + WHERE[code] : '') + '. Go to ' + l.loc + '.' };
+    render(); return;
+  }
+  if (c && c.phase === 'stage') {
+    var m = code.match(/^STAGE-L(\d+)$/);
+    if (!m) { beep(false); UI.shake = true; UI.msg = { k: 'err', t: 'That is not a staging line label. Scan the QR at the start of a staging line (STAGE-L1, L2 …).' }; render(); return; }
+    var ln = 'L' + m[1], pos = (S.stagePos[ln] || 0) + 1; S.stagePos[ln] = pos;
+    finishOrder(ln, pos); beep(true); return;
+  }
+  UI.msg = { k: 'info', t: 'Scanned ' + code + '. Nothing to scan right now.' }; render();
+}
+function pickLine(qty, reason) {
+  var c = S.cur, l = curLine(), rec = c.lines[c.i];
+  rec.picked = qty; rec.st = qty < l.qty ? 'short' : 'done'; rec.reason = reason || '';
+  UI.msg = rec.st === 'short' ? { k: 'info', t: 'Marked short: ' + qty + ' of ' + l.qty + ' (' + reason + '). Supervisor told (demo).' } : null;
+  advance();
+}
+function finishOrder(line, pos) {
+  var c = S.cur, o = order();
+  var short = c.lines.filter(function (x) { return x.st === 'short'; }).length;
+  var bev = o.lines.filter(function (l) { return l.bev; }).length;
+  S.done.unshift({ no: o.no, shop: o.shop, lines: o.lines.length, short: short, secs: Math.round((Date.now() - c.start) / 1000), bags: c.bags, line: line, pos: pos, bev: bev });
+  S.cur = null; UI.photos = [];
+  UI.msg = { k: 'ok', t: o.no + ' staged at line ' + line + ', position ' + pos + '.' + (bev ? ' Put the beverage cases right beside the bags.' : '') };
+  save(); render(); setTimeout(offerNext, 2500);
+}
+
+/* ====================== scanner ====================== */
+var SC = { stream: null, timer: null };
+function loadJsQR() {
+  return new Promise(function (res, rej) {
+    if (window.jsQR) return res();
+    var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload = function () { res(); }; s.onerror = function () { rej(new Error('The QR reader could not load. Check the internet.')); };
+    document.head.appendChild(s);
+  });
+}
+function openScanner() {
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { UI.msg = { k: 'err', t: 'This phone does not allow the camera here. Use "Type code" or "Demo scan".' }; render(); return; }
+  var el = document.createElement('div'); el.id = 'scan';
+  el.innerHTML = '<video id="sv" autoplay playsinline muted></video><div class="frame"></div><div class="txt">Point at the QR label</div><div class="bar"><button id="sx">Close</button></div>';
+  document.body.appendChild(el);
+  document.getElementById('sx').onclick = closeScanner;
+  var det = null, native = 'BarcodeDetector' in window;
+  if (native) { try { det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { native = false; } }
+  (native ? Promise.resolve() : loadJsQR()).then(function () {
+    return navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  }).then(function (stream) {
+    if (!document.getElementById('scan')) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+    SC.stream = stream; var v = document.getElementById('sv'); v.srcObject = stream; var p = v.play && v.play(); if (p && p.catch) p.catch(function () {});
+    var cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true }), busy = false;
+    SC.timer = setInterval(function () {
+      if (busy || !v.videoWidth) return; busy = true;
+      if (native) det.detect(v).then(function (r) { busy = false; if (r && r[0]) got(r[0].rawValue); }).catch(function () { busy = false; });
+      else { var w = 640, h = Math.round(v.videoHeight * 640 / v.videoWidth); cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
+             var q = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' }); busy = false; if (q && q.data) got(q.data); }
+    }, 180);
+  }).catch(function (err) {
+    closeScanner();
+    UI.msg = { k: 'err', t: err && err.name === 'NotAllowedError' ? 'The camera is blocked. In Chrome tap the lock icon → Permissions → Camera → Allow.' : ((err && err.message) || 'The camera could not start.') };
+    render();
+  });
+  function got(code) { closeScanner(); onScan(code); }
+}
+function closeScanner() {
+  if (SC.timer) clearInterval(SC.timer); SC.timer = null;
+  if (SC.stream) SC.stream.getTracks().forEach(function (t) { t.stop(); }); SC.stream = null;
+  var el = document.getElementById('scan'); if (el) el.remove();
+}
+
+/* ====================== modals ====================== */
+function modal(html, bind) {
+  var m = document.createElement('div'); m.className = 'sheetmodal';
+  m.innerHTML = '<div class="pane">' + html + '</div>';
+  m.addEventListener('click', function (e) { if (e.target === m) m.remove(); });
+  document.body.appendChild(m); bind(m); return m;
+}
+function typeCode() {
+  modal('<h2 style="margin:0 0 8px">Type or scan a code</h2><p class="hint">A handheld scanner types here by itself.</p><input id="tc" autocapitalize="characters" autocomplete="off" placeholder="R07-B08-L0-P1-S4"><div class="row" style="margin-top:10px"><button id="tcc">Cancel</button><button class="primary" id="tcg">OK</button></div>',
+    function (m) {
+      var i = m.querySelector('#tc'); setTimeout(function () { i.focus(); }, 50);
+      function go() { var v = i.value; m.remove(); onScan(v); }
+      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+      m.querySelector('#tcg').onclick = go; m.querySelector('#tcc').onclick = function () { m.remove(); };
+    });
+}
+function demoScan() {
+  var c = S.cur, opts = [];
+  if (c && c.phase === 'pick') {
+    var l = curLine(), w = D.wrong[c.i % D.wrong.length];
+    opts.push(['Right spot', l.loc, 'primary']);
+    opts.push(['Wrong spot (to see the error)', w.loc, '']);
+    opts.push(['Bay label instead of pallet', l.loc.slice(0, 7), '']);
+  } else if (c && c.phase === 'stage') {
+    D.staging.slice(0, 6).forEach(function (s, k) { opts.push(['Staging line ' + (k + 1), s, k === 0 ? 'primary' : '']); });
+  }
+  modal('<h2 style="margin:0 0 4px">Demo scan</h2><p class="hint">Pretend to scan a label, without printing the QR sheet.</p><div style="display:flex;flex-direction:column;gap:8px">' +
+    opts.map(function (o, k) { return '<button class="' + o[2] + '" data-k="' + k + '">' + esc(o[0]) + ' <span style="opacity:.7;font-family:monospace;font-size:12px">' + esc(o[1]) + '</span></button>'; }).join('') +
+    '<button data-x="1">Cancel</button></div>', function (m) {
+      m.querySelectorAll('[data-k]').forEach(function (b) { b.onclick = function () { m.remove(); onScan(opts[+b.getAttribute('data-k')][1]); }; });
+      m.querySelector('[data-x]').onclick = function () { m.remove(); };
+    });
+}
+function shortDialog() {
+  var l = curLine(), q = { n: Math.max(0, l.qty - (l.case > 1 && l.qty > l.case ? l.case : 1)), r: '' };
+  var m = modal('<h2 style="margin:0 0 4px">Short pick</h2><p class="hint">' + esc(l.name) + ' · ordered ' + l.qty + '</p><p class="hint" style="margin:0">How many did you find?</p>' +
+    '<div class="step"><button data-d="-1">−</button><output id="sq"></output><button data-d="1">+</button></div><p class="hint">Why?</p><div class="chips" id="sr">' +
+    REASONS.map(function (r) { return '<button class="chip" data-r="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') +
+    '</div><div class="row" style="margin-top:14px"><button id="sc">Cancel</button><button class="primary" id="so" disabled>Save short</button></div>', function (m) {
+      function upd() { m.querySelector('#sq').textContent = q.n; m.querySelector('#so').disabled = !q.r;
+        m.querySelectorAll('[data-r]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-r') === q.r); }); }
+      m.querySelectorAll('[data-d]').forEach(function (b) { b.onclick = function () { q.n = Math.max(0, Math.min(l.qty - 1, q.n + (+b.getAttribute('data-d')))); upd(); }; });
+      m.querySelectorAll('[data-r]').forEach(function (b) { b.onclick = function () { q.r = b.getAttribute('data-r'); upd(); }; });
+      m.querySelector('#sc').onclick = function () { m.remove(); };
+      m.querySelector('#so').onclick = function () { m.remove(); pickLine(q.n, q.r); };
+      upd();
+    });
+}
+
+/* ====================== views ====================== */
+function dock(btns) {
+  var d = document.getElementById('dock');
+  if (!btns) { d.style.display = 'none'; return; }
+  d.style.display = 'block';
+  document.getElementById('dockin').innerHTML = btns.map(function (b, k) { return '<button class="' + (b[1] || '') + '" data-dk="' + k + '">' + b[0] + '</button>'; }).join('');
+  document.querySelectorAll('[data-dk]').forEach(function (el) { el.onclick = btns[+el.getAttribute('data-dk')][2]; });
+}
+var SCAN_DOCK = function () { return [['⌖ Scan', 'primary', openScanner], ['Type code', '', typeCode], ['Demo scan', '', demoScan]]; };
+
+function render() {
+  document.getElementById('who').innerHTML = S.picker ? esc(S.picker) + '<br>' + S.done.length + ' done' : '';
+  var h = UI.msg ? '<div class="msg ' + UI.msg.k + (UI.shake ? ' shake' : '') + '">' + esc(UI.msg.t) + '</div>' : '';
+  UI.shake = false;
+  var v = S.view === 'qr' ? 'qr' : !S.picker ? 'login' : S.cur ? S.cur.phase : 'queue';
+  document.getElementById('title').textContent = { login: 'BM Picking', queue: 'BM Picking', pick: order() ? order().no : '', pack: 'Pack ' + (order() ? order().no : ''), stage: 'Stage ' + (order() ? order().no : ''), qr: 'Demo QR sheet' }[v];
+  h += V[v]();
+  document.getElementById('app').innerHTML = h;
+  (A[v] || function () {})();
+}
+var V = {}, A = {};
+
+V.login = function () {
+  return '<div class="card"><h2>Who is picking?</h2><p class="hint">Log in at the start of the shift. You then get orders one by one.</p><div class="names">' +
+    PICKERS.map(function (p) { return '<button data-p="' + p + '">' + p + '</button>'; }).join('') + '</div></div>' +
+    '<div class="card"><h2>How the demo works</h2><p class="hint" style="margin:0">' + D.orders.length + ' mock orders made from real products and their rack spots in the slotting plan. Scan the QR labels on the <a href="#" id="toqr">demo QR sheet</a> (print it, or open it on a second screen), or use <b>Demo scan</b> to pretend.</p></div>';
+};
+A.login = function () {
+  dock(null);
+  document.querySelectorAll('[data-p]').forEach(function (b) { b.onclick = function () { S.picker = b.getAttribute('data-p'); save(); render(); setTimeout(offerNext, 1200); }; });
+  document.getElementById('toqr').onclick = function (e) { e.preventDefault(); S.view = 'qr'; render(); };
+};
+
+V.queue = function () {
+  var h = '';
+  if (S.offered != null) {
+    var o = D.orders[S.offered], bev = o.lines.filter(function (l) { return l.bev; }).length;
+    h += '<div class="card alert"><div class="hint" style="margin:0;color:var(--accent);font-weight:700">NEW ORDER FOR YOU</div><div class="big">' + esc(o.no) + '</div>' +
+      '<dl class="kv"><dt>Shop</dt><dd>' + esc(o.shop) + ', ' + esc(o.area) + '</dd><dt>Lines</dt><dd>' + o.lines.length + (bev ? ' (' + bev + ' beverage)' : '') + '</dd></dl>' +
+      '<button class="primary block" id="acc" style="margin-top:12px">Accept and start picking</button></div>';
+  } else if (S.next >= D.orders.length) {
+    h += '<div class="card"><h2>All demo orders are done</h2><p class="hint">Tap Reset demo at the top to start again.</p></div>';
+  } else {
+    h += '<div class="card"><h2>You are available</h2><p class="hint">Waiting for the next order… It arrives here with a sound and vibration.</p><button id="now">Get an order now</button></div>';
+  }
+  if (S.done.length) {
+    var lines = 0, secs = 0, shorts = 0; S.done.forEach(function (d) { lines += d.lines; secs += d.secs; shorts += d.short; });
+    h += '<div class="card"><h2>Today</h2><div class="stat"><div><b>' + S.done.length + '</b><span>orders</span></div><div><b>' + lines + '</b><span>lines</span></div><div><b>' + (lines ? mmss(secs / lines) : '–') + '</b><span>per line</span></div></div>' +
+      (shorts ? '<p class="hint" style="margin:10px 0 0">' + shorts + ' short line' + (shorts > 1 ? 's' : '') + ' sent to the supervisor.</p>' : '') + '</div>';
+    h += '<div class="lines">' + S.done.map(function (d) {
+      return '<div class="ln done"><div class="st">✓</div><div style="flex:1"><div><b>' + esc(d.no) + '</b> · ' + esc(d.shop) + '</div><div class="n">' + d.lines + ' lines · ' + mmss(d.secs) + ' · ' + d.bags + ' bag' + (d.bags > 1 ? 's' : '') + ' · staging ' + d.line + '-' + d.pos + (d.short ? ' · ' + d.short + ' short' : '') + '</div></div></div>';
+    }).join('') + '</div>';
+  }
+  h += '<p class="hint" style="margin-top:14px"><a href="#" id="toqr">Open the demo QR sheet</a> · <a href="#" id="logout">Log out</a></p>';
+  return h;
+};
+A.queue = function () {
+  dock(null);
+  var a = document.getElementById('acc'); if (a) a.onclick = accept;
+  var n = document.getElementById('now'); if (n) n.onclick = offerNext;
+  document.getElementById('toqr').onclick = function (e) { e.preventDefault(); S.view = 'qr'; render(); };
+  document.getElementById('logout').onclick = function (e) { e.preventDefault(); S.picker = ''; S.offered = null; save(); render(); };
+  if (S.offered == null && S.next < D.orders.length) { clearTimeout(window.__ot); window.__ot = setTimeout(offerNext, 6000); }
+};
+
+V.pick = function () {
+  var o = order(), c = S.cur, l = curLine(), done = c.lines.filter(function (x) { return x.st !== 'todo'; }).length;
+  var parts = splitLoc(l.loc), sec = /-S\d/.test(l.loc), lv = l.loc.match(/-L(\d)-P(\d)/);
+  var h = '<div class="card" style="padding:10px 14px"><div class="row" style="justify-content:space-between"><div><b>' + esc(o.shop) + '</b><div class="hint" style="margin:0">' + esc(o.area) + '</div></div><div style="text-align:right;flex:none"><b>' + done + ' / ' + o.lines.length + '</b><div class="hint" style="margin:0" id="tm">' + mmss((Date.now() - c.start) / 1000) + '</div></div></div><div class="progress"><i style="width:' + (100 * done / o.lines.length) + '%"></i></div></div>';
+  if (l.bev) h += '<div class="bev">Beverage: carry the cases straight to staging. Do not pack them.</div>';
+  h += '<div class="loc"><div class="zs" style="background:' + ZCOL[l.zone] + '"></div><div class="lb"><div class="hint" style="margin:0">' + (c.scanned ? '✓ Spot confirmed' : 'Go to') + '</div><div class="code1">' + esc(parts.a) + '</div><div class="code2">' + esc(parts.b) + '</div>' +
+       '<div class="where">' + esc(l.zone) + ' · floor, ' + (lv && lv[2] === '1' ? 'front' : 'back') + ' of bay' + (sec ? ' · mixed pallet, section ' + esc(l.loc.split('-S')[1]) : '') + '</div></div></div>';
+  h += '<div class="card"><p class="prod">' + esc(l.name) + '</p><div class="qty"><b>' + l.qty + '</b><span>' + esc(packHint(l)) + '</span></div>';
+  if (c.scanned) {
+    h += '<div class="grid2" style="margin-top:14px"><button class="danger" id="short">Short…</button><button class="primary" id="ok">Picked ' + l.qty + ' ✓</button></div>';
+  } else {
+    h += '<p class="hint" style="margin:12px 0 0">Scan the QR label on this ' + (sec ? 'pallet section' : 'pallet') + ' to confirm you are at the right spot.</p>';
+  }
+  h += '</div><details class="card"><summary style="cursor:pointer;font-weight:600">All lines in this order</summary><div class="lines" style="margin-top:10px">' +
+    o.lines.map(function (x, k) {
+      var r = c.lines[k], cls = r.st === 'done' ? 'done' : r.st === 'short' ? 'short' : k === c.i ? 'cur' : '';
+      return '<div class="ln ' + cls + '"><div class="st">' + (r.st === 'done' ? '✓' : r.st === 'short' ? '!' : k + 1) + '</div><div style="flex:1;min-width:0"><div class="c">' + esc(x.loc) + '</div><div class="n">' + esc(x.name) + ' · ' + (r.st === 'short' ? r.picked + ' of ' : '') + x.qty + (x.bev ? ' · to staging' : '') + '</div></div></div>';
+    }).join('') + '</div></details>';
+  return h;
+};
+A.pick = function () {
+  dock(SCAN_DOCK());
+  var ok = document.getElementById('ok'); if (ok) ok.onclick = function () { pickLine(curLine().qty, ''); };
+  var sh = document.getElementById('short'); if (sh) sh.onclick = shortDialog;
+  clearInterval(window.__tt); window.__tt = setInterval(function () { var t = document.getElementById('tm'); if (t && S.cur) t.textContent = mmss((Date.now() - S.cur.start) / 1000); else clearInterval(window.__tt); }, 1000);
+};
+
+V.pack = function () {
+  var o = order(), c = S.cur, shorts = c.lines.filter(function (x) { return x.st === 'short'; }).length, bev = o.lines.filter(function (l) { return l.bev; }).length;
+  return '<div class="card"><h2>All lines picked</h2><dl class="kv"><dt>Picked</dt><dd>' + (o.lines.length - shorts) + ' full, ' + shorts + ' short</dd><dt>Time</dt><dd>' + mmss((Date.now() - c.start) / 1000) + '</dd>' +
+    (bev ? '<dt>Beverages</dt><dd>' + bev + ' line' + (bev > 1 ? 's' : '') + ': not packed, they go next to the bags</dd>' : '') + '</dl></div>' +
+    '<div class="card"><h2>How many bags?</h2><div class="step"><button data-b="-1">−</button><output>' + c.bags + '</output><button data-b="1">+</button></div>' +
+    '<h2 style="margin-top:6px">Photos of the packed order</h2><p class="hint">The real app will need 3. Optional in the demo.</p><div class="photos" id="ph">' +
+    UI.photos.map(function (u) { return '<img src="' + u + '" alt="">'; }).join('') + '</div><label class="chip" style="display:inline-block;margin-top:8px">+ Add photo<input type="file" accept="image/*" capture="environment" id="pf" style="display:none"></label></div>';
+};
+A.pack = function () {
+  dock([['Packed: go to staging', 'primary', function () { S.cur.phase = 'stage'; UI.msg = null; save(); render(); }]]);
+  document.querySelectorAll('[data-b]').forEach(function (b) { b.onclick = function () { S.cur.bags = Math.max(1, Math.min(20, S.cur.bags + (+b.getAttribute('data-b')))); save(); render(); }; });
+  var pf = document.getElementById('pf');
+  if (pf) pf.onchange = function () { var f = pf.files && pf.files[0]; if (!f) return; var r = new FileReader(); r.onload = function () { UI.photos.push(r.result); render(); }; r.readAsDataURL(f); };
+};
+
+V.stage = function () {
+  var o = order(), c = S.cur, bev = o.lines.filter(function (l) { return l.bev; });
+  return '<div class="card"><h2>Put the ' + c.bags + ' bag' + (c.bags > 1 ? 's' : '') + ' on a staging line</h2><p class="hint">Then scan the QR at the start of that line. The app gives the order its position (the next number on that line), so no paper sheet is needed.</p>' +
+    (bev.length ? '<div class="bev" style="margin:0">Place these beverages right beside the bags:<br>' + bev.map(function (l) { return esc(l.name) + ' × ' + l.qty; }).join('<br>') + '</div>' : '') + '</div>';
+};
+A.stage = function () { dock(SCAN_DOCK()); };
+
+/* ---------- demo QR sheet ---------- */
+function qrSvg(text, mm) {
+  var q = qrcode(0, 'M'); q.addData(text); q.make();
+  var n = q.getModuleCount(), m = 2, t = n + 4, d = '';
+  for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += 'M' + (c + m) + ' ' + (r + m) + 'h1v1h-1z';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + t + ' ' + t + '" width="' + mm + 'mm" height="' + mm + 'mm" shape-rendering="crispEdges"><rect width="' + t + '" height="' + t + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+}
+function qrItems() {
+  var seen = {}, items = [];
+  D.orders.forEach(function (o) { o.lines.forEach(function (l) { if (!seen[l.loc]) { seen[l.loc] = 1; items.push({ code: l.loc, name: l.name, zone: l.zone, kind: 'Pick spot' }); } }); });
+  items.sort(function (a, b) { return a.code < b.code ? -1 : 1; });
+  D.wrong.forEach(function (w) { items.push({ code: w.loc, name: w.name, zone: '', kind: 'Wrong-spot test' }); });
+  D.staging.forEach(function (s) { items.push({ code: s, name: 'Staging line ' + s.slice(7), zone: '', kind: 'Staging line' }); });
+  return items;
+}
+function qrSheets(items) {
+  var cols = 3, rows = 8, m = 8, top = 9, W = (210 - 2 * m) / cols, H = (297 - top - m) / rows, per = cols * rows, out = '';
+  for (var p = 0; p < items.length; p += per) {
+    out += '<div class="a4"><h3>BM Picking demo · QR labels · page ' + (p / per + 1) + ' of ' + Math.ceil(items.length / per) + '</h3>';
+    items.slice(p, p + per).forEach(function (it, i) {
+      var c = i % cols, r = Math.floor(i / cols), sp = splitLoc(it.code), stage = /^STAGE/.test(it.code);
+      out += '<div class="ql" style="left:' + (m + c * W) + 'mm;top:' + (top + r * H) + 'mm;width:' + W + 'mm;height:' + H + 'mm"><div class="zs" style="background:' + (ZHEX[it.zone] || (stage ? '#0f766e' : '#999')) + '"></div>' + qrSvg(it.code, (H - 5).toFixed(1)) +
+        '<div class="t"><div class="c1">' + esc(stage ? it.code : sp.a) + '</div><div class="c2">' + esc(stage ? '' : sp.b) + '</div><div class="c3">' + esc(it.kind + ' · ' + it.name) + '</div></div></div>';
+    });
+    out += '</div>';
+  }
+  return out;
+}
+V.qr = function () {
+  var items = qrItems();
+  return '<div class="card"><h2>' + items.length + ' QR labels · ' + Math.ceil(items.length / 24) + ' A4 pages</h2><p class="hint">Every pick spot used in the mock orders, plus a few wrong spots to test the error, plus staging lines. Print on plain paper or A4 sticker sheets (24 per sheet), at 100% size. Or open this page on a laptop and scan from the screen.</p>' +
+    '<div class="row"><button id="qb">Back</button><button class="primary" id="qp">Print</button></div></div><div id="qrprev"></div>';
+};
+A.qr = function () {
+  dock(null);
+  document.getElementById('qb').onclick = function () { S.view = ''; save(); render(); };
+  document.getElementById('qp').onclick = function () { document.getElementById('print').innerHTML = qrSheets(qrItems()); setTimeout(function () { window.print(); }, 50); };
+  var pv = document.getElementById('qrprev');
+  if (!window.qrcode) { pv.innerHTML = '<p class="hint">The QR maker could not load. Check the internet.</p>'; return; }
+  pv.innerHTML = qrSheets(qrItems().slice(0, 24));
+  var sh = pv.querySelector('.a4'), sc = Math.min(1, (pv.clientWidth - 16) / sh.offsetWidth);
+  sh.style.transform = 'scale(' + sc + ')'; sh.style.transformOrigin = 'top left'; pv.style.height = (sh.offsetHeight * sc + 18) + 'px';
+};
+window.addEventListener('afterprint', function () { document.getElementById('print').innerHTML = ''; });
+
+/* ====================== start ====================== */
+document.getElementById('reset').onclick = function (e) {
+  e.preventDefault(); if (!confirm('Start the demo again? Orders done so far are cleared.')) return;
+  var p = S.picker; S = fresh(); S.picker = p; UI.msg = null; save(); render(); if (p) setTimeout(offerNext, 1200);
+};
+if (location.hash === '#qr') S.view = 'qr';
+render();
+if (S.picker && !S.cur && S.offered == null) setTimeout(offerNext, 1500);
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+</script>
+</body>
+</html>
