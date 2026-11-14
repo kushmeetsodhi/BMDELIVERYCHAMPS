@@ -57,7 +57,11 @@
     }
     area(0, 0, 16132, 3086, 'var(--map-office)', 'Office', 800);
     area(16132, 0, 12460, 3086, 'var(--map-office)', 'Office', 800);
-    area(28100, 27538, 3152, 6008, 'var(--map-office)', 'Office', 650);
+    // Cold room (chocolates), bottom right.
+    area(28100, 27538, 3152, 6008, 'var(--map-cold)', '', 0);
+    s += '<text x="29676" y="30150" font-size="560" text-anchor="middle" fill="var(--map-label)" font-weight="700">Chocolate</text>' +
+         '<text x="29676" y="30850" font-size="560" text-anchor="middle" fill="var(--map-label)" font-weight="700">room</text>' +
+         '<text x="29676" y="31650" font-size="460" text-anchor="middle" fill="var(--map-label)">(cold)</text>';
     area(1200, 30150, 14200, 1900, 'var(--map-stage)', 'STAGING', 900);
     area(1500, 32250, 12500, 1200, 'var(--map-office)', 'Order loading', 650);
     area(16500, 30150, 11300, 1700, 'var(--map-pack)', 'PACKING', 900);
