@@ -1,6 +1,6 @@
 // Mock orders for the BM Picking demo (generated from slotting plan v3 and Sep–Oct sales). Not real orders.
 window.BM_DEMO = {
-"version": "Demo · plan v3",
+"version": "Demo · plan v3 + chocolate room",
 "orders": [
 {
 "no": "SO-44323",
@@ -14,8 +14,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 2.1
+"bev": false
 },
 {
 "pid": "448",
@@ -24,8 +23,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "462",
@@ -34,8 +32,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 7,
 "case": 1,
-"bev": false,
-"walk": 18.2
+"bev": false
 },
 {
 "pid": "627",
@@ -44,18 +41,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 36,
 "case": 12,
-"bev": false,
-"walk": 13.8
-},
-{
-"pid": "195",
-"name": "Cadbury Dairy Milk Crispello Chocolate ₹10",
-"loc": "R05-B03-L0-P2-S1-1",
-"zone": "Biscuits & Confectionery",
-"qty": 24,
-"case": 480,
-"bev": false,
-"walk": 10.3
+"bev": false
 },
 {
 "pid": "1171",
@@ -64,8 +50,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 5,
 "case": 60,
-"bev": false,
-"walk": 16.1
+"bev": false
 },
 {
 "pid": "1148",
@@ -74,11 +59,28 @@ window.BM_DEMO = {
 "zone": "Non-food & Other food",
 "qty": 24,
 "case": 336,
-"bev": false,
-"walk": 15.9
+"bev": false
+},
+{
+"pid": "195",
+"name": "Cadbury Dairy Milk Crispello Chocolate ₹10",
+"loc": "CR-01-2-B",
+"zone": "Chocolates",
+"qty": 24,
+"case": 480,
+"bev": false
+},
+{
+"pid": "182",
+"name": "Cadbury Dairy Milk ₹20",
+"loc": "CR-01-4-A",
+"zone": "Chocolates",
+"qty": 48,
+"case": 480,
+"bev": false
 }
 ],
-"value": 1619
+"value": 2159
 },
 {
 "no": "SO-44327",
@@ -92,8 +94,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 5.5
+"bev": false
 },
 {
 "pid": "1013",
@@ -102,8 +103,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 18.2
+"bev": false
 },
 {
 "pid": "569",
@@ -112,8 +112,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 5,
 "case": 1,
-"bev": false,
-"walk": 23.9
+"bev": false
 },
 {
 "pid": "434",
@@ -122,8 +121,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 2.1
+"bev": false
 },
 {
 "pid": "449",
@@ -132,8 +130,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 9.0
+"bev": false
 },
 {
 "pid": "734",
@@ -142,8 +139,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 18.2
+"bev": false
 },
 {
 "pid": "463",
@@ -152,8 +148,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 5,
 "case": 1,
-"bev": false,
-"walk": 21.6
+"bev": false
 },
 {
 "pid": "445",
@@ -162,8 +157,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 11.5
+"bev": false
 },
 {
 "pid": "658",
@@ -172,8 +166,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 21.8
+"bev": false
 },
 {
 "pid": "493",
@@ -182,8 +175,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 144,
 "case": 144,
-"bev": false,
-"walk": 4.6
+"bev": false
 },
 {
 "pid": "229",
@@ -192,8 +184,25 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 36,
 "case": 96,
-"bev": false,
-"walk": 8.0
+"bev": false
+},
+{
+"pid": "1105",
+"name": "Cadbury Dairy Milk Silk Fruit & Nut Chocolate Bar ₹100",
+"loc": "CR-02-1-A",
+"zone": "Chocolates",
+"qty": 24,
+"case": 180,
+"bev": false
+},
+{
+"pid": "292",
+"name": "Cadbury Perk Chocolate Bar (pk 30) ₹5",
+"loc": "CR-05-2-A",
+"zone": "Chocolates",
+"qty": 48,
+"case": 720,
+"bev": false
 },
 {
 "pid": "1091",
@@ -202,8 +211,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 19.8
+"bev": true
 },
 {
 "pid": "788",
@@ -212,8 +220,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 25.6
+"bev": true
 },
 {
 "pid": "1047",
@@ -222,11 +229,10 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 48,
 "case": 24,
-"bev": true,
-"walk": 30.2
+"bev": true
 }
 ],
-"value": 5271
+"value": 6153
 },
 {
 "no": "SO-44330",
@@ -240,8 +246,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 12.4
+"bev": false
 },
 {
 "pid": "1078",
@@ -250,8 +255,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 19.3
+"bev": false
 },
 {
 "pid": "449",
@@ -260,8 +264,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 9.0
+"bev": false
 },
 {
 "pid": "516",
@@ -270,8 +273,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 20,
 "case": 10,
-"bev": false,
-"walk": 20.5
+"bev": false
 },
 {
 "pid": "2",
@@ -280,8 +282,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 48,
 "case": 12,
-"bev": true,
-"walk": 10.6
+"bev": true
 },
 {
 "pid": "91",
@@ -290,8 +291,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 23.3
+"bev": true
 },
 {
 "pid": "45",
@@ -300,8 +300,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 24.4
+"bev": true
 }
 ],
 "value": 2534
@@ -318,8 +317,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 5.5
+"bev": false
 },
 {
 "pid": "441",
@@ -328,8 +326,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 10.1
+"bev": false
 },
 {
 "pid": "443",
@@ -338,8 +335,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 4.4
+"bev": false
 },
 {
 "pid": "448",
@@ -348,8 +344,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "674",
@@ -358,8 +353,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 9.0
+"bev": false
 },
 {
 "pid": "414",
@@ -368,8 +362,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 20,
 "case": 10,
-"bev": false,
-"walk": 20.7
+"bev": false
 },
 {
 "pid": "423",
@@ -378,11 +371,28 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 20.7
+"bev": false
+},
+{
+"pid": "195",
+"name": "Cadbury Dairy Milk Crispello Chocolate ₹10",
+"loc": "CR-01-2-B",
+"zone": "Chocolates",
+"qty": 48,
+"case": 480,
+"bev": false
+},
+{
+"pid": "168",
+"name": "Cadbury, 5 Star Chocolate ₹10",
+"loc": "CR-01-3-B",
+"zone": "Chocolates",
+"qty": 48,
+"case": 480,
+"bev": false
 }
 ],
-"value": 1711
+"value": 2995
 },
 {
 "no": "SO-44339",
@@ -396,8 +406,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "439",
@@ -406,8 +415,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 17.0
+"bev": false
 },
 {
 "pid": "481",
@@ -416,8 +424,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 17.0
+"bev": false
 },
 {
 "pid": "496",
@@ -426,8 +433,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 20.5
+"bev": false
 },
 {
 "pid": "413",
@@ -436,8 +442,16 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 15.9
+"bev": false
+},
+{
+"pid": "169",
+"name": "Cadbury Dairy Milk ₹10",
+"loc": "CR-01-3-A",
+"zone": "Chocolates",
+"qty": 60,
+"case": 672,
+"bev": false
 },
 {
 "pid": "74",
@@ -446,8 +460,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 11.8
+"bev": true
 },
 {
 "pid": "19",
@@ -456,8 +469,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 15.2
+"bev": true
 },
 {
 "pid": "1026",
@@ -466,8 +478,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 48,
 "case": 24,
-"bev": true,
-"walk": 15.2
+"bev": true
 },
 {
 "pid": "1150",
@@ -476,11 +487,10 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 9,
 "case": 9,
-"bev": true,
-"walk": 26.7
+"bev": true
 }
 ],
-"value": 2030
+"value": 2618
 },
 {
 "no": "SO-44345",
@@ -494,8 +504,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 4.4
+"bev": false
 },
 {
 "pid": "448",
@@ -504,8 +513,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "628",
@@ -514,8 +522,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 13.6
+"bev": false
 },
 {
 "pid": "631",
@@ -524,8 +531,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 12.4
+"bev": false
 },
 {
 "pid": "512",
@@ -534,8 +540,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 13.6
+"bev": false
 },
 {
 "pid": "1052",
@@ -544,8 +549,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 20,
 "case": 10,
-"bev": false,
-"walk": 20.5
+"bev": false
 },
 {
 "pid": "646",
@@ -554,8 +558,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 17.2
+"bev": false
 },
 {
 "pid": "995",
@@ -564,8 +567,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 2,
 "case": 30,
-"bev": false,
-"walk": 20.7
+"bev": false
 },
 {
 "pid": "74",
@@ -574,8 +576,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 11.8
+"bev": true
 },
 {
 "pid": "77",
@@ -584,8 +585,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 16.4
+"bev": true
 },
 {
 "pid": "939",
@@ -594,8 +594,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 19.8
+"bev": true
 },
 {
 "pid": "32",
@@ -604,8 +603,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 21.0
+"bev": true
 }
 ],
 "value": 2789
@@ -622,8 +620,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 2.1
+"bev": false
 },
 {
 "pid": "489",
@@ -632,8 +629,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 5.5
+"bev": false
 },
 {
 "pid": "444",
@@ -642,8 +638,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "471",
@@ -652,8 +647,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 12.4
+"bev": false
 },
 {
 "pid": "432",
@@ -662,8 +656,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 6,
 "case": 10,
-"bev": false,
-"walk": 23.9
+"bev": false
 },
 {
 "pid": "352",
@@ -672,8 +665,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 36,
 "case": 18,
-"bev": false,
-"walk": 22.8
+"bev": false
 },
 {
 "pid": "434",
@@ -682,8 +674,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 2.1
+"bev": false
 },
 {
 "pid": "630",
@@ -692,8 +683,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "443",
@@ -702,8 +692,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 4.4
+"bev": false
 },
 {
 "pid": "422",
@@ -712,8 +701,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 36,
 "case": 12,
-"bev": false,
-"walk": 14.7
+"bev": false
 },
 {
 "pid": "677",
@@ -722,8 +710,16 @@ window.BM_DEMO = {
 "zone": "Non-food & Other food",
 "qty": 12,
 "case": 600,
-"bev": false,
-"walk": 17.0
+"bev": false
+},
+{
+"pid": "686",
+"name": "Snickers Stick (pack of 32) ₹20",
+"loc": "CR-01-2-A",
+"zone": "Chocolates",
+"qty": 48,
+"case": 12,
+"bev": false
 },
 {
 "pid": "49",
@@ -732,8 +728,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 90,
 "case": 30,
-"bev": true,
-"walk": 14.1
+"bev": true
 },
 {
 "pid": "68",
@@ -742,8 +737,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 15,
 "case": 15,
-"bev": true,
-"walk": 17.5
+"bev": true
 },
 {
 "pid": "89",
@@ -752,11 +746,10 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 26.7
+"bev": true
 }
 ],
-"value": 4698
+"value": 5281
 },
 {
 "no": "SO-44354",
@@ -770,8 +763,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 5.5
+"bev": false
 },
 {
 "pid": "450",
@@ -780,8 +772,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "434",
@@ -790,8 +781,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 36,
 "case": 12,
-"bev": false,
-"walk": 2.1
+"bev": false
 },
 {
 "pid": "443",
@@ -800,8 +790,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 4.4
+"bev": false
 },
 {
 "pid": "503",
@@ -810,8 +799,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 11.3
+"bev": false
 },
 {
 "pid": "413",
@@ -820,8 +808,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 15.9
+"bev": false
 },
 {
 "pid": "492",
@@ -830,8 +817,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 48,
 "case": 48,
-"bev": false,
-"walk": 5.7
+"bev": false
 },
 {
 "pid": "175",
@@ -840,8 +826,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 24,
 "case": 84,
-"bev": false,
-"walk": 6.9
+"bev": false
 },
 {
 "pid": "837",
@@ -850,8 +835,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 2,
 "case": 20,
-"bev": false,
-"walk": 6.9
+"bev": false
 },
 {
 "pid": "633",
@@ -860,8 +844,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 36,
 "case": 144,
-"bev": false,
-"walk": 8.0
+"bev": false
 },
 {
 "pid": "1390",
@@ -870,8 +853,25 @@ window.BM_DEMO = {
 "zone": "Non-food & Other food",
 "qty": 12,
 "case": 24,
-"bev": false,
-"walk": 19.3
+"bev": false
+},
+{
+"pid": "686",
+"name": "Snickers Stick (pack of 32) ₹20",
+"loc": "CR-01-2-A",
+"zone": "Chocolates",
+"qty": 48,
+"case": 12,
+"bev": false
+},
+{
+"pid": "168",
+"name": "Cadbury, 5 Star Chocolate ₹10",
+"loc": "CR-01-3-B",
+"zone": "Chocolates",
+"qty": 48,
+"case": 480,
+"bev": false
 },
 {
 "pid": "2",
@@ -880,8 +880,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 48,
 "case": 12,
-"bev": true,
-"walk": 10.6
+"bev": true
 },
 {
 "pid": "78",
@@ -890,8 +889,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 12.9
+"bev": true
 },
 {
 "pid": "19",
@@ -900,11 +898,10 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 15.2
+"bev": true
 }
 ],
-"value": 3649
+"value": 4633
 },
 {
 "no": "SO-44361",
@@ -918,8 +915,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "450",
@@ -928,8 +924,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 60,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "424",
@@ -938,8 +933,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 21.6
+"bev": false
 },
 {
 "pid": "438",
@@ -948,8 +942,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 10.1
+"bev": false
 },
 {
 "pid": "422",
@@ -958,8 +951,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 14.7
+"bev": false
 },
 {
 "pid": "1028",
@@ -968,8 +960,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 17.0
+"bev": false
 },
 {
 "pid": "493",
@@ -978,8 +969,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 84,
 "case": 144,
-"bev": false,
-"walk": 4.6
+"bev": false
 },
 {
 "pid": "1134",
@@ -988,8 +978,7 @@ window.BM_DEMO = {
 "zone": "Non-food & Other food",
 "qty": 12,
 "case": 336,
-"bev": false,
-"walk": 15.9
+"bev": false
 },
 {
 "pid": "78",
@@ -998,8 +987,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 12.9
+"bev": true
 },
 {
 "pid": "76",
@@ -1008,8 +996,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 15.2
+"bev": true
 }
 ],
 "value": 3289
@@ -1026,8 +1013,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 5.5
+"bev": false
 },
 {
 "pid": "461",
@@ -1036,8 +1022,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 12.4
+"bev": false
 },
 {
 "pid": "627",
@@ -1046,8 +1031,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 36,
 "case": 12,
-"bev": false,
-"walk": 13.8
+"bev": false
 },
 {
 "pid": "492",
@@ -1056,8 +1040,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 96,
 "case": 48,
-"bev": false,
-"walk": 5.7
+"bev": false
 },
 {
 "pid": "1326",
@@ -1066,8 +1049,25 @@ window.BM_DEMO = {
 "zone": "Non-food & Other food",
 "qty": 6,
 "case": 48,
-"bev": false,
-"walk": 21.6
+"bev": false
+},
+{
+"pid": "195",
+"name": "Cadbury Dairy Milk Crispello Chocolate ₹10",
+"loc": "CR-01-2-B",
+"zone": "Chocolates",
+"qty": 48,
+"case": 480,
+"bev": false
+},
+{
+"pid": "1158",
+"name": "Snickers Berry Whip Stick ₹30",
+"loc": "CR-06-2-B",
+"zone": "Chocolates",
+"qty": 24,
+"case": 12,
+"bev": false
 },
 {
 "pid": "49",
@@ -1076,8 +1076,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 90,
 "case": 30,
-"bev": true,
-"walk": 14.1
+"bev": true
 },
 {
 "pid": "64",
@@ -1086,8 +1085,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 15,
 "case": 15,
-"bev": true,
-"walk": 14.1
+"bev": true
 },
 {
 "pid": "69",
@@ -1096,8 +1094,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 9,
 "case": 9,
-"bev": true,
-"walk": 24.4
+"bev": true
 },
 {
 "pid": "790",
@@ -1106,11 +1103,10 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 30.2
+"bev": true
 }
 ],
-"value": 4264
+"value": 5248
 },
 {
 "no": "SO-44370",
@@ -1124,8 +1120,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 2.1
+"bev": false
 },
 {
 "pid": "518",
@@ -1134,8 +1129,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 13.6
+"bev": false
 },
 {
 "pid": "447",
@@ -1144,8 +1138,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 14.7
+"bev": false
 },
 {
 "pid": "635",
@@ -1154,8 +1147,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 18.2
+"bev": false
 },
 {
 "pid": "1084",
@@ -1164,8 +1156,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 21.6
+"bev": false
 },
 {
 "pid": "443",
@@ -1174,8 +1165,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 4.4
+"bev": false
 },
 {
 "pid": "438",
@@ -1184,8 +1174,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 10.1
+"bev": false
 },
 {
 "pid": "628",
@@ -1194,8 +1183,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 36,
 "case": 12,
-"bev": false,
-"walk": 13.6
+"bev": false
 },
 {
 "pid": "419",
@@ -1204,8 +1192,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 21.6
+"bev": false
 },
 {
 "pid": "490",
@@ -1214,8 +1201,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 8.0
+"bev": false
 },
 {
 "pid": "464",
@@ -1224,8 +1210,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 18.4
+"bev": false
 },
 {
 "pid": "492",
@@ -1234,8 +1219,16 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 48,
 "case": 48,
-"bev": false,
-"walk": 5.7
+"bev": false
+},
+{
+"pid": "182",
+"name": "Cadbury Dairy Milk ₹20",
+"loc": "CR-01-4-A",
+"zone": "Chocolates",
+"qty": 48,
+"case": 480,
+"bev": false
 },
 {
 "pid": "78",
@@ -1244,8 +1237,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 30,
 "case": 30,
-"bev": true,
-"walk": 12.9
+"bev": true
 },
 {
 "pid": "1051",
@@ -1254,11 +1246,10 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 18,
 "case": 9,
-"bev": true,
-"walk": 21.0
+"bev": true
 }
 ],
-"value": 3594
+"value": 4126
 },
 {
 "no": "SO-44375",
@@ -1272,8 +1263,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 5.5
+"bev": false
 },
 {
 "pid": "450",
@@ -1282,8 +1272,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 48,
 "case": 12,
-"bev": false,
-"walk": 6.7
+"bev": false
 },
 {
 "pid": "642",
@@ -1292,8 +1281,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 23.9
+"bev": false
 },
 {
 "pid": "443",
@@ -1302,8 +1290,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 4.4
+"bev": false
 },
 {
 "pid": "631",
@@ -1312,8 +1299,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 24,
 "case": 12,
-"bev": false,
-"walk": 12.4
+"bev": false
 },
 {
 "pid": "421",
@@ -1322,8 +1308,7 @@ window.BM_DEMO = {
 "zone": "Chips & Namkeen",
 "qty": 12,
 "case": 12,
-"bev": false,
-"walk": 17.0
+"bev": false
 },
 {
 "pid": "767",
@@ -1332,8 +1317,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 24,
 "case": 84,
-"bev": false,
-"walk": 6.9
+"bev": false
 },
 {
 "pid": "227",
@@ -1342,8 +1326,7 @@ window.BM_DEMO = {
 "zone": "Biscuits & Confectionery",
 "qty": 24,
 "case": 84,
-"bev": false,
-"walk": 8.0
+"bev": false
 },
 {
 "pid": "2",
@@ -1352,8 +1335,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 36,
 "case": 12,
-"bev": true,
-"walk": 10.6
+"bev": true
 },
 {
 "pid": "24",
@@ -1362,8 +1344,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 48,
 "case": 24,
-"bev": true,
-"walk": 10.6
+"bev": true
 },
 {
 "pid": "64",
@@ -1372,8 +1353,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 15,
 "case": 15,
-"bev": true,
-"walk": 14.1
+"bev": true
 },
 {
 "pid": "19",
@@ -1382,8 +1362,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 24,
 "case": 24,
-"bev": true,
-"walk": 15.2
+"bev": true
 },
 {
 "pid": "794",
@@ -1392,8 +1371,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 100,
 "case": 50,
-"bev": true,
-"walk": 16.4
+"bev": true
 },
 {
 "pid": "123",
@@ -1402,8 +1380,7 @@ window.BM_DEMO = {
 "zone": "Beverages & Water",
 "qty": 48,
 "case": 24,
-"bev": true,
-"walk": 22.1
+"bev": true
 }
 ],
 "value": 4658
@@ -1411,28 +1388,290 @@ window.BM_DEMO = {
 ],
 "wrong": [
 {
-"loc": "R02-B02-L0-P1-S3-1",
-"name": "Catch Garam Masala, 10G ₹10"
+"loc": "R02-B02-L0-P2-S4-1",
+"name": "HariDarshan Sai Large Dhoop ₹25"
 },
 {
-"loc": "R05-B06-L0-P1-S1-1",
-"name": "Parle G Royal biscuits ₹10"
+"loc": "R03-B09-L0-P2-S4-3",
+"name": "Aquafina, 250ML ₹7"
 },
 {
 "loc": "R04-B07-L0-P1-S3-1",
 "name": "Monster Energy Drink, 350 ml ₹125"
 },
 {
-"loc": "R05-B06-L0-P2-S3-2",
-"name": "Pulse Masaledar Pack Pouch ₹10"
+"loc": "R01-B02-L0-P1-S1-2",
+"name": "Dettol Soap Original (Pack of 4) ₹217"
 },
 {
 "loc": "R04-B06-L0-P1-S4",
 "name": "Arora Lemon ₹12"
 },
 {
-"loc": "R01-B03-L0-P2-S3-3",
-"name": "Catch Ginger Garlic, 200G ₹50"
+"loc": "R10-B08-L0-P1-S3-1",
+"name": "Jabsons Roasted Peanuts Nimbu Pudina ₹80"
+},
+{
+"loc": "CR-05-3-A",
+"name": "Cadbury Celebrations ₹50"
+},
+{
+"loc": "CR-05-3-B",
+"name": "Cadbury Dairy Milk Chocolate Bar ₹100"
+}
+],
+"chocRoom": [
+{
+"loc": "CR-01-3-A",
+"pid": "169",
+"name": "Cadbury Dairy Milk ₹10",
+"opd": 5.5
+},
+{
+"loc": "CR-01-3-B",
+"pid": "168",
+"name": "Cadbury, 5 Star Chocolate ₹10",
+"opd": 3.8
+},
+{
+"loc": "CR-01-2-A",
+"pid": "686",
+"name": "Snickers Stick (pack of 32) ₹20",
+"opd": 3.0
+},
+{
+"loc": "CR-01-2-B",
+"pid": "195",
+"name": "Cadbury Dairy Milk Crispello Chocolate ₹10",
+"opd": 2.3
+},
+{
+"loc": "CR-05-3-A",
+"pid": "1277",
+"name": "Cadbury Celebrations ₹50",
+"opd": 2.2
+},
+{
+"loc": "CR-05-3-B",
+"pid": "1099",
+"name": "Cadbury Dairy Milk Chocolate Bar ₹100",
+"opd": 2.0
+},
+{
+"loc": "CR-01-4-A",
+"pid": "182",
+"name": "Cadbury Dairy Milk ₹20",
+"opd": 1.9
+},
+{
+"loc": "CR-01-4-B",
+"pid": "1278",
+"name": "Cadbury Celebrations ₹110",
+"opd": 1.4
+},
+{
+"loc": "CR-05-2-A",
+"pid": "292",
+"name": "Cadbury Perk Chocolate Bar (pk 30) ₹5",
+"opd": 1.3
+},
+{
+"loc": "CR-05-2-B",
+"pid": "1279",
+"name": "Cadbury Celebrations ₹160",
+"opd": 1.3
+},
+{
+"loc": "CR-02-3-A",
+"pid": "993",
+"name": "Parle Kismi ₹2",
+"opd": 0.9
+},
+{
+"loc": "CR-02-3-B",
+"pid": "753",
+"name": "Horlicks Chocolate Jar ₹425",
+"opd": 0.8
+},
+{
+"loc": "CR-05-4-A",
+"pid": "291",
+"name": "Cadbury Perk Double Wafer Chocolate Bar (Pk 30) ₹10",
+"opd": 0.8
+},
+{
+"loc": "CR-05-4-B",
+"pid": "191",
+"name": "Cadbury Dairy Milk Chocolate Bar ₹45",
+"opd": 0.7
+},
+{
+"loc": "CR-02-2-A",
+"pid": "990",
+"name": "Parle Melody Chocolaty (Pk of 100 pcs) ₹100",
+"opd": 0.7
+},
+{
+"loc": "CR-02-2-B",
+"pid": "1107",
+"name": "Cadbury Perk ₹20",
+"opd": 0.6
+},
+{
+"loc": "CR-01-1-A",
+"pid": "1002",
+"name": "Parle Kismi PKT ₹47",
+"opd": 0.6
+},
+{
+"loc": "CR-01-1-B",
+"pid": "1282",
+"name": "Cadbury Celebrations Delights ₹150",
+"opd": 0.5
+},
+{
+"loc": "CR-06-3-A",
+"pid": "1160",
+"name": "Snickers Peanut Brownie Stick ₹30",
+"opd": 0.5
+},
+{
+"loc": "CR-06-3-B",
+"pid": "1106",
+"name": "Cadbury Dairy Milk Fruit N Nut Chocolate Bar ₹50",
+"opd": 0.5
+},
+{
+"loc": "CR-02-4-A",
+"pid": "1305",
+"name": "KinderJoy Girls ₹50",
+"opd": 0.4
+},
+{
+"loc": "CR-02-4-B",
+"pid": "1315",
+"name": "KinderJoy Boys ₹50",
+"opd": 0.4
+},
+{
+"loc": "CR-01-5-A",
+"pid": "1280",
+"name": "Cadbury Celebrations ₹275",
+"opd": 0.3
+},
+{
+"loc": "CR-01-5-B",
+"pid": "288",
+"name": "Cadbury Five Star Hulk Chocolate Bar (pk 28) ₹20",
+"opd": 0.3
+},
+{
+"loc": "CR-06-2-A",
+"pid": "1281",
+"name": "Cadbury Dairy Milk Silk Selection ₹350",
+"opd": 0.3
+},
+{
+"loc": "CR-06-2-B",
+"pid": "1158",
+"name": "Snickers Berry Whip Stick ₹30",
+"opd": 0.3
+},
+{
+"loc": "CR-05-1-A",
+"pid": "1108",
+"name": "Dairy Milk Crispello Chocolate ₹40",
+"opd": 0.2
+},
+{
+"loc": "CR-03-3-A",
+"pid": "994",
+"name": "Parle 2 in 1 Eclairs ₹50",
+"opd": 0.2
+},
+{
+"loc": "CR-05-1-B",
+"pid": "1159",
+"name": "Snickers Butterscotch Stick ₹30",
+"opd": 0.2
+},
+{
+"loc": "CR-03-3-B",
+"pid": "1157",
+"name": "Snickers Almond Stick ₹30",
+"opd": 0.2
+},
+{
+"loc": "CR-06-4-A",
+"pid": "1137",
+"name": "Complan Royal Chocolate, 500G ₹319",
+"opd": 0.2
+},
+{
+"loc": "CR-06-4-B",
+"pid": "980",
+"name": "Cadbury Dairy Milk Silk Bubbly ₹100",
+"opd": 0.2
+},
+{
+"loc": "CR-05-5-A",
+"pid": "1100",
+"name": "Cadbury Dairy Milk Silk Chocolate Bar ₹90",
+"opd": 0.1
+},
+{
+"loc": "CR-05-5-B",
+"pid": "982",
+"name": "Cadbury Dairy Milk Shots (Pack of 58) ₹2",
+"opd": 0.1
+},
+{
+"loc": "CR-03-2-A",
+"pid": "999",
+"name": "Parle Kismi Toffee Jar ₹752",
+"opd": 0.1
+},
+{
+"loc": "CR-03-2-B",
+"pid": "1103",
+"name": "Cadbury Dairy Milk Silk Oreo Chocolate Bar ₹100",
+"opd": 0.1
+},
+{
+"loc": "CR-02-1-A",
+"pid": "1105",
+"name": "Cadbury Dairy Milk Silk Fruit & Nut Chocolate Bar ₹100",
+"opd": 0.1
+},
+{
+"loc": "CR-02-1-B",
+"pid": "1101",
+"name": "Cadbury Dairy Milk Silk Roast Almond Chocolate Bar ₹100",
+"opd": 0.0
+},
+{
+"loc": "CR-07-3-A",
+"pid": "1102",
+"name": "Cadbury Dairy Milk Silk Hazelnut Chocolate Bar ₹100",
+"opd": 0.0
+},
+{
+"loc": "CR-07-3-B",
+"pid": "1104",
+"name": "Cadbury Dairy Milk Silk Mousse Chocolate Bar ₹100",
+"opd": 0.0
+},
+{
+"loc": "CR-03-4-A",
+"pid": "1131",
+"name": "Cadbury Dairy Milk Silk Ganache Chocolate Bar ₹100",
+"opd": 0.0
+},
+{
+"loc": "CR-03-4-B",
+"pid": "1138",
+"name": "Complan Royal Chocolate, 200G ₹155",
+"opd": 0.0
 }
 ],
 "staging": [

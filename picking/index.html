@@ -7,8 +7,8 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#0f766e" />
-<script src="demo-data.js?v=5a4f3285c9"></script>
-<script src="map.js?v=5a4f3285c9"></script>
+<script src="demo-data.js?v=581eca9f3a"></script>
+<script src="map.js?v=581eca9f3a"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 :root{
@@ -163,8 +163,8 @@ input{font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line)
 /* ====================== data & state ====================== */
 var D = window.BM_DEMO || { orders: [], wrong: [], staging: [] };
 var PICKERS = ['Ramesh', 'Suresh', 'Vikram', 'Sunil', 'Arjun', 'Deepak', 'Manoj', 'Rahul'];
-var ZCOL = { 'Beverages & Water': 'var(--z-bev)', 'Chips & Namkeen': 'var(--z-chips)', 'Biscuits & Confectionery': 'var(--z-bis)', 'Non-food & Other food': 'var(--z-nf)' };
-var ZHEX = { 'Beverages & Water': '#9DC3E6', 'Chips & Namkeen': '#F8CB7F', 'Biscuits & Confectionery': '#A9D18E', 'Non-food & Other food': '#C9B8E0' };
+var ZCOL = { 'Chocolates': '#C8A27C', 'Beverages & Water': 'var(--z-bev)', 'Chips & Namkeen': 'var(--z-chips)', 'Biscuits & Confectionery': 'var(--z-bis)', 'Non-food & Other food': 'var(--z-nf)' };
+var ZHEX = { 'Chocolates': '#C8A27C', 'Beverages & Water': '#9DC3E6', 'Chips & Namkeen': '#F8CB7F', 'Biscuits & Confectionery': '#A9D18E', 'Non-food & Other food': '#C9B8E0' };
 var REASONS = ['Not on the spot', 'Less stock than ordered', 'Damaged', 'Expired / near expiry'];
 
 // Every location in the demo, so a wrong scan can say what is really there.
@@ -181,12 +181,13 @@ if (!S.prefs) S.prefs = defPrefs();
 var UI = { msg: null, shake: false, qty: null, photos: [], animKey: '' };
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-function splitLoc(c) { var p = c.split('-'); return { a: p[0] + '-' + p[1], b: p.slice(2).join(' · ') }; }
+function splitLoc(c) { var p = c.split('-'); if (p[0] === 'CR') return { a: 'CR-' + p[1], b: 'Shelf ' + p[2] + ' · ' + p[3] }; return { a: p[0] + '-' + p[1], b: p.slice(2).join(' · ') }; }
+function isRoom(c) { return /^CR-/.test(c); }
 function mmss(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
 function packHint(l) {
   var u = l.zone === 'Chips & Namkeen' && l.case <= 24 ? ['ladi', 'ladis'] : ['case', 'cases'];
   if (l.case > 1 && l.qty % l.case === 0) return (l.qty / l.case) + ' ' + (l.qty / l.case === 1 ? u[0] : u[1]) + ' of ' + l.case;
-  if (l.qty >= 12 && l.qty % 12 === 0 && !l.bev) return (l.qty / 12) + ' × 12 (ladi / dozen)';
+  if (l.qty >= 12 && l.qty % 12 === 0 && !l.bev) return (l.qty / 12) + ' × 12 (' + (l.zone === 'Chips & Namkeen' ? 'ladi' : 'dozen') + ')';
   return 'pieces';
 }
 function beep(ok) {
@@ -232,7 +233,7 @@ function onScan(raw) {
     var l = curLine();
     if (code === l.loc) { c.scanned = true; UI.msg = { k: 'ok', t: 'Right spot. Pick ' + l.qty + ' and confirm.' }; beep(true); save(); render(); return; }
     beep(false); UI.shake = true;
-    if (l.loc.indexOf(code + '-') === 0) UI.msg = { k: 'err', t: 'That is the bay label. Scan the label on the pallet' + (/-S\d/.test(l.loc) ? ' section' : '') + ': ' + l.loc };
+    if (l.loc.indexOf(code + '-') === 0) UI.msg = { k: 'err', t: isRoom(l.loc) ? 'That is the unit label. Scan the label on shelf ' + l.loc.split('-')[2] + ', side ' + l.loc.split('-')[3] + ': ' + l.loc : 'That is the bay label. Scan the label on the pallet' + (/-S\d/.test(l.loc) ? ' section' : '') + ': ' + l.loc };
     else UI.msg = { k: 'err', t: 'Wrong spot: ' + code + (WHERE[code] ? ' holds ' + WHERE[code] : '') + '. Go to ' + l.loc + '.' };
     render(); return;
   }
@@ -247,7 +248,7 @@ function onScan(raw) {
 function pickLine(qty, reason) {
   var c = S.cur, l = curLine(), rec = c.lines[c.i];
   rec.picked = qty; rec.st = qty < l.qty ? 'short' : 'done'; rec.reason = reason || '';
-  var g = BMMAP.geom(l.loc); if (g) c.at = { x: g.ax, y: g.ty, ax: g.ax, ty: g.ty };
+  var g = BMMAP.geom(l.loc); if (g) c.at = BMMAP.spotPoint(g);
   UI.msg = rec.st === 'short' ? { k: 'info', t: 'Marked short: ' + qty + ' of ' + l.qty + ' (' + reason + '). Supervisor told (demo).' } : null;
   advance();
 }
@@ -326,7 +327,7 @@ function demoScan() {
     var l = curLine(), w = D.wrong[c.i % D.wrong.length];
     opts.push(['Right spot', l.loc, 'primary']);
     opts.push(['Wrong spot (to see the error)', w.loc, '']);
-    opts.push(['Bay label instead of pallet', l.loc.slice(0, 7), '']);
+    opts.push([isRoom(l.loc) ? 'Unit label instead of shelf' : 'Bay label instead of pallet', l.loc.split('-').slice(0, 2).join('-'), '']);
   } else if (c && c.phase === 'stage') {
     D.staging.slice(0, 6).forEach(function (s, k) { opts.push(['Staging line ' + (k + 1), s, k === 0 ? 'primary' : '']); });
   }
@@ -414,7 +415,7 @@ A.queue = function () {
   var a = document.getElementById('acc'); if (a) a.onclick = accept;
   var n = document.getElementById('now'); if (n) n.onclick = offerNext;
   document.getElementById('toqr').onclick = function (e) { e.preventDefault(); S.view = 'qr'; render(); };
-  document.getElementById('logout').onclick = function (e) { e.preventDefault(); S.picker = ''; S.offered = null; save(); render(); };
+  document.getElementById('logout').onclick = function (e) { e.preventDefault(); logout(false); };
   if (S.offered == null && S.next < D.orders.length) { clearTimeout(window.__ot); window.__ot = setTimeout(offerNext, 6000); }
 };
 
@@ -424,9 +425,10 @@ V.pick = function () {
   var h = '<div class="card" style="padding:10px 14px"><div class="row" style="justify-content:space-between"><div><b>' + esc(o.shop) + '</b><div class="hint" style="margin:0">' + esc(o.area) + '</div></div><div style="text-align:right;flex:none"><b>' + done + ' / ' + o.lines.length + '</b><div class="hint" style="margin:0" id="tm">' + mmss((Date.now() - c.start) / 1000) + '</div></div></div><div class="progress"><i style="width:' + (100 * done / o.lines.length) + '%"></i></div></div>';
   if (l.bev) h += '<div class="bev">Beverage: carry the cases straight to staging. Do not pack them.</div>';
   h += '<div class="loc"><div class="zs" style="background:' + ZCOL[l.zone] + '"></div><div class="lb"><div class="hint" style="margin:0">' + (c.scanned ? '✓ Spot confirmed' : 'Go to') + '</div><div class="code1">' + esc(parts.a) + '</div><div class="code2">' + esc(parts.b) + '</div>' +
-       '<div class="where">' + esc(l.zone) + ' · floor, ' + (lv && lv[2] === '1' ? 'front' : 'back') + ' of bay' + (sec ? ' · mixed pallet, section ' + esc(l.loc.split('-S')[1]) : '') + '</div>' +
+       '<div class="where">' + (isRoom(l.loc) ? 'Chocolate room (cold) · unit ' + (+l.loc.split('-')[1]) + ', shelf ' + l.loc.split('-')[2] + ' from the bottom, ' + (l.loc.split('-')[3] === 'A' ? 'left' : 'right') + ' half · close the door behind you'
+         : esc(l.zone) + ' · floor, ' + (lv && lv[2] === '1' ? 'front' : 'back') + ' of bay' + (sec ? ' · mixed pallet, section ' + esc(l.loc.split('-S')[1]) : '')) + '</div>' +
        '<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><p class="prod" style="margin-bottom:2px">' + esc(l.name) + '</p><div class="qty"><b>' + l.qty + '</b><span>' + esc(packHint(l)) + '</span></div>' +
-       (c.scanned ? '' : '<p class="hint" style="margin:8px 0 0">Scan the QR on this ' + (sec ? 'pallet section' : 'pallet') + ' to confirm the spot.</p>') + '</div></div></div>';
+       (c.scanned ? '' : '<p class="hint" style="margin:8px 0 0">Scan the QR on this ' + (isRoom(l.loc) ? 'shelf' : sec ? 'pallet section' : 'pallet') + ' to confirm the spot.</p>') + '</div></div></div>';
   h += lineMapHtml(l);
   h += '<div>';
   h += '</div><details class="card"><summary style="cursor:pointer;font-weight:600">All lines in this order</summary><div class="lines" style="margin-top:10px">' +
@@ -479,12 +481,14 @@ function lineMapHtml(l) {
   if (pr.lineMap === 'always' || (pr.lineMap === 'tap' && UI.mapOpen === S.cur.idx + ':' + S.cur.i)) {
     var m = Math.round(BMMAP.plen(lg.pts) / 1000);
     h += '<div class="mh"><span><b>' + (S.cur.at ? 'Next spot' : 'From packing') + '</b> · about ' + m + ' m</span><span>tap map to enlarge</span></div>' +
-      BMMAP.svg({ view: BMMAP.fit(lg.pts.concat([[lg.g.x, lg.g.ytop], [lg.g.x + 1000, lg.g.ytop + 2300]]), 2200, 0.56), legs: [{ pts: lg.pts, cls: l.bev ? 'bev' : '' }], target: lg.g, walker: lg.pts[0] });
+      BMMAP.svg({ view: BMMAP.fit(lg.pts.concat([[lg.g.x, lg.g.ytop], [lg.g.x + lg.g.bw, lg.g.ytop + lg.g.bh]]), 2200, 0.56), legs: [{ pts: lg.pts, cls: l.bev ? 'bev' : '' }], target: lg.g, walker: lg.pts[0] });
   } else if (pr.lineMap === 'tap') {
     h += '<button class="block" id="openmap">🗺 Show on map</button>';
   }
   if (pr.closeup) {
-    h += '<div class="cus"><div><div class="ct">Bay ' + esc(l.loc.slice(0, 7)) + ' from the aisle</div>' + BMMAP.bayFront(lg.g) + '</div>' +
+    if (lg.g.room) h += '<div class="cus"><div><div class="ct">Unit ' + esc(l.loc.slice(0, 5)) + ' from the aisle</div>' + BMMAP.shelfFront(lg.g) + '</div>' +
+      '<div><div class="ct">Cold room</div><div style="padding:14px 6px;font-size:13px;color:var(--muted)">Chocolates are picked last, just before packing, so they stay cold. Keep the door shut.</div></div></div>';
+    else h += '<div class="cus"><div><div class="ct">Bay ' + esc(l.loc.slice(0, 7)) + ' from the aisle</div>' + BMMAP.bayFront(lg.g) + '</div>' +
       (lg.g.sec ? '<div><div class="ct">Mixed pallet, from above</div>' + BMMAP.palletTop(lg.g) + '</div>'
                 : '<div><div class="ct">Own pallet</div><div style="padding:22px 6px;font-size:13px;color:var(--muted)">The whole pallet is this product. Pick from the front.</div></div>') + '</div>';
   }
@@ -523,7 +527,7 @@ function showRoute(auto) {
   if (!main.length) stopAt = stops.map(function (s) { return Math.min(1, s.len / (total || 1)); });
   var box = document.createElement('div'); box.className = 'routebox';
   box.innerHTML = '<h2>' + esc(o.no) + ' · ' + o.lines.length + ' stops · about ' + Math.round(total / 1000) + ' m</h2>' +
-    '<div class="lg"><span><i style="background:var(--accent)"></i>Pick, then bags to packing</span>' + (bev.length ? '<span><i style="background:var(--map-bev)"></i>Beverages to staging</span>' : '') + '<span>Numbers = order of the pick list</span></div>' +
+    '<div class="lg"><span><i style="background:var(--accent)"></i>Pick, then bags to packing</span>' + (bev.length ? '<span><i style="background:var(--map-bev)"></i>Beverages to staging</span>' : '') + (stops.some(function (s) { return s.g.room; }) ? '<span><i style="background:#C8A27C"></i>Chocolate room last</span>' : '') + '<span>Numbers = order of the pick list</span></div>' +
     BMMAP.svg({ legs: legs, stops: stops }) + '<button class="primary block" id="rgo" style="margin-top:10px">' + (c.lines.some(function (x) { return x.st !== 'todo'; }) ? 'Back to picking' : 'Start picking') + '</button>';
   document.body.appendChild(box);
   var ms = Math.min(4200, 1600 + o.lines.length * 180);
@@ -536,12 +540,15 @@ function showRoute(auto) {
 function prefsDialog() {
   var p = S.prefs;
   function seg(key, opts) { return '<div class="seg">' + opts.map(function (o) { return '<button data-k="' + key + '" data-v="' + o[0] + '" class="' + (String(p[key]) === String(o[0]) ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>'; }
-  modal('<h2 style="margin:0 0 4px">Map settings</h2><p class="hint">Saved on this phone.</p>' +
+  modal('<h2 style="margin:0 0 4px">Settings</h2><h2 style="margin:10px 0 2px;font-size:14px">Map</h2><p class="hint">Saved on this phone.</p>' +
     '<div class="toggle"><div>Route at order start<small>Whole trip on the map before picking</small></div>' + seg('route', [[true, 'On'], [false, 'Off']]) + '</div>' +
     '<div class="toggle"><div>Map on each line<small>Path from where you are to the next spot</small></div>' + seg('lineMap', [['always', 'Always'], ['tap', 'Tap'], ['off', 'Off']]) + '</div>' +
     '<div class="toggle"><div>Spot close-up<small>Bay from the aisle; mixed-pallet section</small></div>' + seg('closeup', [[true, 'On'], [false, 'Off']]) + '</div>' +
     '<div class="toggle"><div>Animations<small>Off = still pictures (also off if the phone asks for less motion)</small></div>' + seg('anim', [[true, 'On'], [false, 'Off']]) + '</div>' +
+    '<h2 style="margin:16px 0 4px">Demo</h2><div class="grid2"><button id="pswitch">Switch picker</button><button class="danger" id="preset">Reset everything</button></div>' +
     '<button class="primary block" id="pd" style="margin-top:12px">Done</button>', function (m) {
+      m.querySelector('#pswitch').onclick = function () { m.remove(); logout(false); };
+      m.querySelector('#preset').onclick = function () { m.remove(); logout(true); };
       m.querySelectorAll('[data-k]').forEach(function (b) {
         b.onclick = function () {
           var k = b.getAttribute('data-k'), v = b.getAttribute('data-v'); p[k] = v === 'true' ? true : v === 'false' ? false : v; save();
@@ -599,10 +606,16 @@ window.addEventListener('afterprint', function () { document.getElementById('pri
 
 /* ====================== start ====================== */
 document.getElementById('gear').onclick = prefsDialog;
-document.getElementById('reset').onclick = function (e) {
-  e.preventDefault(); if (!confirm('Start the demo again? Orders done so far are cleared.')) return;
-  var p = S.picker; S = fresh(); S.picker = p; UI.msg = null; save(); render(); if (p) setTimeout(offerNext, 1200);
-};
+// Back to the picker list. Reset also clears orders done, so the demo starts from the first order.
+function logout(reset) {
+  if (S.cur && !confirm('An order is open. Leave it?')) return;
+  if (reset && !confirm('Reset the demo? All orders done are cleared and you go back to the picker list.')) return;
+  var prefs = S.prefs;
+  if (reset) { S = fresh(); S.prefs = prefs; }
+  else { if (S.cur) { S.next = S.cur.idx; S.cur = null; } S.offered = null; S.picker = ''; }
+  S.view = ''; UI.msg = null; UI.animKey = ''; clearTimeout(window.__ot); save(); render(); window.scrollTo(0, 0);
+}
+document.getElementById('reset').onclick = function (e) { e.preventDefault(); logout(true); };
 if (location.hash === '#qr') S.view = 'qr';
 render();
 if (S.picker && !S.cur && S.offered == null) setTimeout(offerNext, 1500);

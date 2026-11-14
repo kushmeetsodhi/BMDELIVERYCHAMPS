@@ -15,30 +15,56 @@
   var ZF = { bev: '#9DC3E6', chips: '#F8CB7F', bis: '#A9D18E', nf: '#C9B8E0' };
   var PACK = { x: 22150, y: 30150 }, STAGE = { x: 8300, y: 30150 };
 
+  // Chocolate (cold) room, bottom right: door in the middle of its top wall, an aisle down the
+  // middle, shelving units 1-4 on the left wall and 5-8 on the right, 1200 mm long, 5 shelves.
+  var ROOM = { x: 28100, y: 27538, w: 3152, h: 6008, door: 29676, unitY0: 28000, unitGap: 1300 };
+  // Aisle A6 (beside R10) and the room are reached through the open floor where R10's
+  // last two bays would be: up at CX, across at CY.
+  var CX = 27300, CY = 26200;
+
   function nbays(row) { return row >= 9 ? 8 : 10; }
   function geom(code) {
-    var m = String(code).match(/^R(\d\d)-B(\d\d)-L(\d)-P(\d)(?:-S(\d)(?:-(\d))?)?$/);
+    var c = String(code), m = c.match(/^CR-(\d\d)-(\d)-([AB])$/);
+    if (m) {
+      var u = +m[1], i = (u - 1) % 4, left = u <= 4, yt = ROOM.unitY0 + i * ROOM.unitGap;
+      var ux = left ? ROOM.x + 100 : ROOM.x + ROOM.w - 600;
+      return { code: c, room: true, unit: u, shelf: +m[2], half: m[3], x: ux, y: yt, w: 500, h: 1200, ytop: yt, bw: 500, bh: 1200,
+               sx: ux + 250, ty: yt + 600, cx: ROOM.door, ch: 'CR', west: left };
+    }
+    m = c.match(/^R(\d\d)-B(\d\d)-L(\d)-P(\d)(?:-S(\d)(?:-(\d))?)?$/);
     if (!m) return null;
     var row = +m[1], bay = +m[2], lv = +m[3], pos = +m[4];
     var ytop = Y0 + (nbays(row) - bay) * BAY, py = pos === 1 ? ytop + 1150 : ytop;
-    return { code: code, row: row, bay: bay, level: lv, pos: pos, sec: m[5] ? +m[5] : 0, part: m[6] ? +m[6] : 0,
-             x: RX[row], y: py, w: 1000, h: 1150, ax: AX[row], ty: py + 575, ytop: ytop, west: RX[row] < AX[row] };
+    return { code: c, row: row, bay: bay, level: lv, pos: pos, sec: m[5] ? +m[5] : 0, part: m[6] ? +m[6] : 0,
+             x: RX[row], y: py, w: 1000, h: 1150, ytop: ytop, bw: 1000, bh: BAY, sx: RX[row] + 500,
+             ax: AX[row], cx: AX[row], ch: 'A' + AX[row], ty: py + 575, west: RX[row] < AX[row] };
   }
+  var BACK = { A29353: 1, CR: 1 };   // channels reached via the corridor at CX/CY
+  // From the front aisle to a spot.
+  function approach(g) {
+    if (BACK[g.ch]) return [[CX, FY], [CX, CY], [g.cx, CY], [g.cx, g.ty]];
+    return [[g.cx, FY], [g.cx, g.ty]];
+  }
+  // From a spot back out to the front aisle.
+  function exitPts(p) { return approach(p).reverse().slice(1); }
 
   // Walking points from a place (packing, staging or a spot) to a spot.
   function leg(from, to) {
     var pts = [[from.x, from.y]];
-    if (from.ax != null && from.ax === to.ax) { pts.push([to.ax, from.ty]); pts.push([to.ax, to.ty]); return pts; }
-    if (from.ax != null) { pts.push([from.ax, from.ty]); pts.push([from.ax, FY]); }
+    if (from.ch && from.ch === to.ch) { pts.push([to.cx, to.ty]); return pts; }
+    if (from.ch && BACK[from.ch] && BACK[to.ch]) { pts.push([from.cx, CY], [to.cx, CY], [to.cx, to.ty]); return pts; }
+    if (from.ch) exitPts(from).forEach(function (q) { pts.push(q); });
     else pts.push([from.x, FY]);
-    pts.push([to.ax, FY]); pts.push([to.ax, to.ty]);
+    approach(to).forEach(function (q) { pts.push(q); });
     return pts;
   }
   function legHome(from, home) {
-    var pts = [[from.ax, from.ty], [from.ax, FY], [home.x, FY], [home.x, home.y]];
+    var pts = [[from.cx, from.ty]];
+    exitPts(from).forEach(function (q) { pts.push(q); });
+    pts.push([home.x, FY], [home.x, home.y]);
     return pts;
   }
-  function spotPoint(g) { return { x: g.ax, y: g.ty, ax: g.ax, ty: g.ty }; }
+  function spotPoint(g) { return { x: g.cx, y: g.ty, cx: g.cx, ty: g.ty, ch: g.ch }; }
   function dPath(pts) {
     var d = '', last = null;
     pts.forEach(function (p) { if (last && last[0] === p[0] && last[1] === p[1]) return; d += (d ? 'L' : 'M') + p[0] + ' ' + p[1]; last = p; });
@@ -57,11 +83,16 @@
     }
     area(0, 0, 16132, 3086, 'var(--map-office)', 'Office', 800);
     area(16132, 0, 12460, 3086, 'var(--map-office)', 'Office', 800);
-    // Cold room (chocolates), bottom right.
-    area(28100, 27538, 3152, 6008, 'var(--map-cold)', '', 0);
-    s += '<text x="29676" y="30150" font-size="560" text-anchor="middle" fill="var(--map-label)" font-weight="700">Chocolate</text>' +
-         '<text x="29676" y="30850" font-size="560" text-anchor="middle" fill="var(--map-label)" font-weight="700">room</text>' +
-         '<text x="29676" y="31650" font-size="460" text-anchor="middle" fill="var(--map-label)">(cold)</text>';
+    // Chocolate (cold) room, bottom right, with its shelving units.
+    area(ROOM.x, ROOM.y, ROOM.w, ROOM.h, 'var(--map-cold)', '', 0);
+    s += '<line x1="' + (ROOM.door - 700) + '" y1="' + ROOM.y + '" x2="' + (ROOM.door + 700) + '" y2="' + ROOM.y + '" stroke="var(--map-floor)" stroke-width="160"/>';
+    for (var u = 1; u <= 8; u++) {
+      var gu = geom('CR-' + (u < 10 ? '0' : '') + u + '-1-A');
+      s += '<rect x="' + gu.x + '" y="' + gu.y + '" width="500" height="1200" fill="#C8A27C" fill-opacity=".75" stroke="var(--map-rack)" stroke-width="40"/>';
+      s += '<text x="' + gu.sx + '" y="' + (gu.y + 600) + '" font-size="300" text-anchor="middle" dominant-baseline="central" fill="var(--map-label)" font-weight="700">' + u + '</text>';
+    }
+    s += '<text x="' + ROOM.door + '" y="' + (ROOM.y + ROOM.h - 650) + '" font-size="420" text-anchor="middle" fill="var(--map-label)" font-weight="700">Chocolate</text>' +
+         '<text x="' + ROOM.door + '" y="' + (ROOM.y + ROOM.h - 200) + '" font-size="420" text-anchor="middle" fill="var(--map-label)" font-weight="700">room</text>';
     area(1200, 30150, 14200, 1900, 'var(--map-stage)', 'STAGING', 900);
     area(1500, 32250, 12500, 1200, 'var(--map-office)', 'Order loading', 650);
     area(16500, 30150, 11300, 1700, 'var(--map-pack)', 'PACKING', 900);
@@ -89,15 +120,15 @@
     var s = '<svg class="wmap" viewBox="' + v.join(' ') + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">' + base();
     if (o.target) {
       var t = o.target;
-      s += '<rect class="tgt-bay" x="' + (t.x - 160) + '" y="' + (t.ytop - 160) + '" width="1320" height="' + (BAY + 320) + '" rx="200"/>';
-      s += '<rect class="tgt" x="' + t.x + '" y="' + t.y + '" width="1000" height="1150"/>';
+      s += '<rect class="tgt-bay" x="' + (t.x - 160) + '" y="' + (t.ytop - 160) + '" width="' + (t.bw + 320) + '" height="' + (t.bh + 320) + '" rx="200"/>';
+      s += '<rect class="tgt" x="' + t.x + '" y="' + t.y + '" width="' + t.w + '" height="' + t.h + '"/>';
     }
     (o.legs || []).forEach(function (l, i) {
       s += '<path class="leg ' + (l.cls || '') + '" data-leg="' + i + '" d="' + dPath(l.pts) + '" stroke-width="' + sw + '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
     });
     (o.stops || []).forEach(function (st, i) {
       var g = st.g, r = Math.max(420, v[2] / 55);
-      s += '<g class="stop ' + (st.cls || '') + '" data-stop="' + i + '"><circle cx="' + (g.x + 500) + '" cy="' + g.ty + '" r="' + r + '"/><text x="' + (g.x + 500) + '" y="' + g.ty + '" font-size="' + (r * 1.15) + '" text-anchor="middle" dominant-baseline="central">' + st.n + '</text></g>';
+      s += '<g class="stop ' + (st.cls || '') + '" data-stop="' + i + '"><circle cx="' + g.sx + '" cy="' + g.ty + '" r="' + r + '"/><text x="' + g.sx + '" y="' + g.ty + '" font-size="' + (r * 1.15) + '" text-anchor="middle" dominant-baseline="central">' + st.n + '</text></g>';
     });
     if (o.walker) s += '<circle class="walker" cx="' + o.walker[0] + '" cy="' + o.walker[1] + '" r="' + Math.max(380, v[2] / 50) + '"/>';
     return s + '</svg>';
@@ -190,6 +221,24 @@
     return s + '</svg>';
   }
 
+  // Front view of a chocolate-room shelving unit: 5 shelves, halves A (left) and B (right).
+  function shelfFront(g) {
+    var s = '<svg class="closeup" viewBox="0 0 240 210" xmlns="http://www.w3.org/2000/svg">', x0 = 40, y0 = 10, w = 170, sh = 34;
+    s += '<rect x="' + (x0 - 6) + '" y="' + y0 + '" width="6" height="' + (sh * 5 + 8) + '" fill="var(--map-rack)"/><rect x="' + (x0 + w) + '" y="' + y0 + '" width="6" height="' + (sh * 5 + 8) + '" fill="var(--map-rack)"/>';
+    for (var n = 5; n >= 1; n--) {
+      var y = y0 + (5 - n) * sh;
+      s += '<text x="' + (x0 - 12) + '" y="' + (y + sh / 2) + '" font-size="11" text-anchor="end" dominant-baseline="central" fill="var(--muted)">' + n + '</text>';
+      ['A', 'B'].forEach(function (hf, k) {
+        var hit = n === g.shelf && hf === g.half;
+        s += '<rect x="' + (x0 + k * w / 2 + 3) + '" y="' + (y + 4) + '" width="' + (w / 2 - 6) + '" height="' + (sh - 10) + '" rx="4" class="' + (hit ? 'cu-hit' : 'cu-slot') + '"/>';
+        s += '<text x="' + (x0 + k * w / 2 + w / 4) + '" y="' + (y + sh / 2 - 1) + '" font-size="11" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="' + (hit ? '#fff' : 'var(--muted)') + '">' + hf + '</text>';
+      });
+      s += '<rect x="' + (x0 - 2) + '" y="' + (y + sh - 6) + '" width="' + (w + 4) + '" height="4" fill="var(--map-rack)"/>';
+    }
+    s += '<text x="' + (x0 + w / 2) + '" y="' + (y0 + sh * 5 + 24) + '" font-size="10" text-anchor="middle" fill="var(--muted)">Shelf 1 = bottom · A left, B right</text>';
+    return s + '</svg>';
+  }
+
   window.BMMAP = { W: W, H: H, PACK: PACK, STAGE: STAGE, geom: geom, leg: leg, legHome: legHome, spotPoint: spotPoint, plen: plen,
-                   svg: svg, fit: fit, animate: animate, bayFront: bayFront, palletTop: palletTop };
+                   svg: svg, fit: fit, animate: animate, bayFront: bayFront, palletTop: palletTop, shelfFront: shelfFront };
 })();

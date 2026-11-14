@@ -62,4 +62,8 @@ scan a staging line. Beverages are flagged to go straight to staging.
 Maps (`picking/map.js`, drawn to scale from the rack layout): the whole route when an
 order starts, the path to each next spot, and a close-up of the bay and the mixed-pallet
 section. Each can be switched off under ⚙ on the phone.
+Chocolates are in the cold room (bottom right): 8 shelving units × 5 shelves × A/B halves,
+codes like CR-03-2-A (demo layout, fastest chocolates on waist-height shelves near the
+door). Chocolate lines are picked last, just before packing.
+⚙ → Demo: Switch picker / Reset everything (back to the picker list).
 QR labels to scan: https://kushmeetsodhi.github.io/BMDELIVERYCHAMPS/picking/#qr
