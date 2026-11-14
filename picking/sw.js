@@ -2,10 +2,10 @@
 // The version changes on every build, which is how phones pick up a
 // new release: the new worker installs, clears the old cache, and the
 // next open runs the new code.
-var VERSION = 'bcd45ab6f5';
+var VERSION = '30e46bd066';
 var PREFIX = 'bm-pk-';
 var CACHE = PREFIX + VERSION;
-var SHELL = ['./', 'index.html', 'demo-data.js', 'manifest.webmanifest',
+var SHELL = ['./', 'index.html', 'demo-data.js', 'map.js', 'manifest.webmanifest',
              'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (ev) {
