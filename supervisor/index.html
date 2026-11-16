@@ -1379,6 +1379,8 @@ function assignHTML(d){
     var open = state.asMove === r.code;
     var cls = r.status === 'Waiting' ? 'b-grey' : r.status === 'Given out' ? 'b-blue' : statusCls(r.status);
     var label = r.status === 'Waiting' ? 'Not taken' : r.status === 'Given out' ? 'Picked' : r.status;
+    var cv = r.cover || null;
+    if (cv) { label = cv.type === 'Hold' ? 'On hold' : 'Outside staff'; cls = 'b-warn'; }
     var line = '<div class="card" style="padding:11px 12px;">' +
       '<div class="row"><div class="seq">' + r.n + '</div>' +
       '<div class="grow"><div class="ttl" style="font-size:14px;">' + esc(r.da || 'Nobody yet') + '</div>' +
@@ -1389,7 +1391,23 @@ function assignHTML(d){
          /^Picked \(/.test(r.how || '') ? ' \u00b7 ' + esc(r.how.replace('Picked', 'picked')) + (r.at ? ' ' + esc(r.at) : '') :
          r.how === 'Picked' && r.at ? ' \u00b7 picked ' + esc(r.at) : '') + '</div></div>' +
       badge(label, cls) + '</div>';
-    if (r.status !== 'Trip ended') {
+    if (cv) {
+      line += '<div class="fnt" style="margin-top:8px; padding:7px 9px; border-radius:8px; background:var(--amber-bg); color:var(--ink);">' +
+        (cv.type === 'Hold'
+          ? '<b>On hold</b> — ' + esc(cv.reason || '')
+          : '<b>Outside staff:</b> ' + esc(cv.name) + ' · <a href="tel:' + esc(cv.phone) + '">' + esc(cv.phone) + '</a>' +
+            (cv.reason ? '<br>' + esc(cv.reason) : '')) +
+        '<br><span style="opacity:.75;">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') + '. SOs and support can see this.</span></div>';
+    }
+    if (r.status === 'Waiting' || r.status === 'Given out') {
+      if (state.asCover === r.code) { line += assignCoverHTML(r); }
+      else if (!open) {
+        line += '<div class="row" style="margin-top:9px; gap:8px;"><button class="btn sm ghost" data-a="cv-open" data-code="' + esc(r.code) + '">' +
+          (cv ? 'Change staff / hold' : 'Outside staff / hold') + '</button><span class="grow"></span>' +
+          '<button class="btn sm ghost" data-a="as-move" data-code="' + esc(r.code) + '">' +
+          (r.da ? 'Move to another DA' : 'Give to a DA') + '</button></div>';
+      } else { line += assignMoveHTML(d, r); }
+    } else if (r.status !== 'Trip ended') {
       line += open ? assignMoveHTML(d, r)
         : '<div class="row" style="margin-top:9px;"><span class="grow"></span>' +
           '<button class="btn sm ghost" data-a="as-move" data-code="' + esc(r.code) + '">' +
@@ -1408,6 +1426,50 @@ function assignHTML(d){
       }).join('') + '</div>';
   }
   return h;
+}
+
+// Outside (third-party) staff have no login: the supervisor types who they
+// are, or marks the vehicle on hold. SOs and support see it on the order.
+function assignCoverHTML(r){
+  var mode = state.asCvMode || (r.cover ? (r.cover.type === 'Hold' ? 'hold' : 'staff') : 'staff');
+  var cv = r.cover || {};
+  var v = function(k, dflt){ return state[k] != null ? state[k] : (dflt || ''); };
+  var seg = function(m, t){
+    return '<button class="btn sm ' + (mode === m ? '' : 'ghost') + '" data-a="cv-mode" data-m="' + m + '" style="flex:1;">' + t + '</button>';
+  };
+  return '<div style="margin-top:10px;">' +
+    '<div class="row" style="gap:8px;">' + seg('staff', 'Outside staff') + seg('hold', 'On hold') + '</div>' +
+    (mode === 'staff'
+      ? '<input type="text" id="cv-name" style="margin-top:8px;" placeholder="Staff name" value="' + esc(v('asCvName', cv.name)) + '" />' +
+        '<input type="tel" id="cv-phone" inputmode="numeric" maxlength="14" style="margin-top:8px;" placeholder="10-digit phone number" value="' + esc(v('asCvPhone', cv.phone)) + '" />' +
+        '<input type="text" id="cv-why" style="margin-top:8px;" placeholder="Note (optional), e.g. DA absent" value="' + esc(v('asCvWhy', '')) + '" />'
+      : '<input type="text" id="cv-why" style="margin-top:8px;" placeholder="Why is it on hold? (required)" value="' + esc(v('asCvWhy', cv.type === 'Hold' ? cv.reason : '')) + '" />') +
+    '<div class="fnt" style="margin-top:6px;">SOs and the support desk will see this on every order of ' + esc(r.code) + '.</div>' +
+    '<div class="row" style="margin-top:9px; gap:8px;"><button class="btn sm ghost" data-a="cv-cancel">Cancel</button>' +
+    (r.cover ? '<button class="btn sm ghost red" data-a="cv-clear" data-code="' + esc(r.code) + '">Remove</button>' : '') +
+    '<span class="grow"></span><button class="btn sm" data-a="cv-save" data-code="' + esc(r.code) + '">Save</button></div></div>';
+}
+
+function cvCapture(){
+  var n = document.getElementById('cv-name'), p = document.getElementById('cv-phone'), w = document.getElementById('cv-why');
+  if (n) state.asCvName = n.value;
+  if (p) state.asCvPhone = p.value;
+  if (w) state.asCvWhy = w.value;
+}
+
+function cvSend(code, mode){
+  state.error = ''; state.updating = true; render();
+  api('setRouteCover', { code: code, mode: mode, name: state.asCvName || '', phone: state.asCvPhone || '', reason: state.asCvWhy || '' }).then(function(res){
+    state.updating = false;
+    if (res && res.success) {
+      state.data.assign = res; state.loadedAt.assign = Date.now();
+      state.asCover = null; state.asCvMode = null; state.asCvName = null; state.asCvPhone = null; state.asCvWhy = null;
+      state.note = res.note || 'Saved.';
+    } else {
+      state.error = (res && res.error) || 'Could not save that.';
+    }
+    if (state.view === 'assign') render();
+  });
 }
 
 function assignMoveHTML(d, r){
@@ -1787,6 +1849,17 @@ function doneSequenceHTML(orders, cls){
     '<div style="font-size:12px;margin-bottom:2px;"><b>Done in this order</b> \u00b7 ' + verdict + '</div>' + pills + '</div>';
 }
 
+// Outside staff or a hold on a route no DA has started.
+function coverBannerHTML(cv){
+  if (!cv) return '';
+  return '<div class="card" style="padding:10px 12px; background:var(--amber-bg);">' +
+    (cv.type === 'Hold'
+      ? '<b>On hold</b> — ' + esc(cv.reason || '')
+      : '<b>With outside staff:</b> ' + esc(cv.name) + ' · <a href="tel:' + esc(cv.phone) + '">' + esc(cv.phone) + '</a>' +
+        (cv.reason ? '<br>' + esc(cv.reason) : '')) +
+    '<div class="fnt">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') + '</div></div>';
+}
+
 function routeHTML(){
   var d = state.routeData;
   if (!d) return '<div class="spin">Loading route…</div>';
@@ -1796,7 +1869,7 @@ function routeHTML(){
     if (counts[o.status] != null) counts[o.status]++; else counts.other++;
   });
 
-  var html = '<div class="card">' +
+  var html = coverBannerHTML(d.trip ? null : d.cover) + '<div class="card">' +
     '<div class="row"><div class="grow"><div class="ttl">' + esc(cleanName(t.daName) || 'Unassigned') + '</div>' +
       '<div class="mut">' + esc(d.code) + (t.vehicleNo ? ' · ' + esc(t.vehicleNo) : '') + '</div>' +
       '<div class="fnt">Out ' + esc(t.tripStart || '—') +
@@ -1939,6 +2012,7 @@ function lookupHTML(){
   }
 
   var t = d.trip || {};
+  html += coverBannerHTML(d.trip ? null : d.cover);
   html += '<div class="card tap" data-a="route" data-code="' + esc(d.code) + '">' +
     '<div class="row"><div class="grow"><div class="ttl">' + esc(cleanName(t.daName) || 'Unassigned') + '</div>' +
     '<div class="mut">Route ' + esc(d.code) + (t.vehicleNo ? ' · ' + esc(t.vehicleNo) : '') + '</div></div>' +
@@ -2345,6 +2419,17 @@ function onClick(ev){
   if (a === 'as-go')     { asMove(el.getAttribute('data-code'), false); return; }
   if (a === 'as-swap')   { asMove(state.asSwap.code, true); return; }
   if (a === 'as-release'){ asRelease(); return; }
+  if (a === 'cv-open')   { asCapture(); state.asMove = null; state.asCover = el.getAttribute('data-code'); state.asCvMode = null; state.asCvName = null; state.asCvPhone = null; state.asCvWhy = null; state.error = ''; render(); return; }
+  if (a === 'cv-cancel') { state.asCover = null; state.error = ''; render(); return; }
+  if (a === 'cv-mode')   { cvCapture(); state.asCvMode = el.getAttribute('data-m'); render(); return; }
+  if (a === 'cv-save')   {
+    cvCapture();
+    var cvr = ((state.data.assign && state.data.assign.routes) || []).filter(function(x){ return x.code === el.getAttribute('data-code'); })[0] || {};
+    var cvMode = state.asCvMode || (cvr.cover ? (cvr.cover.type === 'Hold' ? 'hold' : 'staff') : 'staff');
+    cvSend(el.getAttribute('data-code'), cvMode);
+    return;
+  }
+  if (a === 'cv-clear')  { cvSend(el.getAttribute('data-code'), 'clear'); return; }
 
   if (a === 'tab')       { goTab(el.getAttribute('data-v')); return; }
   if (a === 'tab-fails') { goTab('fails'); return; }
