@@ -1472,6 +1472,8 @@ function cvSend(code, mode){
       state.data.assign = res; state.loadedAt.assign = Date.now();
       state.asCover = null; state.asCvMode = null; state.asCvName = null; state.asCvPhone = null; state.asCvWhy = null;
       state.note = res.note || 'Saved.';
+      state.data.routes = null; state.loadedAt.routes = 0;
+      if (state.view === 'routes') { load(true); return; }
     } else {
       state.error = (res && res.error) || 'Could not save that.';
     }
@@ -1755,6 +1757,29 @@ function failsHTML(d){
 }
 
 /******************** ROUTES ********************/
+// The outside-staff / hold box under a route nobody has taken (Routes page).
+function coverBoxHTML(u){
+  var cv = u.cover || null, h = '';
+  if (cv) {
+    h += '<div class="fnt" style="margin-top:8px; padding:7px 9px; border-radius:8px; background:var(--amber-bg); color:var(--ink);">' +
+      (cv.type === 'Hold'
+        ? '<b>On hold</b> \u2014 ' + esc(cv.reason || '')
+        : '<b>Outside staff:</b> ' + esc(cv.name) + ' \u00b7 <a href="tel:' + esc(cv.phone) + '">' + esc(cv.phone) + '</a>' +
+          (cv.reason ? '<br>' + esc(cv.reason) : '')) +
+      '<br><span style="opacity:.75;">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') + '. SOs and support can see this.</span>' +
+      (cv.type === 'Staff'
+        ? (cv.closed
+            ? '<br><b>Staff are back</b> (marked by ' + esc(cv.closedBy || '') + (cv.closedAtStr ? ' at ' + esc(cv.closedAtStr) : '') + '). Orders the returns desk has not logged show as presumed delivered.'
+            : '<div class="row" style="margin-top:8px;"><span class="fnt grow">Back at the warehouse? Everything not logged at the returns desk is presumed delivered.</span>' +
+              '<button class="btn sm" data-a="cv-done" data-code="' + esc(u.code) + '">Staff are back</button></div>')
+        : '') + '</div>';
+  }
+  if (state.asCover === u.code) return h + assignCoverHTML(u);
+  return h + '<div class="row" style="margin-top:9px;"><span class="grow"></span>' +
+    '<button class="btn sm ghost" data-a="cv-open" data-code="' + esc(u.code) + '">' +
+    (cv ? 'Change staff / hold' : 'Outside staff / hold') + '</button></div>';
+}
+
 function routesHTML(d){
   if (!d) return '<div class="empty">No data yet.</div>';
   if (!d.routes.length) return '<div class="empty">No routes started on this day.</div>';
@@ -1787,7 +1812,8 @@ function routesHTML(d){
           '<div class="fnt">' + u.orders + ' stop' + (u.orders === 1 ? '' : 's') +
             (u.createdAt ? ' · issued ' + esc(u.createdAt) : '') +
             (u.type === 'special' ? ' · special run' : '') + '</div></div>' +
-          badge('Not taken', 'b-warn') + '</div></div>';
+          badge(u.cover ? (u.cover.type === 'Hold' ? 'On hold' : 'Outside staff') : 'Not taken', 'b-warn') + '</div>' +
+          coverBoxHTML(u) + '</div>';
       }).join('') +
       '<div class="sec">' + d.routes.length + ' on the road</div>';
   }
@@ -2432,7 +2458,9 @@ function onClick(ev){
   if (a === 'cv-mode')   { cvCapture(); state.asCvMode = el.getAttribute('data-m'); render(); return; }
   if (a === 'cv-save')   {
     cvCapture();
-    var cvr = ((state.data.assign && state.data.assign.routes) || []).filter(function(x){ return x.code === el.getAttribute('data-code'); })[0] || {};
+    var cvCode = el.getAttribute('data-code');
+    var cvr = ((state.data.assign && state.data.assign.routes) || []).concat((state.data.routes && state.data.routes.unassigned) || [])
+      .filter(function(x){ return x.code === cvCode && x.cover; })[0] || {};
     var cvMode = state.asCvMode || (cvr.cover ? (cvr.cover.type === 'Hold' ? 'hold' : 'staff') : 'staff');
     cvSend(el.getAttribute('data-code'), cvMode);
     return;
