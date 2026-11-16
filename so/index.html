@@ -232,12 +232,12 @@ function bundled(){ return state.role === 'admin' || state.role === 'asm'; }
 // orders then needs no waiting. The screens are worked out here from it.
 function deriveHome(){
   var b = state.bundle; if (!b) return null;
-  var zero = function(){ return { total: 0, delivered: 0, failed: 0, onTheWay: 0, waiting: 0 }; };
+  var zero = function(){ return { total: 0, delivered: 0, failed: 0, onTheWay: 0, waiting: 0, hold: 0, presumed: 0 }; };
   var countOf = function(list){
     var c = zero(); c.total = list.length;
     list.forEach(function(o){
       if (o.status === 'Delivered') c.delivered++; else if (o.status === 'Not delivered') c.failed++;
-      else if (o.status === 'On the way') c.onTheWay++; else c.waiting++;
+      else if (o.status === 'On the way') c.onTheWay++; else if (o.status === 'On hold') c.hold++; else if (o.status === 'Presumed delivered') c.presumed++; else c.waiting++;
     }); return c;
   };
   var add = function(t, c){ Object.keys(t).forEach(function(k){ t[k] += c[k]; }); return t; };
@@ -362,7 +362,7 @@ function loginHTML(){
 }
 
 function statusPill(s){
-  var cls = s === 'Delivered' ? 'p-ok' : s === 'Not delivered' || s === 'Not Delivered' ? 'p-bad' : s === 'On the way' ? 'p-mid' : 'p-blue';
+  var cls = s === 'Delivered' ? 'p-ok' : s === 'Not delivered' || s === 'Not Delivered' ? 'p-bad' : s === 'On the way' || s === 'On hold' ? 'p-mid' : 'p-blue';
   return '<span class="pill ' + cls + '">' + esc(s === 'Not Delivered' ? 'Not delivered' : s) + '</span>';
 }
 
@@ -449,7 +449,9 @@ function homeHTML(){
   };
   body += '<div class="tiles">' + tile('Not delivered', c.failed, 'Not delivered', c.failed ? 'bad' : '') +
     tile('On the way', c.onTheWay, 'On the way', 'mid') + tile('Waiting to leave', c.waiting, 'Not left', '') +
-    tile('Delivered', c.delivered, 'Delivered', 'ok') + '</div>';
+    (c.hold ? tile('On hold', c.hold, 'On hold', 'mid') : '') +
+    tile('Delivered', c.delivered, 'Delivered', 'ok') +
+    (c.presumed ? tile('Presumed delivered', c.presumed, 'Presumed', 'ok') : '') + '</div>';
   var list = d.orders.filter(function(o){ return !state.filter || o.status === state.filter; });
   if (!d.orders.length) return head + '<div class="page">' + body + '<div class="empty">None of your customers’ orders are on ' +
     (state.day === 'today' ? 'today’s' : 'yesterday’s') + ' routes.</div></div>';
@@ -465,9 +467,11 @@ function homeHTML(){
       (failed ? '<div class="why">' + esc(o.reason || 'No reason given') + (o.markedAt ? ' · ' + esc(o.markedAt) : '') + '</div>' +
                 soCheckLine(o.soCheck) + decisionLine(o.decision) : '') +
       (o.status === 'Delivered' && o.markedAt ? '<div class="note">Delivered at ' + esc(o.markedAt) + '</div>' : '') +
-      '<div class="row"><div class="grow note">' + (o.daName ? 'DA ' + esc(o.daName) + (o.vehicleNo ? ' · ' + esc(o.vehicleNo) : '') : 'Route ' + esc(o.code) + ' · not started yet') +
+      (o.cover && o.cover.type === 'Hold' ? '<div class="why">On hold' + (o.cover.reason ? ': ' + esc(o.cover.reason) : '') + '</div>' : '') +
+      (o.status === 'Presumed delivered' ? '<div class="note">Not logged at the returns desk, so presumed delivered. Tell support if it was not.</div>' : '') +
+      '<div class="row"><div class="grow note">' + (o.daName ? (o.cover ? 'Staff ' : 'DA ') + esc(o.daName) + (o.vehicleNo ? ' · ' + esc(o.vehicleNo) : '') : 'Route ' + esc(o.code) + ' · not started yet') +
         ' · stop ' + (o.stop || '—') + '</div>' +
-        (o.daPhone ? '<a class="call" href="tel:' + esc(tel(o.daPhone)) + '" data-stop="1">☎ Call DA</a>' : '') + '</div>' +
+        (o.daPhone ? '<a class="call" href="tel:' + esc(tel(o.daPhone)) + '" data-stop="1">☎ Call ' + (o.cover ? 'staff' : 'DA') + '</a>' : '') + '</div>' +
       '</div>';
   });
   return head + '<div class="page">' + body + '<div class="fab">Updates by itself every 2 minutes</div></div>';
@@ -486,8 +490,15 @@ function orderHTML(){
           '<div style="font-weight:700;">DA ' + esc(t.daName) + (t.daPhone ? ' · ' + esc(t.daPhone) : '') + '</div>' +
           '<div class="sub" style="font-size:12px;">Route ' + esc(o.code) + ' · stop ' + (o.stop || '—') + (t.vehicleNo ? ' · vehicle ' + esc(t.vehicleNo) : '') + '</div></div>' +
           (t.daPhone ? '<a class="call strong" href="tel:' + esc(tel(t.daPhone)) + '">☎ Call DA</a>' : '') + '</div>'
+       : o.cover && o.cover.type === 'Staff'
+       ? '<div class="da-box"><div class="grow"><div class="sub" style="font-size:12px;">Outside delivery staff (no DA login)</div>' +
+          '<div style="font-weight:700;">' + esc(o.cover.name) + (o.cover.phone ? ' · ' + esc(o.cover.phone) : '') + '</div>' +
+          '<div class="sub" style="font-size:12px;">Route ' + esc(o.code) + ' · stop ' + (o.stop || '—') + (o.cover.closed ? ' · staff are back' : ' · not left the warehouse yet') + '</div></div>' +
+          (o.cover.phone ? '<a class="call strong" href="tel:' + esc(tel(o.cover.phone)) + '">☎ Call staff</a>' : '') + '</div>'
+       : o.cover && o.cover.type === 'Hold'
+       ? '<div class="da-box"><div class="sub"><b>On hold.</b> ' + esc(o.cover.reason || '') + ' Route ' + esc(o.code) + ' has not left the warehouse.</div></div>'
        : '<div class="da-box"><div class="sub">Route ' + esc(o.code) + ' has not left the warehouse yet.</div></div>') +
-    '<div>' + statusPill(o.status === 'Pending' ? (t ? 'On the way' : 'Waiting to leave') : o.status) + '</div></div>';
+    '<div>' + statusPill(o.status === 'Pending' ? (t ? 'On the way' : (o.cover && o.cover.type === 'Hold' ? 'On hold' : 'Waiting to leave')) : o.status) + '</div></div>';
 
   var body = '';
   if (o.status === 'Not Delivered') {
@@ -534,7 +545,8 @@ function orderHTML(){
   }
   body += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
     (o.shopPhone ? '<a class="btn" style="display:flex; align-items:center; justify-content:center; text-decoration:none;" href="tel:' + esc(tel(o.shopPhone)) + '">☎ Call shop</a>' : '<span></span>') +
-    (t && t.daPhone ? '<a class="btn ghost" style="display:flex; align-items:center; justify-content:center; text-decoration:none;" href="tel:' + esc(tel(t.daPhone)) + '">Call DA</a>' : '<span></span>') +
+    (t && t.daPhone ? '<a class="btn ghost" style="display:flex; align-items:center; justify-content:center; text-decoration:none;" href="tel:' + esc(tel(t.daPhone)) + '">Call DA</a>' :
+      !t && o.cover && o.cover.type === 'Staff' && o.cover.phone ? '<a class="btn ghost" style="display:flex; align-items:center; justify-content:center; text-decoration:none;" href="tel:' + esc(tel(o.cover.phone)) + '">Call staff</a>' : '<span></span>') +
     '</div>';
   return back + hero + '<div class="page">' + body + '</div>';
 }
