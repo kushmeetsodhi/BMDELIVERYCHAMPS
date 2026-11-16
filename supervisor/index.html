@@ -1954,6 +1954,7 @@ function finalBoxHTML(f){
   if (f.deliveredLater) { cls = 'done'; head = 'Delivered later'; }
   else if (f.decision === 'RD') { cls = 'rd'; head = 'Final: Redispatch (RD)'; }
   else if (f.decision === 'Cancel') { cls = 'cx'; head = 'Final: Cancelled'; }
+  else if (f.decision === 'Delivered') { cls = 'done'; head = 'Final: Already delivered'; }
   else { cls = 'pend'; head = 'Decision pending'; }
   var src = f.source === 'Support' ? 'support' : f.source === 'Supervisor' ? 'the supervisor' : 'the returns desk';
   var line = f.deliveredLater
@@ -1963,7 +1964,7 @@ function finalBoxHTML(f){
   var who = f.pending ? 'Failed on ' + esc(f.day) + (f.pastNine ? ' · not decided by 9 pm, you decide' : ' · support still calling') + (f.attempts ? ' (' + f.attempts + ' call' + (f.attempts > 1 ? 's' : '') + ')' : '')
     : 'Decided by ' + esc(f.by || src) + (f.by && f.by.indexOf('Automatic') !== 0 ? ' (' + src + ')' : '') +
       (f.at ? ' · ' + esc(f.at) : '') + ' · failed on ' + esc(f.day);
-  var area = f.deliveredLater ? '' : '<div class="fd-area">Goods: ' + (f.area === 'CANCEL' ? 'CANCEL area' : f.area === 'RD' ? 'RD area' : 'RD area for now') + '</div>';
+  var area = (f.deliveredLater || f.decision === 'Delivered') ? '' : '<div class="fd-area">Goods: ' + (f.area === 'CANCEL' ? 'CANCEL area' : f.area === 'RD' ? 'RD area' : 'RD area for now') + '</div>';
   return '<div class="fd ' + cls + '"><div class="fd-h">' + head + '</div>' +
     '<div class="fd-l">' + line + '</div><div class="fd-w">' + who + '</div>' + area + '</div>';
 }
@@ -1974,7 +1975,7 @@ function finalBoxHTML(f){
 function overrideHTML(f){
   if (!f || f.deliveredLater || ((state.roles || []).indexOf('Admin') === -1 && (state.roles || []).indexOf('Supervisor') === -1)) return '';
   if (!state.ovOpen) {
-    return '<div style="margin:-4px 0 12px; text-align:right;"><button class="btn sm ghost" data-a="ov-open">'+(f.decision ? 'Change decision' : 'Decide: RD or Cancel')+'</button></div>';
+    return '<div style="margin:-4px 0 12px; text-align:right;"><button class="btn sm ghost" data-a="ov-open">'+(f.decision ? 'Change decision' : 'Decide: RD, Cancel or delivered')+'</button></div>';
   }
   var cur = f.decision || 'pending';
   return '<div class="card" style="padding:12px 14px;">' +
@@ -1983,6 +1984,7 @@ function overrideHTML(f){
     '<input type="text" id="ov-note" style="margin-top:8px;" placeholder="Why? (required, kept on record)" value="' + esc(state.ovNote || '') + '" />' +
     '<div class="row" style="margin-top:9px; gap:8px;">' +
       '<button class="btn sm ghost" data-a="ov-cancel">Close</button><span class="grow"></span>' +
+      (f.decision !== 'Delivered' ? '<button class="btn sm ghost" data-a="ov-go" data-v="Delivered">Already delivered</button>' : '') +
       (f.decision !== 'Cancel' ? '<button class="btn sm red" data-a="ov-go" data-v="Cancel">Make it Cancel</button>' : '') +
       (f.decision !== 'RD' ? '<button class="btn sm" data-a="ov-go" data-v="RD">Make it RD</button>' : '') +
     '</div></div>';
