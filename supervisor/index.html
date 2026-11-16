@@ -1397,7 +1397,14 @@ function assignHTML(d){
           ? '<b>On hold</b> — ' + esc(cv.reason || '')
           : '<b>Outside staff:</b> ' + esc(cv.name) + ' · <a href="tel:' + esc(cv.phone) + '">' + esc(cv.phone) + '</a>' +
             (cv.reason ? '<br>' + esc(cv.reason) : '')) +
-        '<br><span style="opacity:.75;">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') + '. SOs and support can see this.</span></div>';
+        '<br><span style="opacity:.75;">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') + '. SOs and support can see this.</span>' +
+        (cv.type === 'Staff'
+          ? (cv.closed
+              ? '<br><b>Staff are back</b> (marked by ' + esc(cv.closedBy || '') + (cv.closedAtStr ? ' at ' + esc(cv.closedAtStr) : '') +
+                '). Orders the returns desk has not logged show as presumed delivered.'
+              : '<div class="row" style="margin-top:8px;"><span class="fnt grow">Back at the warehouse? Log any returns at the returns desk first or after; everything not logged is presumed delivered.</span>' +
+                '<button class="btn sm" data-a="cv-done" data-code="' + esc(r.code) + '">Staff are back</button></div>')
+          : '') + '</div>';
     }
     if (r.status === 'Waiting' || r.status === 'Given out') {
       if (state.asCover === r.code) { line += assignCoverHTML(r); }
@@ -1857,7 +1864,8 @@ function coverBannerHTML(cv){
       ? '<b>On hold</b> — ' + esc(cv.reason || '')
       : '<b>With outside staff:</b> ' + esc(cv.name) + ' · <a href="tel:' + esc(cv.phone) + '">' + esc(cv.phone) + '</a>' +
         (cv.reason ? '<br>' + esc(cv.reason) : '')) +
-    '<div class="fnt">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') + '</div></div>';
+    '<div class="fnt">Set by ' + esc(cv.by || '') + (cv.at ? ' at ' + esc(cv.at) : '') +
+      (cv.closed ? ' · staff back' + (cv.closedAtStr ? ' at ' + esc(cv.closedAtStr) : '') + '; unlogged orders presumed delivered' : '') + '</div></div>';
 }
 
 function routeHTML(){
@@ -2430,6 +2438,7 @@ function onClick(ev){
     return;
   }
   if (a === 'cv-clear')  { cvSend(el.getAttribute('data-code'), 'clear'); return; }
+  if (a === 'cv-done')   { cvSend(el.getAttribute('data-code'), 'done'); return; }
 
   if (a === 'tab')       { goTab(el.getAttribute('data-v')); return; }
   if (a === 'tab-fails') { goTab('fails'); return; }
