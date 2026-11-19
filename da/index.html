@@ -361,6 +361,7 @@ var state = {
   // a trip that started before proof was switched on finishes the old
   // way, so turning it on never disturbs a DA already out.
   podRequired: false,
+  paymentsInApp: true,
   // The day the open route belongs to, and how many deliveries on it may
   // go without proof (2, plus any the supervisor allows).
   routeDay: '', podSkipsAllowed: 2,
@@ -534,6 +535,8 @@ function collectedDue(o){
 }
 
 function isCodOrder(o){
+  // Payments are taken in the payment app when the admin switch is off.
+  if (state.paymentsInApp === false) return false;
   var t = String(o && o.orderType || '').trim().toLowerCase();
   if (t === 'cod' || t === 'c.o.d' || t === 'c.o.d.' ||
       t.indexOf('cash on delivery') > -1 || t.indexOf('cash') > -1 || t.indexOf('cod') > -1) return true;
@@ -1478,7 +1481,9 @@ function orderHTML(){
     var cls = (st === 'Delivered') ? 'delivered' : 'notdelivered';
     var detail = '';
     if (st === 'Delivered') {
-      detail = 'Cash ' + money(o.currentStatus['Cash Collected']) +
+      detail = (state.paymentsInApp === false &&
+                !Number(o.currentStatus['Cash Collected'] || 0) && !Number(o.currentStatus['UPI Collected'] || 0))
+        ? '' : 'Cash ' + money(o.currentStatus['Cash Collected']) +
                ' \u00b7 UPI ' + money(o.currentStatus['UPI Collected']);
     } else {
       detail = esc(o.currentStatus['Reason'] || '');
@@ -2153,7 +2158,7 @@ function summaryHTML(){
     '<div class="stat"><span class="l">Delivered</span><span class="n">' + delivered + '/' + total + '</span></div>' +
     '<div class="stat"><span class="l">Not delivered</span><span class="n">' + notDelivered + '</span></div>';
 
-  var cashCard =
+  var cashCard = (state.paymentsInApp === false && !cashTotal) ? '' :
     '<div class="card cash-card">' +
       '<p class="hint" style="margin:0 0 5px;">Cash to deposit</p>' +
       '<p class="cash-amt">' + money(cashTotal) + '</p>' +
@@ -2366,10 +2371,11 @@ function retproofHTML(){
     (list ? '<p class="hint" style="margin:14px 2px 6px;"><b>Entered (' + r.list.length + ')</b>' +
               (sending ? ' · sending ' + sending + '…' : '') + '</p>' + list
           : '<p class="hint" style="margin:14px 2px 6px;">No return proofs entered yet.</p>') +
+    ((state.paymentsInApp === false && !rpCash()) ? '' :
     '<div class="card cash-card">' +
       '<p class="hint" style="margin:0 0 5px;">Cash to hand over</p>' +
       '<p class="cash-amt">' + money(rpCash()) + '</p>' +
-    '</div>' +
+    '</div>') +
     '<button class="primary" data-action="rp-end"' + (r.ending ? ' disabled' : '') + '>' +
       (r.ending ? 'Sending return proofs…' : 'End day') + '</button>' +
     '<div style="margin-top:10px;"><button class="secondary" data-action="back-to-orders" style="width:100%;">Back to orders</button></div>';
@@ -3520,7 +3526,7 @@ function resumeSession(s){
       state.orders = res.orders;
       state.vehicleNo = res.vehicleNo || state.vehicleNo;
       state.isDemo = !!res.isDemo;
-      state.podRequired = !!res.podRequired; locStart();
+      state.podRequired = !!res.podRequired; state.paymentsInApp = res.paymentsInApp !== false; locStart();
       routeMeta(res);
       state.tripClosed = false;
       overlayPending();
@@ -3903,7 +3909,7 @@ function doResume(){
       state.vehicleNo = t.vehicleNo || '';
       // Resuming used to leave proof switched off for the rest of the
       // route - the "Not captured" deliveries. It follows the route now.
-      state.podRequired = !!res.podRequired; locStart();
+      state.podRequired = !!res.podRequired; state.paymentsInApp = res.paymentsInApp !== false; locStart();
       routeMeta(res);
       state.orders = sortOrders(res.orders);
       state.orderIndex = firstPendingIndex();
@@ -3970,7 +3976,7 @@ function doEnterCode(confirmHandover, fromState){
       state.orderIndex = firstPendingIndex();
       state.tripClosed = false;
       state.isDemo = !!res.isDemo;
-      state.podRequired = !!res.podRequired; locStart();
+      state.podRequired = !!res.podRequired; state.paymentsInApp = res.paymentsInApp !== false; locStart();
       routeMeta(res);
       state.view = 'order';
       if (!state.isDemo) { overlayPending(); pumpQueue(); saveSession(); }
